@@ -1,62 +1,92 @@
 /**
- * FrameworkAdapter — interface contract for framework-specific lifecycle integration.
+ * FrameworkAdapter v2 — neutral framework-to-runtime-intelligence contract.
  *
- * Each framework implementation (Lit, React, Angular) provides:
- *
- *   wrapRenderCycle(el, onBefore, onAfter)
- *     Wraps the element's render cycle. onBefore(el) fires before render starts,
- *     onAfter(el) fires after it completes (even if it throws).
- *     Used by: error-boundary, cycle-detector.
- *
- *   hookRequestUpdate(el, fn)
- *     Intercepts the "schedule a re-render" path. fn(el, name, oldValue) is called
- *     synchronously when a property change triggers a re-render request.
- *     Used by: prop-audit (R2-A render reasons + R2-B thrash), cycle-detector.
- *
- *   hookAfterRender(el, fn)
- *     Called after every render completes. fn(el, changedProps) receives the map of
- *     changed properties (framework-specific shape).
- *     Used by: prop-audit (console logging).
- *
- *   renderCompletePromise(el)
- *     Returns a Promise that resolves when the element's current render cycle is done.
- *     Used by: perf TTI measurement.
- *
- *   getDeclaredProps(el)
- *     Returns an object map of declared property names to their configuration.
- *     Used by: inspector snapshot.
- *
- *   isManaged(el)
- *     Returns true if this adapter can handle the given element instance.
- *
- * To add React support: implement ReactAdapter extends FrameworkAdapter,
- * using hooks (useEffect, useRef) instead of prototype patching.
- * To add Angular support: implement AngularAdapter using ngOnChanges etc.
+ * v1 asked every framework to imitate Lit lifecycle methods. v2 inverts that:
+ * adapters emit universal evidence events and advertise what they can actually
+ * prove. The kernel never asks React/Vue/Angular/Svelte to implement requestUpdate.
  */
 
+import {
+    CapabilitySupport,
+    FrameworkCapability,
+} from '../core/evidence-protocol.js';
+import { evidenceStore } from '../core/evidence-store.js';
+
+const _validCapabilitySupport = new Set(Object.values(CapabilitySupport));
+
 class FrameworkAdapter {
-    wrapRenderCycle(el, onBefore, onAfter) {
-        throw new Error('FrameworkAdapter.wrapRenderCycle not implemented');
+    #store;
+    #framework;
+    #version;
+    #adapterVersion;
+    #capabilities;
+
+    constructor({
+        framework = 'unknown',
+        version = null,
+        adapterVersion = '2.0',
+        capabilities = {},
+        store = evidenceStore,
+    } = {}) {
+        this.#store = store;
+        this.#framework = framework;
+        this.#version = version;
+        this.#adapterVersion = adapterVersion;
+        this.#capabilities = Object.freeze(this.#normalizeCapabilities(capabilities));
     }
 
-    hookRequestUpdate(el, fn) {
-        throw new Error('FrameworkAdapter.hookRequestUpdate not implemented');
+    get framework() { return this.#framework; }
+    get version() { return this.#version; }
+    get adapterVersion() { return this.#adapterVersion; }
+    get capabilities() { return this.#capabilities; }
+    get store() { return this.#store; }
+
+    supports(capability, minimum = null) {
+        const support = this.#capabilities[capability] || CapabilitySupport.UNSUPPORTED;
+        if (!minimum) return support !== CapabilitySupport.UNSUPPORTED;
+        return support === minimum;
     }
 
-    hookAfterRender(el, fn) {
-        throw new Error('FrameworkAdapter.hookAfterRender not implemented');
+    capability(capability) {
+        return this.#capabilities[capability] || CapabilitySupport.UNSUPPORTED;
     }
 
-    renderCompletePromise(el) {
-        throw new Error('FrameworkAdapter.renderCompletePromise not implemented');
+    describe() {
+        return Object.freeze({
+            framework: this.#framework,
+            version: this.#version,
+            adapterVersion: this.#adapterVersion,
+            capabilities: { ...this.#capabilities },
+        });
     }
 
-    getDeclaredProps(el) {
-        throw new Error('FrameworkAdapter.getDeclaredProps not implemented');
+    emit(type, details = {}) {
+        return this.#store.emit({
+            ...details,
+            type,
+            framework: {
+                name: this.#framework,
+                version: this.#version,
+                adapterVersion: this.#adapterVersion,
+            },
+        });
     }
 
-    isManaged(el) {
-        return false;
+    // Generic adapter surface. Framework implementations decide how these map
+    // to their own runtime. No Lit-shaped lifecycle methods live here.
+    isManaged(_target) { return false; }
+    connect(_target, _options = {}) { return null; }
+    disconnect(_target, _options = {}) { return null; }
+
+    #normalizeCapabilities(capabilities) {
+        const normalized = {};
+        for (const capability of Object.values(FrameworkCapability)) {
+            const value = capabilities[capability] || CapabilitySupport.UNSUPPORTED;
+            normalized[capability] = _validCapabilitySupport.has(value)
+                ? value
+                : CapabilitySupport.UNSUPPORTED;
+        }
+        return normalized;
     }
 }
 

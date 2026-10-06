@@ -15,3 +15,15 @@ export { LdsNetwork }          from './core/network.js';
 export { _toolEnabled, _getDebugFlag } from './core/gate.js';
 export { FrameworkAdapter }    from './adapter/FrameworkAdapter.js';
 export { LitAdapter, litAdapter } from './adapter/lit/LitAdapter.js';
+export { EvidenceStore, evidenceStore } from './core/evidence-store.js';
+export {
+    SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
+    EvidenceLevel,
+    AttributionQuality,
+    CapabilitySupport,
+    FrameworkCapability,
+    RuntimeEventType,
+    summarizeRuntimeValue,
+    createEvidenceEvent,
+    validateEvidenceEvent,
+} from './core/evidence-protocol.js';

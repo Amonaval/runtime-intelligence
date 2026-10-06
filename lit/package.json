@@ -20,9 +20,16 @@
     "build:extension:prod": "NODE_ENV=production rollup -c rollup.extension.config.js",
     "build:lib": "rollup -c rollup.lib.config.js",
     "build": "npm run build:lib && npm run build:extension:prod",
-    "serve": "npx serve . -p 8080"
+    "serve": "npx serve . -p 8080",
+    "test": "node --test test/unit/*.test.mjs"
   },
-  "keywords": ["lit", "debug", "performance", "web-components", "devtools"],
+  "keywords": [
+    "lit",
+    "debug",
+    "performance",
+    "web-components",
+    "devtools"
+  ],
   "license": "MIT",
   "peerDependencies": {
     "lit": ">=3.0.0"
