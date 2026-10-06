@@ -10,7 +10,7 @@ Status: COMPLETE
   - explicit `parentEventId` => structural lineage edge;
   - shared `interactionId` / `traceId` => correlation-only context edges;
   - every edge records relation, basis, inferred flag, evidence level, attribution quality and confidence;
-  - rejects future-event causal direction when building edges;
+  - enforces chronological `earlier -> later` direction for every edge, including inferred context edges;
   - supports descendants and connected components for later Pinpoint/report use.
 
 - `src/core/root-cause.js`
@@ -23,7 +23,8 @@ Status: COMPLETE
 - `test/unit/evidence-graph.test.mjs`
   - explicit causality vs structural lineage;
   - context correlation remains inferred;
-  - future cause rejected;
+  - future explicit causes are rejected;
+  - late interaction markers cannot create backwards context edges;
   - downstream symptoms collapse under attributed state change;
   - correlation-only clusters remain correlated.
 
@@ -35,9 +36,10 @@ The graph is evidence, not decoration. A connection must explain why it exists a
 explicit causedByEventId  -> causal edge
 explicit parentEventId    -> structural edge
 shared interaction/trace  -> correlation-only edge
+all directed edges         -> earlier event to later event
 ```
 
-Root-cause ranking is a diagnostic hypothesis layer. It does not override the evidence carried by graph edges.
+Root-cause ranking is a diagnostic hypothesis layer. It does not override the evidence carried by graph edges. Consumers must present the cluster `strength` alongside the ranked candidate so a correlation-only hypothesis cannot be shown as confirmed causality.
 
 ## Known limits
 

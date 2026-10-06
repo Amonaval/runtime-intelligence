@@ -37,6 +37,17 @@ test('graph never accepts future explicit cause as an edge', () => {
   assert.equal(graph.edges().some(edge=>edge.fromEventId==='b'&&edge.toEventId==='a'),false);
 });
 
+test('context edges are always chronological even when interaction marker arrives late', () => {
+  const frame=event('f',1,RuntimeEventType.BROWSER_FRAME,{correlation:{interactionId:'late'}});
+  const state=event('s',2,RuntimeEventType.STATE_CHANGED,{correlation:{interactionId:'late'}});
+  const interaction=event('i',3,RuntimeEventType.INTERACTION,{correlation:{interactionId:'late'}});
+  const graph=new EvidenceGraph([frame,state,interaction]);
+  for (const edge of graph.edges()) {
+    assert.equal(graph.node(edge.fromEventId).sequence < graph.node(edge.toEventId).sequence,true);
+  }
+  assert.equal(graph.edges().some(edge=>edge.fromEventId==='i'&&(edge.toEventId==='f'||edge.toEventId==='s')),false);
+});
+
 test('root-cause grouping collapses downstream symptoms under the earliest attributed state change', () => {
   const interaction=event('i',1,RuntimeEventType.INTERACTION,{correlation:{interactionId:'edit'}});
   const state=event('s',2,RuntimeEventType.STATE_CHANGED,{correlation:{interactionId:'edit',causedByEventId:'i'},payload:{property:'value'},level:EvidenceLevel.ATTRIBUTION,attribution:AttributionQuality.FRAMEWORK_REPORTED});

@@ -1,4 +1,4 @@
-import { AttributionQuality, EvidenceLevel, RuntimeEventType } from './evidence-protocol.js';
+import { AttributionQuality, EvidenceLevel } from './evidence-protocol.js';
 
 const EdgeRelation = Object.freeze({
   CAUSES: 'causes',
@@ -85,6 +85,9 @@ class EvidenceGraph {
 
   #addEdge(fromEventId, toEventId, relation, basis, targetEvent) {
     if (fromEventId === toEventId) return;
+    const from = this.#nodes.get(fromEventId);
+    const to = this.#nodes.get(toEventId);
+    if (!from || !to || from.sequence >= to.sequence) return;
     const key = `${fromEventId}>${toEventId}:${relation}`;
     if (this.#edges.some(edge => edge.id === key)) return;
     const edge = _freezeEdge({
@@ -112,7 +115,9 @@ class EvidenceGraph {
       groups.get(value).push(event);
     }
     for (const group of groups.values()) {
-      const anchor = group.find(event => event.type === RuntimeEventType.INTERACTION) || group[0];
+      // `events` is ordered, so the earliest event is the only safe context anchor.
+      // Interaction markers that arrive later remain correlated, never back-linked.
+      const anchor = group[0];
       for (const event of group) {
         if (event.id === anchor.id || this.#hasDirectPath(anchor.id, event.id)) continue;
         this.#addEdge(anchor.id, event.id, relation, `shared-${field}`, event);
