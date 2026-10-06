@@ -13,6 +13,7 @@ const EvidenceLevel = Object.freeze({
     CORRELATION: 'correlation',
     ATTRIBUTION: 'attribution',
     LIFETIME_VIOLATION: 'lifetime-violation',
+    RETAINER_CONFIRMED: 'retainer-confirmed',
     CAUSALITY_CONFIRMED: 'causality-confirmed',
 });
 
@@ -50,6 +51,7 @@ const RuntimeEventType = Object.freeze({
     OWNER_DESTROYED: 'owner.destroyed',
     INTERACTION: 'interaction',
     STATE_CHANGED: 'state.changed',
+    DEPENDENCY_TRIGGERED: 'dependency.triggered',
     UPDATE_REQUESTED: 'component.update.requested',
     UPDATE_STARTED: 'component.update.started',
     UPDATE_COMPLETED: 'component.update.completed',
@@ -57,6 +59,8 @@ const RuntimeEventType = Object.freeze({
     RESOURCE_RELEASED: 'resource.released',
     NETWORK_STARTED: 'network.started',
     NETWORK_COMPLETED: 'network.completed',
+    BROWSER_FRAME: 'browser.frame',
+    NAVIGATION: 'navigation',
     ERROR: 'error',
     DIAGNOSTIC: 'diagnostic',
 });

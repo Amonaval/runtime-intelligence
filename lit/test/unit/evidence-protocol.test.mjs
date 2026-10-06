@@ -28,6 +28,20 @@ test('universal protocol normalizes framework-neutral evidence', () => {
   assert.deepEqual(validateEvidenceEvent(event),{valid:true,errors:[]});
 });
 
+test('protocol represents future high-confidence proof and cross-framework causal signals', () => {
+  assert.equal(EvidenceLevel.RETAINER_CONFIRMED,'retainer-confirmed');
+  assert.equal(RuntimeEventType.DEPENDENCY_TRIGGERED,'dependency.triggered');
+  assert.equal(RuntimeEventType.BROWSER_FRAME,'browser.frame');
+  assert.equal(RuntimeEventType.NAVIGATION,'navigation');
+  const event=createEvidenceEvent({
+    type:RuntimeEventType.DEPENDENCY_TRIGGERED,
+    framework:{name:'vue'},
+    evidence:{level:EvidenceLevel.ATTRIBUTION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:0.98},
+    payload:{key:'filters.status',operation:'set'},
+  },{id:'evt-dep',sequence:2,timestamp:101});
+  assert.deepEqual(validateEvidenceEvent(event),{valid:true,errors:[]});
+});
+
 test('value summaries avoid retaining raw object graphs', () => {
   const sensitive={email:'person@example.com',token:'secret',nested:{huge:true}};
   const summary=summarizeRuntimeValue(sensitive);

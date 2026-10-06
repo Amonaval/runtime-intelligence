@@ -10,20 +10,25 @@ Questions Claude should actively attack:
 2. Are evidence level and attribution quality sufficient as two axes, or is a third concept (for example data provenance) necessary?
 3. Are capability support values too coarse for React/Vue/Angular/Svelte realities?
 4. Can event correlation IDs be introduced without AsyncLocalStorage-like browser complexity or global mutable context bugs?
-5. Does `summarizeRuntimeValue()` leak more semantic data than an enterprise-safe default should?
-6. Can `requestUpdate` evidence legitimately be called `attribution`, or should some cases stay `correlation` until source/call-chain evidence exists?
-7. Does `LitDebugMixin.performUpdate()` preserve all Lit semantics, including errors and superclass behavior?
-8. How should React public-only mode and deep/Fiber mode advertise different capabilities without fragmenting the protocol?
+5. Should resource ownership become part of the same evidence stream or remain a dedicated ledger feeding evidence later?
+6. Can the protocol represent Vue reactive dependency triggers and Svelte effect traces without framework-specific event names? Mission review added `dependency.triggered` for this reason.
+7. Is `retainer-confirmed` correctly placed between lifetime violation and causality confirmation for future heap/CDP evidence?
 
-## Guardrails
+## Non-negotiables
 
-Do not:
-- turn UREP into an enormous telemetry standard;
-- make the kernel dependent on React Fiber or Lit methods;
-- call temporal adjacency causality;
-- store arbitrary raw props/state by default;
-- replace the mature Pinpoint/report/verification workflow with a generic dashboard.
+- Runtime evidence outranks model confidence.
+- Correlation must not be described as causality.
+- Lit remains the gold-standard adapter, but the core must not inherit Lit lifecycle semantics.
+- React/Vue/Angular/Svelte adapters should emit the same envelope while honestly reporting weaker/stronger attribution.
+- New generic capabilities should ideally benefit two or more framework families.
+- Keep the runtime local-first and bounded; do not add a cloud dependency to make the core work.
 
-## Desired next review
+## Mission review outcome
 
-Before Mission 02 implementation, compare the proposed graph against at least Lit, React, Vue, Angular and Svelte examples. The graph should be able to represent different certainty per edge rather than forcing every framework into the same proof quality.
+The first implementation was accepted with one hardening correction: UREP now explicitly models `retainer-confirmed` evidence and generic dependency-trigger, browser-frame, and navigation events. These are foundational for later engine-level proof, Vue/Svelte causality, and browser execution correlation.
+
+## Recommended next work
+
+Mission 02: **Evidence Graph + causal/root-cause grouping** — HIGH effort.
+
+The key challenge is not drawing a graph. It is creating edges that carry their own evidence/attribution strength so Pinpoint can group symptoms without inventing causality.
