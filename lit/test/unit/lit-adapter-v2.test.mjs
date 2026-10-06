@@ -12,7 +12,7 @@ function fakeLit(){
   };
 }
 
-test('Lit adapter emits deterministic lifecycle and framework-reported update cause', () => {
+test('Lit adapter emits deterministic lifecycle and preserves causal update order', () => {
   let now=100;
   const store=new EvidenceStore({clock:()=>++now});
   const adapter=new LitAdapter({store});
@@ -26,17 +26,52 @@ test('Lit adapter emits deterministic lifecycle and framework-reported update ca
   const events=store.snapshot();
   assert.deepEqual(events.map(e=>e.type),[
     RuntimeEventType.OWNER_CREATED,
-    RuntimeEventType.UPDATE_REQUESTED,
     RuntimeEventType.STATE_CHANGED,
+    RuntimeEventType.UPDATE_REQUESTED,
     RuntimeEventType.UPDATE_STARTED,
     RuntimeEventType.UPDATE_COMPLETED,
     RuntimeEventType.OWNER_DESTROYED,
   ]);
-  assert.equal(events[0].evidence.attribution,'deterministic');
-  assert.equal(events[1].evidence.attribution,'framework-reported');
-  assert.equal(events[1].payload.property,'value');
-  assert.equal(events[1].payload.newValue.summary,'{id}');
-  assert.equal(events[1].payload.newValue.id,undefined);
+
+  const [ownerCreated,stateChanged,updateRequested,updateStarted,updateCompleted] = events;
+  assert.equal(ownerCreated.evidence.attribution,'deterministic');
+  assert.equal(stateChanged.evidence.attribution,'framework-reported');
+  assert.equal(stateChanged.payload.property,'value');
+  assert.equal(stateChanged.payload.newValue.summary,'{id}');
+  assert.equal(stateChanged.payload.newValue.id,undefined);
+
+  assert.equal(updateRequested.correlation.causedByEventId,stateChanged.id);
+  assert.equal(updateRequested.correlation.parentEventId,stateChanged.id);
+  assert.equal(updateStarted.correlation.causedByEventId,updateRequested.id);
+  assert.equal(updateStarted.correlation.parentEventId,updateRequested.id);
+  assert.equal(updateCompleted.correlation.causedByEventId,updateRequested.id);
+  assert.equal(updateCompleted.correlation.parentEventId,updateStarted.id);
+});
+
+test('unspecified requestUpdate remains an observation without invented state cause', () => {
+  const store=new EvidenceStore();
+  const adapter=new LitAdapter({store});
+  const el=fakeLit();
+  adapter.connect(el);
+  const event=adapter.recordUpdateRequested(el,undefined,undefined);
+  assert.equal(event.type,RuntimeEventType.UPDATE_REQUESTED);
+  assert.equal(event.evidence.level,'observation');
+  assert.equal(event.correlation.causedByEventId,null);
+  assert.equal(store.snapshot().filter(e=>e.type===RuntimeEventType.STATE_CHANGED).length,0);
+});
+
+test('disconnect clears unfinished update correlation state', () => {
+  const store=new EvidenceStore();
+  const adapter=new LitAdapter({store});
+  const el=fakeLit();
+  adapter.connect(el);
+  adapter.recordUpdateRequested(el,'value',{id:1});
+  adapter.recordUpdateStarted(el);
+  adapter.disconnect(el);
+  adapter.connect(el);
+  const completed=adapter.recordUpdateCompleted(el);
+  assert.equal(completed.correlation.causedByEventId,null);
+  assert.equal(completed.payload.durationMs,null);
 });
 
 test('Lit v1 helper surface remains available during migration', async () => {

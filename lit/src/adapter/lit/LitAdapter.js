@@ -81,6 +81,8 @@ class LitAdapter extends FrameworkAdapter {
         const owner = _owners.get(el);
         if (!owner?.connected) return null;
         owner.connected = false;
+        _pendingUpdateEvents.delete(el);
+        _updateStarts.delete(el);
         return this.emit(RuntimeEventType.OWNER_DESTROYED, {
             owner,
             source: source || owner.source,
@@ -93,13 +95,41 @@ class LitAdapter extends FrameworkAdapter {
         });
     }
 
+    /**
+     * Lit calls requestUpdate(name, oldValue) after the reactive property has
+     * already changed. Preserve that causal direction in evidence:
+     * state.changed -> component.update.requested -> started -> completed.
+     */
     recordUpdateRequested(el, name, oldValue, { source = null } = {}) {
         const owner = _owners.get(el);
         if (!owner?.connected) return null;
         const newValue = name == null ? undefined : el[name];
-        const event = this.emit(RuntimeEventType.UPDATE_REQUESTED, {
+
+        let stateEvent = null;
+        if (name != null) {
+            stateEvent = this.emit(RuntimeEventType.STATE_CHANGED, {
+                owner,
+                source,
+                evidence: {
+                    level: EvidenceLevel.ATTRIBUTION,
+                    attribution: AttributionQuality.FRAMEWORK_REPORTED,
+                    confidence: 0.95,
+                },
+                payload: {
+                    property: String(name),
+                    oldValue: summarizeRuntimeValue(oldValue),
+                    newValue: summarizeRuntimeValue(newValue),
+                },
+            });
+        }
+
+        const updateEvent = this.emit(RuntimeEventType.UPDATE_REQUESTED, {
             owner,
             source,
+            correlation: stateEvent ? {
+                parentEventId: stateEvent.id,
+                causedByEventId: stateEvent.id,
+            } : undefined,
             evidence: {
                 level: name == null ? EvidenceLevel.OBSERVATION : EvidenceLevel.ATTRIBUTION,
                 attribution: name == null ? AttributionQuality.UNKNOWN : AttributionQuality.FRAMEWORK_REPORTED,
@@ -113,36 +143,22 @@ class LitAdapter extends FrameworkAdapter {
                 sameReference: oldValue === newValue && oldValue != null && typeof oldValue === 'object',
             },
         });
-        _pendingUpdateEvents.set(el, event.id);
-        if (name != null) {
-            this.emit(RuntimeEventType.STATE_CHANGED, {
-                owner,
-                source,
-                correlation: { causedByEventId: event.id },
-                evidence: {
-                    level: EvidenceLevel.ATTRIBUTION,
-                    attribution: AttributionQuality.FRAMEWORK_REPORTED,
-                    confidence: 0.95,
-                },
-                payload: {
-                    property: String(name),
-                    oldValue: summarizeRuntimeValue(oldValue),
-                    newValue: summarizeRuntimeValue(newValue),
-                },
-            });
-        }
-        return event;
+        _pendingUpdateEvents.set(el, updateEvent.id);
+        return updateEvent;
     }
 
     recordUpdateStarted(el, { source = null } = {}) {
         const owner = _owners.get(el);
         if (!owner?.connected) return null;
+        const requestEventId = _pendingUpdateEvents.get(el) || null;
         const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        _updateStarts.set(el, startedAt);
-        return this.emit(RuntimeEventType.UPDATE_STARTED, {
+        const event = this.emit(RuntimeEventType.UPDATE_STARTED, {
             owner,
             source,
-            correlation: { causedByEventId: _pendingUpdateEvents.get(el) || null },
+            correlation: {
+                parentEventId: requestEventId,
+                causedByEventId: requestEventId,
+            },
             evidence: {
                 level: EvidenceLevel.OBSERVATION,
                 attribution: AttributionQuality.DETERMINISTIC,
@@ -150,6 +166,8 @@ class LitAdapter extends FrameworkAdapter {
             },
             payload: {},
         });
+        _updateStarts.set(el, { startedAt, eventId: event.id });
+        return event;
     }
 
     recordUpdateCompleted(el, { source = null } = {}) {
@@ -157,11 +175,15 @@ class LitAdapter extends FrameworkAdapter {
         if (!owner?.connected) return null;
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const start = _updateStarts.get(el);
-        const durationMs = Number.isFinite(start) ? Math.max(0, now - start) : null;
+        const requestEventId = _pendingUpdateEvents.get(el) || null;
+        const durationMs = Number.isFinite(start?.startedAt) ? Math.max(0, now - start.startedAt) : null;
         const event = this.emit(RuntimeEventType.UPDATE_COMPLETED, {
             owner,
             source,
-            correlation: { causedByEventId: _pendingUpdateEvents.get(el) || null },
+            correlation: {
+                parentEventId: start?.eventId || requestEventId,
+                causedByEventId: requestEventId,
+            },
             evidence: {
                 level: EvidenceLevel.OBSERVATION,
                 attribution: AttributionQuality.DETERMINISTIC,

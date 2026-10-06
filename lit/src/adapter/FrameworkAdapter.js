@@ -13,6 +13,13 @@ import {
 import { evidenceStore } from '../core/evidence-store.js';
 
 const _validCapabilitySupport = new Set(Object.values(CapabilitySupport));
+const _capabilityRank = Object.freeze({
+    [CapabilitySupport.UNSUPPORTED]: 0,
+    [CapabilitySupport.INFERRED]: 1,
+    [CapabilitySupport.PARTIAL]: 2,
+    [CapabilitySupport.FRAMEWORK_REPORTED]: 3,
+    [CapabilitySupport.DETERMINISTIC]: 4,
+});
 
 class FrameworkAdapter {
     #store;
@@ -41,10 +48,16 @@ class FrameworkAdapter {
     get capabilities() { return this.#capabilities; }
     get store() { return this.#store; }
 
+    /**
+     * Returns whether this adapter supports a capability. When `minimum` is
+     * supplied it is treated as a minimum evidence-support tier, not exact
+     * equality. Example: deterministic support satisfies a `partial` minimum.
+     */
     supports(capability, minimum = null) {
         const support = this.#capabilities[capability] || CapabilitySupport.UNSUPPORTED;
         if (!minimum) return support !== CapabilitySupport.UNSUPPORTED;
-        return support === minimum;
+        if (!_validCapabilitySupport.has(minimum)) return false;
+        return (_capabilityRank[support] ?? 0) >= (_capabilityRank[minimum] ?? 0);
     }
 
     capability(capability) {

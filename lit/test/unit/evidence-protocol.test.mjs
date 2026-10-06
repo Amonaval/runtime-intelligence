@@ -70,3 +70,17 @@ test('adapter capability contract does not imply unsupported framework facts', (
   assert.equal(adapter.capability(FrameworkCapability.UPDATE_CAUSE),'inferred');
   assert.equal(adapter.capability(FrameworkCapability.REACTIVE_DEPENDENCY),'unsupported');
 });
+
+test('capability minimum checks accept stronger support but reject weaker support', () => {
+  const adapter=new FrameworkAdapter({framework:'lit',store:new EvidenceStore(),capabilities:{
+    [FrameworkCapability.OWNER_LIFECYCLE]:CapabilitySupport.DETERMINISTIC,
+    [FrameworkCapability.UPDATE_CAUSE]:CapabilitySupport.FRAMEWORK_REPORTED,
+    [FrameworkCapability.SOURCE_LOCATION]:CapabilitySupport.PARTIAL,
+    [FrameworkCapability.RESOURCE_OWNERSHIP]:CapabilitySupport.INFERRED,
+  }});
+  assert.equal(adapter.supports(FrameworkCapability.OWNER_LIFECYCLE,CapabilitySupport.PARTIAL),true);
+  assert.equal(adapter.supports(FrameworkCapability.UPDATE_CAUSE,CapabilitySupport.PARTIAL),true);
+  assert.equal(adapter.supports(FrameworkCapability.SOURCE_LOCATION,CapabilitySupport.FRAMEWORK_REPORTED),false);
+  assert.equal(adapter.supports(FrameworkCapability.RESOURCE_OWNERSHIP,CapabilitySupport.PARTIAL),false);
+  assert.equal(adapter.supports(FrameworkCapability.REACTIVE_DEPENDENCY),false);
+});
