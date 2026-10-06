@@ -19,6 +19,7 @@ export { EvidenceStore, evidenceStore } from './core/evidence-store.js';
 export { EdgeRelation, EvidenceGraph } from './core/evidence-graph.js';
 export { RootCauseGrouper } from './core/root-cause.js';
 export { SourceResolutionBasis, SourceResolver, parseRuntimeSourceLocation, sanitizeSourceFile } from './core/source-resolver.js';
+export { RecorderState, IncidentFlightRecorder } from './core/incident-flight-recorder.js';
 export {
     SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
     EvidenceLevel,
