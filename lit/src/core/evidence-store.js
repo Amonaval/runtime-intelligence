@@ -21,6 +21,9 @@ class EvidenceStore {
   emit(input, context = {}) {
     const sequence = ++this.#sequence;
     const id = input.id || `evt-${++this.#idSequence}`;
+    if (this.resolveReference(id).status !== 'unknown') {
+      throw new TypeError(`Duplicate runtime evidence id: ${id}`);
+    }
     const event = createEvidenceEvent(input, { ...context, id, sequence, timestamp: this.#clock() });
     const validation = validateEvidenceEvent(event, { resolveReference: ref => this.resolveReference(ref) });
     if (!validation.valid) {
