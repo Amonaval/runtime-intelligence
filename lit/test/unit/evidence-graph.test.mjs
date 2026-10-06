@@ -71,3 +71,10 @@ test('correlation-only cluster remains correlated rather than attributed', () =>
   const cluster=new RootCauseGrouper().group(new EvidenceGraph([interaction,frame]))[0];
   assert.equal(cluster.strength,'correlated');
 });
+
+test('explicit causal-shaped edge does not upgrade cluster without attribution-grade evidence', () => {
+  const interaction=event('i',1,RuntimeEventType.INTERACTION);
+  const state=event('s',2,RuntimeEventType.STATE_CHANGED,{correlation:{causedByEventId:'i'},payload:{property:'value'},level:EvidenceLevel.OBSERVATION,attribution:AttributionQuality.UNKNOWN});
+  const cluster=new RootCauseGrouper().group(new EvidenceGraph([interaction,state]))[0];
+  assert.equal(cluster.strength,'correlated');
+});

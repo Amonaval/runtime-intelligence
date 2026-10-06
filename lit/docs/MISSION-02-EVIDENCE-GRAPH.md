@@ -6,40 +6,41 @@ Status: COMPLETE
 
 - `src/core/evidence-graph.js`
   - builds graph nodes from UREP events;
-  - explicit `causedByEventId` => causal edge;
+  - explicit `causedByEventId` => causal-shaped edge backed by the target event's evidence;
   - explicit `parentEventId` => structural lineage edge;
   - shared `interactionId` / `traceId` => correlation-only context edges;
   - every edge records relation, basis, inferred flag, evidence level, attribution quality and confidence;
-  - enforces chronological `earlier -> later` direction for every edge, including inferred context edges;
+  - enforces earlier -> later chronology for all graph edges;
   - supports descendants and connected components for later Pinpoint/report use.
 
 - `src/core/root-cause.js`
-  - groups connected evidence into causal clusters;
+  - groups connected evidence into diagnostic clusters;
   - ranks likely root candidates;
   - collapses downstream symptoms by type/count;
   - labels cluster certainty as `confirmed`, `attributed`, or `correlated`;
-  - never upgrades correlation-only context into causality.
+  - certainty is derived from edge evidence, not merely from a causal-shaped relationship;
+  - never upgrades correlation-only or observation-grade evidence into attribution.
 
 - `test/unit/evidence-graph.test.mjs`
   - explicit causality vs structural lineage;
   - context correlation remains inferred;
-  - future explicit causes are rejected;
-  - late interaction markers cannot create backwards context edges;
+  - future cause rejected;
+  - late interaction markers cannot create backwards edges;
   - downstream symptoms collapse under attributed state change;
-  - correlation-only clusters remain correlated.
+  - correlation-only clusters remain correlated;
+  - observation-grade `causedByEventId` does not become attributed.
 
 ## Product rule
 
 The graph is evidence, not decoration. A connection must explain why it exists and how strongly it is supported.
 
 ```text
-explicit causedByEventId  -> causal edge
+explicit causedByEventId  -> causal-shaped edge carrying event evidence
 explicit parentEventId    -> structural edge
 shared interaction/trace  -> correlation-only edge
-all directed edges         -> earlier event to later event
 ```
 
-Root-cause ranking is a diagnostic hypothesis layer. It does not override the evidence carried by graph edges. Consumers must present the cluster `strength` alongside the ranked candidate so a correlation-only hypothesis cannot be shown as confirmed causality.
+A relationship name is not proof strength. Root-cause ranking is a diagnostic hypothesis layer and must never override the evidence carried by graph edges.
 
 ## Known limits
 

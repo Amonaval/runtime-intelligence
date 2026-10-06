@@ -19,6 +19,13 @@ const _symptomTypes = new Set([
   RuntimeEventType.OWNER_DESTROYED,
 ]);
 
+const _attributedOrHigher = new Set([
+  EvidenceLevel.ATTRIBUTION,
+  EvidenceLevel.LIFETIME_VIOLATION,
+  EvidenceLevel.RETAINER_CONFIRMED,
+  EvidenceLevel.CAUSALITY_CONFIRMED,
+]);
+
 function _reachable(graph, id) {
   return graph.descendants(id, { relations: [
     EdgeRelation.CAUSES,
@@ -43,7 +50,7 @@ function _clusterStrength(graph, componentIds) {
   const edges = graph.edges().filter(edge => componentIds.has(edge.fromEventId) && componentIds.has(edge.toEventId));
   const levels = edges.map(edge => edge.evidence?.level);
   if (levels.includes(EvidenceLevel.CAUSALITY_CONFIRMED)) return 'confirmed';
-  if (levels.includes(EvidenceLevel.ATTRIBUTION) || edges.some(edge => edge.relation === EdgeRelation.CAUSES && !edge.inferred)) return 'attributed';
+  if (levels.some(level => _attributedOrHigher.has(level))) return 'attributed';
   return 'correlated';
 }
 
