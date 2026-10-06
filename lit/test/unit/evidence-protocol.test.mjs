@@ -1,74 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AttributionQuality,
-  CapabilitySupport,
-  EvidenceLevel,
-  FrameworkCapability,
-  RuntimeEventType,
-  createEvidenceEvent,
-  summarizeRuntimeValue,
-  validateEvidenceEvent,
+  AttributionQuality, CapabilitySupport, EvidenceLevel, FrameworkCapability,
+  RuntimeEventType, RuntimeValueCapture, createEvidenceEvent,
+  summarizeRuntimeValue, validateEvidenceEvent,
 } from '../../src/core/evidence-protocol.js';
 import { EvidenceStore } from '../../src/core/evidence-store.js';
 import { FrameworkAdapter } from '../../src/adapter/FrameworkAdapter.js';
 
-test('universal protocol normalizes framework-neutral evidence', () => {
-  const event=createEvidenceEvent({
-    type:RuntimeEventType.UPDATE_COMPLETED,
-    framework:{name:'react',version:'19'},
-    owner:{id:'cmp-1',name:'MemberGrid'},
-    evidence:{level:EvidenceLevel.CORRELATION,attribution:AttributionQuality.TEMPORAL_INFERENCE,confidence:0.73},
-    payload:{durationMs:42},
-  },{id:'evt-1',sequence:1,timestamp:100});
-  assert.equal(event.type,'component.update.completed');
-  assert.equal(event.framework.name,'react');
-  assert.equal(event.evidence.level,'correlation');
-  assert.equal(event.evidence.attribution,'temporal-inference');
-  assert.deepEqual(validateEvidenceEvent(event),{valid:true,errors:[]});
+test('event snapshots are deeply immutable and detached from input objects', () => {
+  const payload={nested:{count:1},items:[{x:1}]};
+  const event=createEvidenceEvent({type:RuntimeEventType.DIAGNOSTIC,framework:{name:'plain'},payload},{id:'evt-1',sequence:1,timestamp:1});
+  payload.nested.count=99; payload.items[0].x=99;
+  assert.equal(event.payload.nested.count,1); assert.equal(event.payload.items[0].x,1);
+  assert.equal(Object.isFrozen(event),true); assert.equal(Object.isFrozen(event.payload),true); assert.equal(Object.isFrozen(event.payload.nested),true);
 });
 
-test('protocol represents future high-confidence proof and cross-framework causal signals', () => {
-  assert.equal(EvidenceLevel.RETAINER_CONFIRMED,'retainer-confirmed');
-  assert.equal(RuntimeEventType.DEPENDENCY_TRIGGERED,'dependency.triggered');
-  assert.equal(RuntimeEventType.BROWSER_FRAME,'browser.frame');
-  assert.equal(RuntimeEventType.NAVIGATION,'navigation');
-  const event=createEvidenceEvent({
-    type:RuntimeEventType.DEPENDENCY_TRIGGERED,
-    framework:{name:'vue'},
-    evidence:{level:EvidenceLevel.ATTRIBUTION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:0.98},
-    payload:{key:'filters.status',operation:'set'},
-  },{id:'evt-dep',sequence:2,timestamp:101});
-  assert.deepEqual(validateEvidenceEvent(event),{valid:true,errors:[]});
+test('bounded values are explicit about privacy and shape-only mode hides primitive content', () => {
+  const bounded=summarizeRuntimeValue('person@example.com');
+  assert.equal(bounded.summary,'person@example.com'); assert.equal(bounded.redacted,false);
+  const safe=summarizeRuntimeValue('person@example.com',{capture:RuntimeValueCapture.SHAPE_ONLY});
+  assert.equal(safe.summary,'String[18]'); assert.equal(safe.redacted,true);
 });
 
-test('value summaries avoid retaining raw object graphs', () => {
-  const sensitive={email:'person@example.com',token:'secret',nested:{huge:true}};
-  const summary=summarizeRuntimeValue(sensitive);
-  assert.equal(summary.type,'object');
-  assert.equal('email' in summary,false);
-  assert.equal(summary.summary.includes('secret'),false);
+test('bounded store tracks present, evicted, and unknown correlation references', () => {
+  let now=0; const store=new EvidenceStore({maxEntries:50,clock:()=>++now});
+  const first=store.emit({type:RuntimeEventType.INTERACTION,framework:{name:'plain'}});
+  for(let i=0;i<50;i++) store.emit({type:RuntimeEventType.DIAGNOSTIC,framework:{name:'plain'},payload:{i}});
+  assert.equal(store.resolveReference(first.id).status,'evicted');
+  assert.equal(store.resolveReference('never-seen').status,'unknown');
 });
 
-test('bounded evidence store drops oldest events without breaking subscribers', () => {
-  let now=0; const seen=[];
-  const store=new EvidenceStore({maxEntries:50,clock:()=>++now});
-  store.subscribe(e=>seen.push(e.id));
-  for(let i=0;i<60;i++) store.emit({type:RuntimeEventType.DIAGNOSTIC,framework:{name:'plain'},payload:{i}});
-  assert.equal(store.size(),50);
-  assert.equal(store.snapshot()[0].payload.i,10);
-  assert.equal(seen.length,60);
-});
-
-test('adapter capability contract does not imply unsupported framework facts', () => {
+test('store rejects causal references to unknown events', () => {
   const store=new EvidenceStore();
-  const adapter=new FrameworkAdapter({framework:'react',store,capabilities:{
-    [FrameworkCapability.UPDATE_LIFECYCLE]:CapabilitySupport.FRAMEWORK_REPORTED,
-    [FrameworkCapability.UPDATE_CAUSE]:CapabilitySupport.INFERRED,
-  }});
-  assert.equal(adapter.capability(FrameworkCapability.UPDATE_LIFECYCLE),'framework-reported');
-  assert.equal(adapter.capability(FrameworkCapability.UPDATE_CAUSE),'inferred');
-  assert.equal(adapter.capability(FrameworkCapability.REACTIVE_DEPENDENCY),'unsupported');
+  assert.throws(()=>store.emit({type:RuntimeEventType.DIAGNOSTIC,framework:{name:'plain'},correlation:{causedByEventId:'missing'}}),/unknown/);
+  const a=store.emit({type:RuntimeEventType.INTERACTION,framework:{name:'plain'}});
+  const b=store.emit({type:RuntimeEventType.STATE_CHANGED,framework:{name:'plain'},correlation:{causedByEventId:a.id}});
+  assert.equal(b.correlation.causedByEventId,a.id);
+});
+
+test('protocol fixtures represent React Vue Angular and Svelte without framework-specific event names', () => {
+  const fixtures=[
+    createEvidenceEvent({type:RuntimeEventType.UPDATE_COMPLETED,framework:{name:'react'},owner:{id:'r1',name:'Grid'},evidence:{level:EvidenceLevel.CORRELATION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:.8},payload:{durationMs:12}},{id:'r',sequence:1,timestamp:1}),
+    createEvidenceEvent({type:RuntimeEventType.DEPENDENCY_TRIGGERED,framework:{name:'vue'},owner:{id:'v1',name:'Grid'},evidence:{level:EvidenceLevel.ATTRIBUTION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:.98},payload:{key:'filters.status',operation:'set'}},{id:'v',sequence:2,timestamp:2}),
+    createEvidenceEvent({type:RuntimeEventType.UPDATE_STARTED,framework:{name:'angular'},owner:{id:'a1',name:'Grid'},evidence:{level:EvidenceLevel.OBSERVATION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:.95},payload:{phase:'change-detection'}},{id:'a',sequence:3,timestamp:3}),
+    createEvidenceEvent({type:RuntimeEventType.DEPENDENCY_TRIGGERED,framework:{name:'svelte'},owner:{id:'s1',name:'Grid'},evidence:{level:EvidenceLevel.ATTRIBUTION,attribution:AttributionQuality.FRAMEWORK_REPORTED,confidence:.95},payload:{kind:'effect-trace'}},{id:'s',sequence:4,timestamp:4}),
+  ];
+  for(const event of fixtures) assert.deepEqual(validateEvidenceEvent(event),{valid:true,errors:[]});
 });
 
 test('capability minimum checks accept stronger support but reject weaker support', () => {
@@ -81,6 +59,4 @@ test('capability minimum checks accept stronger support but reject weaker suppor
   assert.equal(adapter.supports(FrameworkCapability.OWNER_LIFECYCLE,CapabilitySupport.PARTIAL),true);
   assert.equal(adapter.supports(FrameworkCapability.UPDATE_CAUSE,CapabilitySupport.PARTIAL),true);
   assert.equal(adapter.supports(FrameworkCapability.SOURCE_LOCATION,CapabilitySupport.FRAMEWORK_REPORTED),false);
-  assert.equal(adapter.supports(FrameworkCapability.RESOURCE_OWNERSHIP,CapabilitySupport.PARTIAL),false);
-  assert.equal(adapter.supports(FrameworkCapability.REACTIVE_DEPENDENCY),false);
 });

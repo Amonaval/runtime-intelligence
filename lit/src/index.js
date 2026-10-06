@@ -23,6 +23,7 @@ export {
     CapabilitySupport,
     FrameworkCapability,
     RuntimeEventType,
+    RuntimeValueCapture,
     summarizeRuntimeValue,
     createEvidenceEvent,
     validateEvidenceEvent,
