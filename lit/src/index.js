@@ -35,6 +35,13 @@ export {
     buildEvidenceCapsuleAIPrompt,
 } from './core/evidence-capsule.js';
 export {
+    RESOURCE_LEDGER_SCHEMA_VERSION,
+    ResourceStatus,
+    ResourceFindingKind,
+    RuntimeResourceKind,
+    RuntimeResourceOwnershipLedger,
+} from './core/resource-ownership-ledger.js';
+export {
     SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
     EvidenceLevel,
     AttributionQuality,
