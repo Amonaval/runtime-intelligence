@@ -5,8 +5,13 @@ import { createEvidenceCapsule } from '../../core/evidence-capsule.js';
 import { RuntimeEventType } from '../../core/evidence-protocol.js';
 import { evidenceStore } from '../../core/evidence-store.js';
 import { installLitIntelligencePanelPresentation } from './panel-intelligence-presentation.js';
+import {
+    createReadyDeveloperSummary,
+    createDeveloperIntelligenceSummary,
+} from './developer-intelligence-summary.js';
 
 const DEFAULT_SLOW_UPDATE_THRESHOLD_MS = 500;
+const MAX_CAUSAL_CHAIN_REFERENCES = 20;
 
 function _eventRef(event) {
     return event ? Object.freeze({
@@ -56,6 +61,7 @@ class LitIntelligencePipeline {
     #grouper;
     #unsubscribe = null;
     #latest = null;
+    #latestCapsule = null;
     #analysisContext = null;
     #capsuleSequence = 0;
     #transientIncidentSequence = 0;
@@ -97,12 +103,14 @@ class LitIntelligencePipeline {
         if (this.#unsubscribe) return this;
         this.#recorder.start();
         this.#unsubscribe = this.#store.subscribe(event => this.#onEvidence(event));
+        this.#latest = createReadyDeveloperSummary();
         if (this.#windowTarget) {
             this.#windowTarget.__LDS_INTELLIGENCE_PIPELINE__ = this;
             if (this.#presentInPanel) {
                 installLitIntelligencePanelPresentation({ target: this.#windowTarget });
             }
         }
+        this.#publish();
         return this;
     }
 
@@ -117,14 +125,23 @@ class LitIntelligencePipeline {
         return this.#latest;
     }
 
+    /**
+     * Full forensic evidence stays behind an explicit API rather than living in
+     * the default developer-facing window object/panel model.
+     */
+    exportCapsule() {
+        return this.#latestCapsule;
+    }
+
     recorder() {
         return this.#recorder;
     }
 
     resume({ clear = true } = {}) {
         this.#recorder.resume({ clear });
-        this.#latest = null;
         this.#analysisContext = null;
+        this.#latestCapsule = null;
+        this.#latest = createReadyDeveloperSummary();
         this.#publish();
         return this;
     }
@@ -132,17 +149,15 @@ class LitIntelligencePipeline {
     recordVerification(verification) {
         if (!this.#analysisContext || !verification) return null;
         const verificationSnapshot = _portableClone(verification);
-        const capsule = this.#buildCapsule({
+        this.#latestCapsule = this.#buildCapsule({
             ...this.#analysisContext,
             verification: verificationSnapshot,
         });
         this.#analysisContext = { ...this.#analysisContext, verification: verificationSnapshot };
-        this.#latest = _freezePresentation({
-            ...this.#latest,
+        this.#latest = _freezePresentation(createDeveloperIntelligenceSummary({
+            ...this.#analysisContext,
             verification: verificationSnapshot,
-            capsule,
-            updatedAt: Date.now(),
-        });
+        }));
         this.#publish();
         return this.#latest;
     }
@@ -187,7 +202,10 @@ class LitIntelligencePipeline {
         const rootCause = clusters.find(cluster => cluster.eventIds.includes(triggerEvent.id)) || clusters[0] || null;
         const rootEvent = rootCause?.rootEventId ? graph.node(rootCause.rootEventId) : null;
         const causalChain = rootCause
-            ? rootCause.eventIds.map(id => _eventRef(graph.node(id))).filter(Boolean)
+            ? rootCause.eventIds
+                .slice(-MAX_CAUSAL_CHAIN_REFERENCES)
+                .map(id => _eventRef(graph.node(id)))
+                .filter(Boolean)
             : [_eventRef(triggerEvent)].filter(Boolean);
         const context = {
             triggerEvent,
@@ -197,29 +215,9 @@ class LitIntelligencePipeline {
             causalChain,
             verification: null,
         };
-        const capsule = this.#buildCapsule(context);
         this.#analysisContext = context;
-        this.#latest = _freezePresentation({
-            schemaVersion: '1.0',
-            surface: 'lds-debug-panel:pinpoint',
-            status: 'incident-captured',
-            trigger: _eventRef(triggerEvent),
-            rootCause: rootCause ? {
-                id: rootCause.id,
-                strength: rootCause.strength,
-                rootEventId: rootCause.rootEventId,
-                rootLabel: rootCause.rootLabel,
-                score: rootCause.score,
-            } : null,
-            incident: {
-                id: incident.id,
-                reason: incident.reason,
-                eventCount: incident.eventCount,
-            },
-            verification: null,
-            capsule,
-            updatedAt: Date.now(),
-        });
+        this.#latestCapsule = this.#buildCapsule(context);
+        this.#latest = _freezePresentation(createDeveloperIntelligenceSummary(context));
         this.#publish();
     }
 
@@ -262,6 +260,8 @@ class LitIntelligencePipeline {
 
     #publish() {
         if (!this.#windowTarget) return;
+        // This global is intentionally a compact developer view. Heavy forensic
+        // evidence is available only through __LDS_INTELLIGENCE_PIPELINE__.exportCapsule().
         this.#windowTarget.__LDS_INTELLIGENCE__ = this.#latest;
         const EventCtor = this.#windowTarget.CustomEvent;
         if (typeof this.#windowTarget.dispatchEvent === 'function' && typeof EventCtor === 'function') {
