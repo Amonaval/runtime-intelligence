@@ -1,6 +1,6 @@
 import { RuntimeEventType } from './evidence-protocol.js';
 
-const PRIVACY_POLICY_VERSION = '1.0';
+const PRIVACY_POLICY_VERSION = '1.1';
 
 const PrivacyAction = Object.freeze({
   KEEP: 'keep',
@@ -23,9 +23,7 @@ const _sensitiveHeaders = new Set([
 const _urlKeys = new Set([
   'url', 'uri', 'href', 'endpoint', 'requesturl', 'responseurl', 'sourceurl',
 ]);
-const _headerKeys = new Set([
-  'headers', 'requestheaders', 'responseheaders',
-]);
+const _headerKeys = new Set(['headers', 'requestheaders', 'responseheaders']);
 const _bodyKeys = new Set([
   'requestbody', 'responsebody', 'requestpayload', 'responsepayload',
 ]);
@@ -51,7 +49,9 @@ function _isSensitiveKey(key) {
   return normalized.endsWith('token')
     || normalized.endsWith('secret')
     || normalized.endsWith('password')
-    || normalized.endsWith('apikey');
+    || normalized.endsWith('apikey')
+    || normalized.endsWith('authorization')
+    || normalized.endsWith('cookie');
 }
 
 function _mergePolicy(overrides = {}) {
@@ -60,6 +60,8 @@ function _mergePolicy(overrides = {}) {
     version: PRIVACY_POLICY_VERSION,
     sensitiveFields: PrivacyAction.REDACT,
     sensitiveHeaders: PrivacyAction.REDACT,
+    headerValues: PrivacyAction.REDACT,
+    safeHeaderValues: ['accept', 'content-type', 'content-length', 'cache-control'],
     urlQuery: PrivacyAction.REDACT,
     requestBody: PrivacyAction.SHAPE,
     responseBody: PrivacyAction.SHAPE,
@@ -78,19 +80,35 @@ function _mergePolicy(overrides = {}) {
     ...base,
     ...overrides,
     pii: { ...base.pii, ...(overrides.pii || {}) },
+    safeHeaderValues: Array.isArray(overrides.safeHeaderValues)
+      ? [...overrides.safeHeaderValues]
+      : [...base.safeHeaderValues],
   };
   for (const key of [
-    'sensitiveFields', 'sensitiveHeaders', 'urlQuery', 'requestBody',
-    'responseBody', 'domText', 'stateValues', 'exportCorrelationIds',
+    'sensitiveFields', 'sensitiveHeaders', 'headerValues', 'urlQuery',
+    'requestBody', 'responseBody', 'domText', 'stateValues',
+    'exportCorrelationIds',
   ]) {
-    if (!_actions.has(merged[key])) throw new TypeError(`Invalid privacy action for ${key}: ${merged[key]}`);
+    if (!_actions.has(merged[key])) {
+      throw new TypeError(`Invalid privacy action for ${key}: ${merged[key]}`);
+    }
   }
   for (const key of ['email', 'phone']) {
-    if (!_actions.has(merged.pii[key])) throw new TypeError(`Invalid privacy action for pii.${key}: ${merged.pii[key]}`);
+    if (!_actions.has(merged.pii[key])) {
+      throw new TypeError(`Invalid privacy action for pii.${key}: ${merged.pii[key]}`);
+    }
   }
-  merged.maxDepth = Number.isFinite(merged.maxDepth) ? Math.max(1, Math.floor(merged.maxDepth)) : base.maxDepth;
-  merged.maxKeys = Number.isFinite(merged.maxKeys) ? Math.max(1, Math.floor(merged.maxKeys)) : base.maxKeys;
-  merged.maxString = Number.isFinite(merged.maxString) ? Math.max(16, Math.floor(merged.maxString)) : base.maxString;
+  merged.safeHeaderValues = merged.safeHeaderValues
+    .map(value => String(value).toLowerCase());
+  merged.maxDepth = Number.isFinite(merged.maxDepth)
+    ? Math.max(1, Math.floor(merged.maxDepth))
+    : base.maxDepth;
+  merged.maxKeys = Number.isFinite(merged.maxKeys)
+    ? Math.max(1, Math.floor(merged.maxKeys))
+    : base.maxKeys;
+  merged.maxString = Number.isFinite(merged.maxString)
+    ? Math.max(16, Math.floor(merged.maxString))
+    : base.maxString;
   return _deepFreeze(merged);
 }
 
@@ -138,7 +156,7 @@ function _scrubString(input, policy, audit) {
     changed = true;
   }
 
-  if (policy.pii.email === PrivacyAction.REDACT) {
+  if (policy.pii.email !== PrivacyAction.KEEP) {
     const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
     if (email.test(value)) {
       value = value.replace(email, '[REDACTED_EMAIL]');
@@ -146,7 +164,7 @@ function _scrubString(input, policy, audit) {
     }
   }
 
-  if (policy.pii.phone === PrivacyAction.REDACT) {
+  if (policy.pii.phone !== PrivacyAction.KEEP) {
     const phone = /(?<!\w)(?:\+?\d[\d\s().-]{8,}\d)(?!\w)/g;
     if (phone.test(value)) {
       value = value.replace(phone, '[REDACTED_PHONE]');
@@ -165,7 +183,9 @@ function _scrubString(input, policy, audit) {
 function maskUrlQuery(value, policy = ENTERPRISE_SAFE_PRIVACY_POLICY, audit = null) {
   if (typeof value !== 'string') return value;
   const localAudit = audit || _newAudit(policy, 'url');
-  if (policy.urlQuery === PrivacyAction.KEEP) return _scrubString(value, policy, localAudit);
+  if (policy.urlQuery === PrivacyAction.KEEP) {
+    return _scrubString(value.split('#', 1)[0], policy, localAudit);
+  }
 
   const hashIndex = value.indexOf('#');
   const withoutFragment = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
@@ -189,14 +209,21 @@ function _shapeValue(value, policy, audit) {
   audit.shaped += 1;
   if (value === null) return { type: 'null', redacted: true };
   if (value === undefined) return { type: 'undefined', redacted: true };
-  if (Array.isArray(value)) return { type: 'array', length: value.length, redacted: true };
+  if (Array.isArray(value)) {
+    return { type: 'array', length: value.length, redacted: true };
+  }
   const type = typeof value;
   if (type === 'string') return { type, length: value.length, redacted: true };
-  if (type === 'number' || type === 'boolean' || type === 'bigint') return { type, redacted: true };
+  if (type === 'number' || type === 'boolean' || type === 'bigint') {
+    return { type, redacted: true };
+  }
   if (type === 'function') return { type, redacted: true };
   if (type !== 'object') return { type, redacted: true };
 
-  if (typeof value.type === 'string' && Object.prototype.hasOwnProperty.call(value, 'summary')) {
+  if (
+    typeof value.type === 'string'
+    && Object.prototype.hasOwnProperty.call(value, 'summary')
+  ) {
     const shaped = { type: value.type, summary: `[${value.type}]`, redacted: true };
     if (Number.isFinite(value.length)) shaped.length = value.length;
     if (Array.isArray(value.keys)) {
@@ -214,20 +241,61 @@ function _shapeValue(value, policy, audit) {
   return { type: 'object', keys, redacted: true };
 }
 
-function sanitizeHeaders(headers, policy = ENTERPRISE_SAFE_PRIVACY_POLICY, audit = null) {
+function _headerEntries(headers) {
+  if (Array.isArray(headers)) return headers;
+  if (headers && typeof headers.entries === 'function') {
+    try {
+      return [...headers.entries()];
+    } catch {
+      return [];
+    }
+  }
+  if (headers && typeof headers === 'object') return Object.entries(headers);
+  return [];
+}
+
+function _applyHeaderValuePolicy(rawValue, headerName, policy, audit) {
+  const safe = new Set(policy.safeHeaderValues).has(headerName.toLowerCase());
+  if (safe) {
+    return typeof rawValue === 'string'
+      ? _scrubString(rawValue, policy, audit)
+      : _shapeValue(rawValue, policy, audit);
+  }
+
+  if (policy.headerValues === PrivacyAction.DROP) {
+    audit.dropped += 1;
+    return undefined;
+  }
+  if (policy.headerValues === PrivacyAction.SHAPE) {
+    return _shapeValue(rawValue, policy, audit);
+  }
+  if (policy.headerValues === PrivacyAction.KEEP) {
+    return typeof rawValue === 'string'
+      ? _scrubString(rawValue, policy, audit)
+      : _shapeValue(rawValue, policy, audit);
+  }
+  audit.redacted += 1;
+  return _redactedValue();
+}
+
+function sanitizeHeaders(
+  headers,
+  policy = ENTERPRISE_SAFE_PRIVACY_POLICY,
+  audit = null,
+) {
   const localAudit = audit || _newAudit(policy, 'headers');
-  if (!headers || typeof headers !== 'object') return _shapeValue(headers, policy, localAudit);
+  if (!headers || typeof headers !== 'object') {
+    return _shapeValue(headers, policy, localAudit);
+  }
 
-  const entries = Array.isArray(headers)
-    ? headers
-    : Object.entries(headers);
   const out = {};
-
+  const entries = _headerEntries(headers);
   for (const entry of entries.slice(0, policy.maxKeys)) {
     if (!Array.isArray(entry) || entry.length < 2) continue;
     const [name, rawValue] = entry;
     const key = String(name);
     const normalized = key.toLowerCase();
+
     if (_sensitiveHeaders.has(normalized) || _isSensitiveKey(key)) {
       if (policy.sensitiveHeaders === PrivacyAction.DROP) {
         localAudit.dropped += 1;
@@ -237,10 +305,16 @@ function sanitizeHeaders(headers, policy = ENTERPRISE_SAFE_PRIVACY_POLICY, audit
       localAudit.redacted += 1;
       continue;
     }
-    out[key] = typeof rawValue === 'string'
-      ? _scrubString(rawValue, policy, localAudit)
-      : _shapeValue(rawValue, policy, localAudit);
+
+    const sanitized = _applyHeaderValuePolicy(
+      rawValue,
+      key,
+      policy,
+      localAudit,
+    );
+    if (sanitized !== undefined) out[key] = sanitized;
   }
+  if (entries.length > policy.maxKeys) localAudit.truncated += 1;
   return out;
 }
 
@@ -263,7 +337,10 @@ function _sanitizeValue(value, policy, audit, {
 
   const normalizedKey = _normalizeKey(key);
 
-  if (exportMode && (normalizedKey === 'traceid' || normalizedKey === 'interactionid')) {
+  if (
+    exportMode
+    && (normalizedKey === 'traceid' || normalizedKey === 'interactionid')
+  ) {
     if (policy.exportCorrelationIds === PrivacyAction.DROP) {
       audit.dropped += 1;
       return undefined;
@@ -315,13 +392,17 @@ function _sanitizeValue(value, policy, audit, {
       audit.redacted += 1;
       return _redactedValue();
     }
-    if (policy.domText === PrivacyAction.SHAPE) return _shapeValue(value, policy, audit);
+    if (policy.domText === PrivacyAction.SHAPE) {
+      return _shapeValue(value, policy, audit);
+    }
   }
 
   const stateEvent = eventType === RuntimeEventType.STATE_CHANGED
     || eventType === RuntimeEventType.UPDATE_REQUESTED;
-  if ((stateEvent && _stateKeys.has(normalizedKey))
-      || (exportMode && (normalizedKey === 'state' || normalizedKey === 'props'))) {
+  if (
+    (stateEvent && _stateKeys.has(normalizedKey))
+    || (exportMode && (normalizedKey === 'state' || normalizedKey === 'props'))
+  ) {
     if (policy.stateValues === PrivacyAction.DROP) {
       audit.dropped += 1;
       return undefined;
@@ -330,7 +411,9 @@ function _sanitizeValue(value, policy, audit, {
       audit.redacted += 1;
       return _redactedValue();
     }
-    if (policy.stateValues === PrivacyAction.SHAPE) return _shapeValue(value, policy, audit);
+    if (policy.stateValues === PrivacyAction.SHAPE) {
+      return _shapeValue(value, policy, audit);
+    }
   }
 
   if (value === null || value === undefined) return value;
@@ -355,6 +438,7 @@ function _sanitizeValue(value, policy, audit, {
         depth: depth + 1,
         memo,
       }));
+    if (value.length > policy.maxKeys) audit.truncated += 1;
     memo.delete(value);
     return out;
   }
@@ -382,17 +466,39 @@ function _sanitizeSource(source, policy, audit) {
   if (typeof source === 'string') return maskUrlQuery(source, policy, audit);
   const out = { ...source };
   for (const field of ['file', 'url', 'originalFile', 'generatedFile']) {
-    if (typeof out[field] === 'string') out[field] = maskUrlQuery(out[field], policy, audit);
+    if (typeof out[field] === 'string') {
+      out[field] = maskUrlQuery(out[field], policy, audit);
+    }
+  }
+  if (typeof out.functionName === 'string') {
+    out.functionName = _scrubString(out.functionName, policy, audit);
   }
   return out;
 }
 
-function applyPrivacyPolicyToEvidenceInput(input, policy = ENTERPRISE_SAFE_PRIVACY_POLICY) {
-  if (!input || typeof input !== 'object') throw new TypeError('Evidence input must be an object.');
+function _sanitizeOwner(owner, policy, audit) {
+  if (!owner || typeof owner !== 'object') return owner;
+  const out = { ...owner };
+  for (const field of ['name', 'label']) {
+    if (typeof out[field] === 'string') {
+      out[field] = _scrubString(out[field], policy, audit);
+    }
+  }
+  return out;
+}
+
+function applyPrivacyPolicyToEvidenceInput(
+  input,
+  policy = ENTERPRISE_SAFE_PRIVACY_POLICY,
+) {
+  if (!input || typeof input !== 'object') {
+    throw new TypeError('Evidence input must be an object.');
+  }
   const effective = policy || ENTERPRISE_SAFE_PRIVACY_POLICY;
   const audit = _newAudit(effective, 'capture');
   const sanitized = {
     ...input,
+    owner: _sanitizeOwner(input.owner, effective, audit),
     source: _sanitizeSource(input.source, effective, audit),
     payload: _sanitizeValue(input.payload || {}, effective, audit, {
       key: 'payload',
@@ -407,7 +513,10 @@ function applyPrivacyPolicyToEvidenceInput(input, policy = ENTERPRISE_SAFE_PRIVA
   });
 }
 
-function sanitizeForExportWithAudit(value, policy = ENTERPRISE_SAFE_PRIVACY_POLICY) {
+function sanitizeForExportWithAudit(
+  value,
+  policy = ENTERPRISE_SAFE_PRIVACY_POLICY,
+) {
   const effective = policy || ENTERPRISE_SAFE_PRIVACY_POLICY;
   const audit = _newAudit(effective, 'export');
   const sanitized = _sanitizeValue(value, effective, audit, {
@@ -422,7 +531,10 @@ function sanitizeForExportWithAudit(value, policy = ENTERPRISE_SAFE_PRIVACY_POLI
   });
 }
 
-function sanitizeForExport(value, policy = ENTERPRISE_SAFE_PRIVACY_POLICY) {
+function sanitizeForExport(
+  value,
+  policy = ENTERPRISE_SAFE_PRIVACY_POLICY,
+) {
   return sanitizeForExportWithAudit(value, policy).value;
 }
 
