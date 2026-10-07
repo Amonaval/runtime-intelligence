@@ -45,10 +45,10 @@ function _initPageTools() {
 const LitDebugMixin = superclass => class extends superclass {
     connectedCallback() {
         super.connectedCallback?.();
-        litAdapter.connect(this);
 
-        // Initialize page-level tools on first element mount
+        // Start the recorder before the first UREP owner event is emitted.
         _initPageTools();
+        litAdapter.connect(this);
 
         // Always-on tools (zero overhead when data is not used)
         LdsMemory.attach(this);
