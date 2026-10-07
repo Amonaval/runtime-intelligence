@@ -1,4 +1,9 @@
 import { sanitizeSourceFile } from './source-resolver.js';
+import {
+  ENTERPRISE_SAFE_PRIVACY_POLICY,
+  sanitizeForExport,
+  sanitizeForExportWithAudit,
+} from './enterprise-privacy.js';
 
 const EVIDENCE_CAPSULE_SCHEMA_VERSION = '1.0';
 
@@ -105,12 +110,13 @@ function createEvidenceCapsule({
   verification = null,
   environment = {},
   aiPrompt = null,
+  privacyPolicy = ENTERPRISE_SAFE_PRIVACY_POLICY,
 } = {}) {
   if (!id) throw new TypeError('Evidence Capsule requires id.');
   if (!problem) throw new TypeError('Evidence Capsule requires problem.');
 
   const events = Array.isArray(incident?.events) ? incident.events : [];
-  const capsule = {
+  const raw = {
     schema: 'RUF Evidence Capsule',
     schemaVersion: EVIDENCE_CAPSULE_SCHEMA_VERSION,
     id,
@@ -137,9 +143,25 @@ function createEvidenceCapsule({
     recommendation: _portableClone(recommendation),
     verification: _portableClone(verification),
     environment: _portableClone(environment),
-    aiPrompt: null,
   };
-  capsule.aiPrompt = aiPrompt || buildEvidenceCapsuleAIPrompt(capsule);
+
+  let capsule;
+  if (privacyPolicy === false) {
+    capsule = _portableClone(raw);
+    capsule.privacy = { enforced: false, boundary: 'export' };
+  } else {
+    const effective = privacyPolicy || ENTERPRISE_SAFE_PRIVACY_POLICY;
+    const sanitized = sanitizeForExportWithAudit(raw, effective);
+    capsule = sanitized.value;
+    capsule.privacy = sanitized.audit;
+  }
+
+  capsule.aiPrompt = aiPrompt == null
+    ? buildEvidenceCapsuleAIPrompt(capsule)
+    : (privacyPolicy === false
+      ? String(aiPrompt)
+      : sanitizeForExport(String(aiPrompt), privacyPolicy || ENTERPRISE_SAFE_PRIVACY_POLICY));
+
   return _deepFreeze(capsule);
 }
 

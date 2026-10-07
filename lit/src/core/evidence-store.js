@@ -1,8 +1,15 @@
 import { createEvidenceEvent, validateEvidenceEvent } from './evidence-protocol.js';
+import {
+  ENTERPRISE_SAFE_PRIVACY_POLICY,
+  applyPrivacyPolicyToEvidenceInput,
+} from './enterprise-privacy.js';
 
 /**
  * Bounded framework-neutral event store with bounded eviction tombstones.
  * Correlation references have explicit states: present, evicted, or unknown.
+ *
+ * Privacy is enforced before immutable UREP snapshots are created. Pass
+ * privacyPolicy:false only for an explicitly trusted/local diagnostic context.
  */
 class EvidenceStore {
   #events = [];
@@ -12,10 +19,16 @@ class EvidenceStore {
   #maxEntries;
   #clock;
   #evicted = new Map();
+  #privacyPolicy;
 
-  constructor({ maxEntries = 1000, clock = () => Date.now() } = {}) {
+  constructor({
+    maxEntries = 1000,
+    clock = () => Date.now(),
+    privacyPolicy = ENTERPRISE_SAFE_PRIVACY_POLICY,
+  } = {}) {
     this.#maxEntries = Math.max(50, maxEntries);
     this.#clock = clock;
+    this.#privacyPolicy = privacyPolicy === false ? null : (privacyPolicy || ENTERPRISE_SAFE_PRIVACY_POLICY);
   }
 
   emit(input, context = {}) {
@@ -24,7 +37,19 @@ class EvidenceStore {
     if (this.resolveReference(id).status !== 'unknown') {
       throw new TypeError(`Duplicate runtime evidence id: ${id}`);
     }
-    const event = createEvidenceEvent(input, { ...context, id, sequence, timestamp: this.#clock() });
+
+    const sanitized = this.#privacyPolicy
+      ? applyPrivacyPolicyToEvidenceInput(input, this.#privacyPolicy)
+      : { input, audit: null };
+
+    const baseEvent = createEvidenceEvent(
+      sanitized.input,
+      { ...context, id, sequence, timestamp: this.#clock() },
+    );
+    const event = sanitized.audit
+      ? Object.freeze({ ...baseEvent, privacy: sanitized.audit })
+      : baseEvent;
+
     const validation = validateEvidenceEvent(event, { resolveReference: ref => this.resolveReference(ref) });
     if (!validation.valid) {
       throw new TypeError(`Invalid runtime evidence: ${validation.errors.join(', ')}`);
@@ -69,6 +94,7 @@ class EvidenceStore {
     );
   }
 
+  privacyPolicy() { return this.#privacyPolicy; }
   clear() { this.#events.length = 0; this.#evicted.clear(); }
   size() { return this.#events.length; }
 }

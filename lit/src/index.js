@@ -42,6 +42,17 @@ export {
     RuntimeResourceOwnershipLedger,
 } from './core/resource-ownership-ledger.js';
 export {
+    PRIVACY_POLICY_VERSION,
+    PrivacyAction,
+    ENTERPRISE_SAFE_PRIVACY_POLICY,
+    createPrivacyPolicy,
+    maskUrlQuery,
+    sanitizeHeaders,
+    applyPrivacyPolicyToEvidenceInput,
+    sanitizeForExport,
+    sanitizeForExportWithAudit,
+} from './core/enterprise-privacy.js';
+export {
     SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
     EvidenceLevel,
     AttributionQuality,
