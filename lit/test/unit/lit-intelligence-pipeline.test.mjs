@@ -23,8 +23,11 @@ test('pipeline starts with a compact developer-facing ready state', () => {
     const snapshot = pipeline.snapshot();
     assert.equal(snapshot.status, 'ready');
     assert.match(snapshot.headline, /ready/i);
+    assert.match(snapshot.explanation, /original panel/i);
     assert.equal(snapshot.technicalEvidence.eventCount, 0);
     assert.equal('capsule' in snapshot, false);
+    assert.equal('incident' in snapshot, false);
+    assert.equal('causalChain' in snapshot, false);
     assert.equal(pipeline.exportCapsule(), null);
     pipeline.stop();
 });
@@ -68,6 +71,9 @@ test('Lit error collector reaches UREP, compact developer view, forensic capsule
     assert.equal(snapshot.technicalEvidence.available, true);
     assert.equal(snapshot.technicalEvidence.eventCount, events.length);
     assert.equal('capsule' in snapshot, false);
+    assert.equal('incident' in snapshot, false);
+    assert.equal('causalChain' in snapshot, false);
+    assert.equal(JSON.stringify(snapshot).includes('evt-'), false);
 
     const capsule = pipeline.exportCapsule();
     assert.ok(capsule.evidence.eventIds.includes(errorEvent.id));
@@ -98,7 +104,7 @@ test('slow Lit update is analyzed without consuming the recorder, preserving a l
     adapter.connect(el);
     const requested = adapter.recordUpdateRequested(el, null, undefined);
     const started = adapter.recordUpdateStarted(el);
-    const slow = adapter.emit(RuntimeEventType.UPDATE_COMPLETED, {
+    adapter.emit(RuntimeEventType.UPDATE_COMPLETED, {
         owner: adapter.ownerOf(el),
         correlation: {
             parentEventId: started?.id || requested?.id || null,
