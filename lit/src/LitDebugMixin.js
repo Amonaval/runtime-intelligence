@@ -29,6 +29,7 @@ import { LdsConsole }        from './core/console.js';
 import { LdsVitals }         from './core/vitals.js';
 import { LdsNetwork }        from './core/network.js';
 import { litAdapter }        from './adapter/lit/LitAdapter.js';
+import { getLitIntelligencePipeline } from './integration/lit/LitIntelligencePipeline.js';
 
 // Page-level tools are initialized once per page load
 let _pageToolsInited = false;
@@ -36,6 +37,7 @@ let _pageToolsInited = false;
 function _initPageTools() {
     if (_pageToolsInited) return;
     _pageToolsInited = true;
+    getLitIntelligencePipeline().start();
     if (_toolEnabled('vitals'))  LdsVitals.init();
     if (_toolEnabled('network')) LdsNetwork.init();
 }
