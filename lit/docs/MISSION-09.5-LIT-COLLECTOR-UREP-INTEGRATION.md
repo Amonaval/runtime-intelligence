@@ -12,15 +12,16 @@ Primary error path:
 
 Additional Mission 09.5 continuation paths:
 
-- `LitAdapter UPDATE_COMPLETED(durationMs) → configurable slow-update incident policy → recorder → graph/root cause → capsule → existing LDS panel presentation`
+- `LitAdapter UPDATE_COMPLETED(durationMs) → configurable slow-update analysis policy → rolling recorder snapshot → graph/root cause → capsule → existing LDS panel presentation`
 - `LdsNetwork completion → small legacy observer seam → privacy-safe NETWORK_COMPLETED UREP evidence → same EvidenceStore/recorder substrate`
 
 ## Key decisions
 
 - `LitAdapter` remains the sole owner of Lit owner/update lifecycle evidence.
 - The error collector bridge emits only collector-specific `error` evidence and correlates it to the latest Lit update request/state change.
-- Slow-update incidents use the existing UREP `UPDATE_COMPLETED.payload.durationMs`; they do not duplicate the legacy `perf.js` measurement.
+- Slow-update analysis uses the existing UREP `UPDATE_COMPLETED.payload.durationMs`; it does not duplicate the legacy `perf.js` measurement.
 - The default slow-update threshold is 500 ms and is constructor-configurable.
+- Errors remain the hard `IncidentFlightRecorder` freeze trigger. A slow update is analyzed from the rolling recorder snapshot without freezing it, so a later runtime error cannot be hidden by an earlier performance symptom.
 - Legacy `perf.js` continues to mean connect-to-first-render TTI. If it is bridged later, that distinct semantic must be preserved explicitly.
 - Intelligence recording/analysis/panel presentation is opt-in again through `_toolEnabled('intelligence')` / `window.__LDS_INTELLIGENCE_ENABLED__` or the normal master debug flag semantics.
 - Network bridging adds an observer seam to the existing collector rather than patching fetch/XHR a second time or polling global arrays.
@@ -36,8 +37,9 @@ Additional Mission 09.5 continuation paths:
 
 - real Lit owner/update → error bridge → UREP → incident → graph/root cause → capsule → verification,
 - no duplicate owner/update lifecycle evidence,
-- qualifying UREP slow-update incident,
-- below-threshold update not becoming an incident.
+- qualifying UREP slow-update analysis,
+- slow update does not consume the recorder and a later runtime error still wins/freeze-captures,
+- below-threshold update does not become an incident.
 
 `lit/test/unit/network-evidence-bridge.test.mjs` covers privacy-minimized network completion evidence and confirms raw URL/query/decoder/error fields do not cross the bridge.
 
@@ -74,9 +76,10 @@ Mission 09.5 implementation is code-complete for review. Final closure requires 
 1. intelligence disabled → no recorder/panel bridge startup,
 2. intelligence enabled → owner/update evidence is captured from first connection,
 3. runtime error → incident/capsule/panel summary,
-4. slow update ≥ threshold → `lit-slow-update` incident,
-5. network enabled + intelligence enabled → privacy-safe `NETWORK_COMPLETED` evidence,
-6. replay verification → pipeline snapshot/capsule update,
-7. canonical panel behavior remains intact.
+4. slow update ≥ threshold → `lit-slow-update` analysis without consuming the crash recorder,
+5. a runtime error after a slow update still becomes the frozen incident,
+6. network enabled + intelligence enabled → privacy-safe `NETWORK_COMPLETED` evidence,
+7. replay verification → pipeline snapshot/capsule update,
+8. canonical panel behavior remains intact.
 
 Mission 10 / Vue should start only after that checkpoint, unless the user explicitly decides to override the closure gate.

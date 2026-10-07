@@ -58,6 +58,7 @@ class LitIntelligencePipeline {
     #latest = null;
     #analysisContext = null;
     #capsuleSequence = 0;
+    #transientIncidentSequence = 0;
     #slowUpdateThresholdMs;
     #presentInPanel;
 
@@ -83,10 +84,11 @@ class LitIntelligencePipeline {
         this.#recorder = new IncidentFlightRecorder({
             store,
             start: false,
-            autoFreeze: event => {
-                const reason = _incidentReasonFor(event, this.#slowUpdateThresholdMs);
-                return reason ? { reason, postTriggerEvents: 0 } : false;
-            },
+            // Errors are the hard freeze trigger. Slow updates are analyzed from
+            // the rolling recorder snapshot so they cannot hide a later crash.
+            autoFreeze: event => event?.type === RuntimeEventType.ERROR
+                ? { reason: 'lit-runtime-error', postTriggerEvents: 0 }
+                : false,
             ...recorderOptions,
         });
     }
@@ -148,9 +150,35 @@ class LitIntelligencePipeline {
     #onEvidence(event) {
         const reason = _incidentReasonFor(event, this.#slowUpdateThresholdMs);
         if (!reason) return;
-        const incident = this.#recorder.incident();
-        if (!incident || incident.reason !== reason) return;
-        this.#analyze(event, incident);
+
+        if (reason === 'lit-runtime-error') {
+            const incident = this.#recorder.incident();
+            if (!incident || incident.reason !== reason) return;
+            this.#analyze(event, incident);
+            return;
+        }
+
+        // Preserve any previously frozen crash as the stronger incident.
+        if (this.#recorder.incident()) return;
+        this.#analyze(event, this.#snapshotRollingIncident(event, reason));
+    }
+
+    #snapshotRollingIncident(triggerEvent, reason) {
+        const events = this.#recorder.snapshot();
+        const ordered = [...events].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+        return Object.freeze({
+            id: `transient-lit-incident-${++this.#transientIncidentSequence}`,
+            reason,
+            triggerEventId: triggerEvent.id,
+            triggerSequence: triggerEvent.sequence,
+            frozenAt: Date.now(),
+            eventCount: ordered.length,
+            firstSequence: ordered[0]?.sequence ?? null,
+            lastSequence: ordered.at(-1)?.sequence ?? null,
+            firstTimestamp: ordered[0]?.timestamp ?? null,
+            lastTimestamp: ordered.at(-1)?.timestamp ?? null,
+            events: Object.freeze(ordered),
+        });
     }
 
     #analyze(triggerEvent, incident) {

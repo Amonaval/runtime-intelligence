@@ -17,7 +17,7 @@ function fakeLitElement() {
 }
 
 test('Lit error collector reaches UREP, incident analysis, capsule and verification without duplicate lifecycle', () => {
-    const store = new EvidenceStore({ capacity: 100 });
+    const store = new EvidenceStore({ maxEntries: 100 });
     const adapter = new LitAdapter({ store });
     const pipeline = new LitIntelligencePipeline({ store, windowTarget: null });
     const el = fakeLitElement();
@@ -67,8 +67,8 @@ test('Lit error collector reaches UREP, incident analysis, capsule and verificat
     pipeline.stop();
 });
 
-test('slow Lit UPDATE_COMPLETED becomes an incident without bridging legacy perf TTI', () => {
-    const store = new EvidenceStore({ capacity: 100 });
+test('slow Lit update is analyzed without consuming the recorder, preserving a later runtime error', () => {
+    const store = new EvidenceStore({ maxEntries: 100 });
     const adapter = new LitAdapter({ store });
     const pipeline = new LitIntelligencePipeline({
         store,
@@ -81,48 +81,40 @@ test('slow Lit UPDATE_COMPLETED becomes an incident without bridging legacy perf
     adapter.connect(el);
     const requested = adapter.recordUpdateRequested(el, null, undefined);
     const started = adapter.recordUpdateStarted(el);
-
-    const originalNow = globalThis.performance?.now;
-    const originalPerformance = globalThis.performance;
-    let now = 1000;
-    Object.defineProperty(globalThis, 'performance', {
-        configurable: true,
-        value: { now: () => now },
+    const slow = adapter.emit(RuntimeEventType.UPDATE_COMPLETED, {
+        owner: adapter.ownerOf(el),
+        correlation: {
+            parentEventId: started?.id || requested?.id || null,
+            causedByEventId: requested?.id || null,
+        },
+        payload: { durationMs: 750 },
     });
 
-    try {
-        // The adapter's start above may use the native performance clock. Emit a
-        // deterministic slow completion directly through the same adapter/store
-        // contract to exercise the pipeline's UREP trigger semantics.
-        const slow = adapter.emit(RuntimeEventType.UPDATE_COMPLETED, {
-            owner: adapter.ownerOf(el),
-            correlation: {
-                parentEventId: started?.id || requested?.id || null,
-                causedByEventId: requested?.id || null,
-            },
-            payload: { durationMs: 750 },
-        });
+    const slowSnapshot = pipeline.snapshot();
+    assert.ok(slowSnapshot);
+    assert.equal(slowSnapshot.trigger.id, slow.id);
+    assert.equal(slowSnapshot.trigger.type, RuntimeEventType.UPDATE_COMPLETED);
+    assert.equal(slowSnapshot.incident.reason, 'lit-slow-update');
+    assert.equal(slowSnapshot.capsule.problem.title, 'Lit slow update');
+    assert.equal(slowSnapshot.capsule.environment.slowUpdateThresholdMs, 500);
+    assert.equal(pipeline.recorder().incident(), null);
 
-        const snapshot = pipeline.snapshot();
-        assert.ok(snapshot);
-        assert.equal(snapshot.trigger.id, slow.id);
-        assert.equal(snapshot.trigger.type, RuntimeEventType.UPDATE_COMPLETED);
-        assert.equal(snapshot.incident.reason, 'lit-slow-update');
-        assert.equal(snapshot.capsule.problem.title, 'Lit slow update');
-        assert.equal(snapshot.capsule.environment.slowUpdateThresholdMs, 500);
-    } finally {
-        if (originalPerformance === undefined) delete globalThis.performance;
-        else Object.defineProperty(globalThis, 'performance', {
-            configurable: true,
-            value: originalPerformance,
-        });
-        void originalNow;
-        pipeline.stop();
-    }
+    const error = new Error('later crash');
+    error.stack = 'Error: later crash\n    at render (src/components/x-order-card/x-order-card.js:52:9)';
+    const errorEvent = recordLegacyLitError(el, {
+        phase: 'updated',
+        message: error.message,
+    }, error, { adapter });
+
+    const errorSnapshot = pipeline.snapshot();
+    assert.equal(errorSnapshot.trigger.id, errorEvent.id);
+    assert.equal(errorSnapshot.incident.reason, 'lit-runtime-error');
+    assert.equal(pipeline.recorder().incident().reason, 'lit-runtime-error');
+    pipeline.stop();
 });
 
 test('sub-threshold Lit update does not create an intelligence incident', () => {
-    const store = new EvidenceStore({ capacity: 20 });
+    const store = new EvidenceStore({ maxEntries: 20 });
     const adapter = new LitAdapter({ store });
     const pipeline = new LitIntelligencePipeline({
         store,
