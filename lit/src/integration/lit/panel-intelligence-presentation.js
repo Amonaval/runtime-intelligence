@@ -1,20 +1,6 @@
-const _observedPanels = new WeakSet();
+import { html } from 'lit';
 
-function _text(doc, tag, value, style = '') {
-    const el = doc.createElement(tag);
-    el.textContent = value || '';
-    if (style) el.style.cssText = style;
-    return el;
-}
-
-function _row(doc, label, value) {
-    if (!value) return null;
-    const row = doc.createElement('div');
-    row.style.cssText = 'display:grid;grid-template-columns:88px 1fr;gap:8px;margin-top:6px;';
-    row.appendChild(_text(doc, 'div', label, 'color:#a6adc8;font-weight:600;'));
-    row.appendChild(_text(doc, 'div', value, 'color:#cdd6f4;'));
-    return row;
-}
+const INTELLIGENCE_TAB_KEY = 'intelligence';
 
 function _masterFlag(target) {
     if (target?.__LDS_DEBUG__ !== undefined) return target.__LDS_DEBUG__;
@@ -33,147 +19,157 @@ function _toolEnabled(target, key) {
     return !!(master && typeof master === 'object' && master[key]);
 }
 
-function _toolBadges(doc, target) {
-    const wrap = doc.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;';
-    const items = [
-        ['Intelligence', _toolEnabled(target, 'intelligence') || !!target?.__LDS_INTELLIGENCE_PIPELINE__, null],
-        ['Perf', _toolEnabled(target, 'perf'), Object.keys(target?.__LDS_PERF__ || {}).length],
-        ['Network', _toolEnabled(target, 'network'), (target?.__LDS_NETWORK_LOG__ || []).length],
-    ];
-    for (const [label, enabled, count] of items) {
-        const suffix = enabled && Number.isFinite(count) && count > 0 ? ` · ${count}` : '';
-        const badge = _text(doc, 'span', `${label} ${enabled ? 'ON' : 'OFF'}${suffix}`);
-        badge.style.cssText = [
-            'font-size:9px',
-            'padding:2px 6px',
-            'border-radius:999px',
-            `border:1px solid ${enabled ? '#458588' : '#585b70'}`,
-            `color:${enabled ? '#a6e3a1' : '#a6adc8'}`,
-            'white-space:nowrap',
-        ].join(';');
-        wrap.appendChild(badge);
-    }
-    return wrap;
+function _toolState(target) {
+    return {
+        intelligence: _toolEnabled(target, 'intelligence') || !!target?.__LDS_INTELLIGENCE_PIPELINE__,
+        perf: _toolEnabled(target, 'perf'),
+        perfSamples: Object.keys(target?.__LDS_PERF__ || {}).length,
+        network: _toolEnabled(target, 'network'),
+        networkSamples: (target?.__LDS_NETWORK_LOG__ || []).length,
+    };
 }
 
-function _mountPoint(panel) {
-    const root = panel?.shadowRoot;
-    if (!root) return null;
-    return root.querySelector('.tab-content')
-        || root.querySelector('.panel-content')
-        || root.querySelector('.content')
-        || root.querySelector('main')
-        || root;
+function _statusPill(label, enabled, count = null) {
+    const suffix = enabled && Number.isFinite(count) && count > 0 ? ` · ${count}` : '';
+    return html`<span style="
+        display:inline-block;
+        font-size:9px;
+        padding:2px 7px;
+        border-radius:999px;
+        border:1px solid ${enabled ? '#458588' : '#585b70'};
+        color:${enabled ? '#a6e3a1' : '#a6adc8'};
+        margin-right:5px;
+        margin-bottom:5px;
+    ">${label} ${enabled ? 'ON' : 'OFF'}${suffix}</span>`;
 }
 
-function _render(panel, target) {
-    const doc = target?.document;
-    const root = panel?.shadowRoot;
-    const mount = _mountPoint(panel);
-    if (!doc || !root || !mount) return;
-
-    let card = root.querySelector('#lds-runtime-intelligence-banner');
-    if (!card) {
-        card = doc.createElement('section');
-        card.id = 'lds-runtime-intelligence-banner';
-        card.style.cssText = [
-            'border:1px solid #45475a',
-            'border-left:3px solid #89b4fa',
-            'border-radius:7px',
-            'padding:10px 12px',
-            'margin:0 0 10px',
-            'background:#181825',
-            'color:#cdd6f4',
-            'font-size:11px',
-            'line-height:1.45',
-            'box-sizing:border-box',
-        ].join(';');
-    }
-    if (card.parentNode !== mount) mount.prepend(card);
-
-    card.replaceChildren();
-    const model = target.__LDS_INTELLIGENCE__;
-
-    const heading = doc.createElement('div');
-    heading.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
-    heading.appendChild(_text(doc, 'strong', model?.headline || 'Runtime Intelligence', 'font-size:12px;color:#89b4fa;'));
-    heading.appendChild(_text(
-        doc,
-        'span',
-        !model ? 'STARTING' : model.status === 'ready' ? 'READY' : (model.confidence || 'FOUND'),
-        'font-size:9px;padding:2px 6px;border:1px solid #45475a;border-radius:999px;color:#bac2de;white-space:nowrap;',
-    ));
-    card.appendChild(heading);
-    card.appendChild(_toolBadges(doc, target));
-
-    if (!model) {
-        card.appendChild(_text(doc, 'div', 'Starting Runtime Intelligence…', 'margin-top:7px;color:#a6adc8;'));
-        return;
-    }
-
-    if (model.status === 'ready') {
-        card.appendChild(_text(doc, 'div', model.explanation, 'margin-top:7px;color:#bac2de;'));
-        const action = _row(doc, 'How to use', model.nextAction);
-        if (action) card.appendChild(action);
-        if (_toolEnabled(target, 'perf') && !Object.keys(target.__LDS_PERF__ || {}).length) {
-            card.appendChild(_text(doc, 'div', 'Perf is enabled but has no samples yet. Navigate/remount components or exercise the screen.', 'margin-top:7px;color:#f9e2af;'));
-        }
-        return;
-    }
-
-    for (const [label, value] of [
-        ['Problem', model.problem],
-        ['Likely cause', model.likelyCause],
-        ['Where', model.source],
-        ['Impact', Array.isArray(model.impact) ? model.impact.join(' · ') : null],
-        ['Do next', model.nextAction],
-        ['Verified', model.verification?.outcome || null],
-    ]) {
-        const row = _row(doc, label, value);
-        if (row) card.appendChild(row);
-    }
-
-    const technical = model.technicalEvidence;
-    if (technical?.available) {
-        const details = doc.createElement('details');
-        details.style.cssText = 'margin-top:8px;border-top:1px solid #313244;padding-top:7px;color:#a6adc8;';
-        const summary = doc.createElement('summary');
-        summary.textContent = `Technical evidence (${technical.eventCount || 0} signals)`;
-        summary.style.cssText = 'cursor:pointer;user-select:none;color:#89b4fa;';
-        details.appendChild(summary);
-        details.appendChild(_text(
-            doc,
-            'div',
-            'Full privacy-filtered evidence is available through window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule() for deep debugging or AI handoff.',
-            'margin-top:6px;color:#a6adc8;',
-        ));
-        card.appendChild(details);
-    }
+function _infoCard(title, body, tone = 'blue') {
+    const border = tone === 'green' ? '#a6e3a1' : tone === 'yellow' ? '#f9e2af' : '#89b4fa';
+    return html`
+        <div style="background:#181825;border:1px solid #313244;border-left:3px solid ${border};border-radius:7px;padding:10px 12px;margin-bottom:10px;">
+            <div style="font-weight:700;color:${border};margin-bottom:5px;">${title}</div>
+            <div style="color:#bac2de;line-height:1.5;">${body}</div>
+        </div>
+    `;
 }
 
-function _observePanel(panel, target) {
+function _renderFinding(model) {
+    if (!model || model.status === 'ready') {
+        return html`
+            <div style="background:#181825;border:1px solid #313244;border-radius:7px;padding:12px;">
+                <div style="font-weight:700;color:#a6e3a1;margin-bottom:6px;">No issue captured yet</div>
+                <div style="color:#bac2de;line-height:1.5;">
+                    Use the application normally. Runtime Intelligence watches the same diagnostic signals and will summarize a meaningful slow Lit update or runtime error when one occurs.
+                </div>
+            </div>
+        `;
+    }
+
+    return html`
+        <div style="background:#181825;border:1px solid #313244;border-left:3px solid #f9e2af;border-radius:7px;padding:12px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px;">
+                <div style="font-size:13px;font-weight:700;color:#f9e2af;">${model.headline || 'Runtime finding'}</div>
+                <span style="font-size:9px;padding:2px 7px;border:1px solid #45475a;border-radius:999px;color:#bac2de;white-space:nowrap;">${model.confidence || 'Possible'}</span>
+            </div>
+            ${model.problem ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Problem</strong><div style="margin-top:2px;color:#cdd6f4;">${model.problem}</div></div>` : ''}
+            ${model.likelyCause ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Likely cause</strong><div style="margin-top:2px;color:#cdd6f4;">${model.likelyCause}</div></div>` : ''}
+            ${model.source ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Where</strong><div style="margin-top:2px;color:#cdd6f4;overflow-wrap:anywhere;">${model.source}</div></div>` : ''}
+            ${Array.isArray(model.impact) && model.impact.length ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Impact</strong><div style="margin-top:2px;color:#cdd6f4;">${model.impact.join(' · ')}</div></div>` : ''}
+            ${model.nextAction ? html`<div style="margin-bottom:7px;"><strong style="color:#a6e3a1;">Do next</strong><div style="margin-top:2px;color:#cdd6f4;">${model.nextAction}</div></div>` : ''}
+            ${model.verification?.outcome ? html`<div><strong style="color:#89b4fa;">Verification</strong><div style="margin-top:2px;color:#cdd6f4;">${model.verification.outcome}</div></div>` : ''}
+        </div>
+    `;
+}
+
+function _renderIntelligenceTab(target) {
+    const model = target?.__LDS_INTELLIGENCE__;
+    const tools = _toolState(target);
+    const evidenceCount = target?.__LDS_EVIDENCE_STORE__?.size?.() ?? 0;
+
+    return html`
+        <div style="margin-bottom:14px;">
+            <div style="font-size:15px;font-weight:700;color:#89b4fa;margin-bottom:4px;">Runtime Intelligence</div>
+            <div style="color:#6c7086;font-size:11px;line-height:1.5;">
+                The original tabs show measurements. This tab tries to turn those measurements into one useful developer answer: <strong style="color:#cdd6f4;">what happened, why it likely happened, where to look, and what to do next.</strong>
+            </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            ${_statusPill('Intelligence', tools.intelligence)}
+            ${_statusPill('Perf', tools.perf, tools.perfSamples)}
+            ${_statusPill('Network', tools.network, tools.networkSamples)}
+            ${_statusPill('Evidence', evidenceCount > 0, evidenceCount)}
+        </div>
+
+        ${_infoCard(
+            'What is different from the original toolkit?',
+            html`Instead of asking you to manually correlate <strong>Perf + Network + Errors + component lifecycle</strong>, Runtime Intelligence keeps a bounded evidence timeline, correlates the strongest related signals, and produces a compact finding. The existing tabs remain the detailed source views.`,
+        )}
+
+        ${_infoCard(
+            'How should I use it?',
+            html`1. Reproduce the UI problem normally.<br>2. Open this tab.<br>3. Read <strong>Problem → Likely cause → Where → Impact → Do next</strong>.<br>4. Use Pinpoint/Perf/Network only when you need the supporting detail.`,
+            'green',
+        )}
+
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6c7086;margin:14px 0 7px;">Current finding</div>
+        ${_renderFinding(model)}
+
+        ${tools.perf && tools.perfSamples === 0 ? html`
+            <div style="margin-top:10px;color:#f9e2af;font-size:11px;line-height:1.45;">
+                Perf is enabled but has no samples yet. Navigate/remount Lit components or exercise the screen before judging Perf coverage.
+            </div>
+        ` : ''}
+
+        <details style="margin-top:14px;border-top:1px solid #313244;padding-top:8px;">
+            <summary style="cursor:pointer;color:#89b4fa;">Technical evidence (optional)</summary>
+            <div style="color:#a6adc8;font-size:11px;line-height:1.5;margin-top:6px;">
+                ${model?.technicalEvidence?.available
+                    ? html`${model.technicalEvidence.eventCount || 0} captured signals contributed to the current analysis.`
+                    : html`No incident evidence is needed yet.`}
+                Raw forensic data is intentionally hidden from normal UI. Use
+                <code style="color:#cba6f7;">window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule()</code>
+                only for deep investigation or AI handoff.
+            </div>
+        </details>
+    `;
+}
+
+function _ensureTabButton(panel, target) {
     const root = panel?.shadowRoot;
-    const Observer = target?.MutationObserver;
-    if (!root || typeof Observer !== 'function' || _observedPanels.has(panel)) return;
-    _observedPanels.add(panel);
-    const observer = new Observer(() => {
-        if (!root.querySelector('#lds-runtime-intelligence-banner')) {
-            target.queueMicrotask?.(() => _render(panel, target));
+    const tabs = root?.querySelector('.tabs');
+    if (!tabs || root.querySelector('#lds-intelligence-tab')) return;
+
+    const button = target.document.createElement('button');
+    button.id = 'lds-intelligence-tab';
+    button.className = `tab${panel._tab === INTELLIGENCE_TAB_KEY ? ' active' : ''}`;
+    button.textContent = '✨ Intelligence';
+    button.addEventListener('click', () => {
+        if (typeof panel._setTab === 'function') panel._setTab(INTELLIGENCE_TAB_KEY);
+        else {
+            panel._tab = INTELLIGENCE_TAB_KEY;
+            panel.requestUpdate?.();
         }
     });
-    observer.observe(root, { childList: true, subtree: true });
+
+    const tabButtons = [...tabs.querySelectorAll('.tab')];
+    const pinpoint = tabButtons.find(item => item.textContent?.includes('Pinpoint'));
+    if (pinpoint?.nextSibling) tabs.insertBefore(button, pinpoint.nextSibling);
+    else tabs.appendChild(button);
 }
 
-function _attachPanel(panel, target) {
-    if (!panel) return;
-    _observePanel(panel, target);
-    _render(panel, target);
+function _syncTabButton(panel, target) {
+    _ensureTabButton(panel, target);
+    const button = panel?.shadowRoot?.querySelector('#lds-intelligence-tab');
+    if (button) button.className = `tab${panel._tab === INTELLIGENCE_TAB_KEY ? ' active' : ''}`;
 }
 
-function _injectAll(target) {
+function _syncAll(target) {
     const panels = target?.document?.querySelectorAll?.('lds-debug-panel') || [];
-    for (const panel of panels) _attachPanel(panel, target);
+    for (const panel of panels) {
+        _syncTabButton(panel, target);
+        if (panel._tab === INTELLIGENCE_TAB_KEY) panel.requestUpdate?.();
+    }
 }
 
 function _patchPanelClass(target) {
@@ -181,18 +177,27 @@ function _patchPanelClass(target) {
     if (!Panel || Panel.prototype.__ldsIntelligencePresentationPatched) return !!Panel;
 
     const proto = Panel.prototype;
+
     const originalConnected = proto.connectedCallback;
     proto.connectedCallback = function (...args) {
         const result = originalConnected?.apply(this, args);
-        Promise.resolve(this.updateComplete).finally(() => _attachPanel(this, target));
+        Promise.resolve(this.updateComplete).finally(() => _syncTabButton(this, target));
         return result;
     };
 
     const originalUpdated = proto.updated;
     proto.updated = function (...args) {
         const result = originalUpdated?.apply(this, args);
-        _attachPanel(this, target);
+        _syncTabButton(this, target);
         return result;
+    };
+
+    const originalRenderContent = proto._renderContent;
+    proto._renderContent = function (...args) {
+        if (this._tab === INTELLIGENCE_TAB_KEY) {
+            return html`<div class="tab-content">${_renderIntelligenceTab(target)}</div>`;
+        }
+        return originalRenderContent?.apply(this, args);
     };
 
     const originalCompleteReplay = proto._completeReplay;
@@ -219,30 +224,34 @@ function _patchPanelClass(target) {
         enumerable: false,
         writable: false,
     });
-    _injectAll(target);
+
+    _syncAll(target);
     return true;
 }
 
 /**
- * Compatibility presentation bridge. The mature panel source remains intact,
- * while Runtime Intelligence gets a resilient developer-facing card. The card
- * survives panel/tab rerenders and exposes current tool enablement at a glance.
+ * Adds Runtime Intelligence as a dedicated tab in the mature LDS panel.
+ * Existing tabs remain unchanged. No global/banner UI is injected into them.
  */
 function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null } = {}) {
     if (!target?.customElements) return false;
-    if (target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__) {
-        _patchPanelClass(target);
-        _injectAll(target);
-        return true;
-    }
-    target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__ = true;
 
-    target.addEventListener?.('lds-intelligence-updated', () => _injectAll(target));
+    if (!target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__) {
+        target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__ = true;
+        target.addEventListener?.('lds-intelligence-updated', () => {
+            const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
+            for (const panel of panels) {
+                if (panel._tab === INTELLIGENCE_TAB_KEY) panel.requestUpdate?.();
+            }
+        });
+    }
+
     if (!_patchPanelClass(target) && typeof target.customElements.whenDefined === 'function') {
         target.customElements.whenDefined('lds-debug-panel')
             .then(() => _patchPanelClass(target))
             .catch(() => {});
     }
+    _syncAll(target);
     return true;
 }
 
