@@ -1,63 +1,60 @@
 # Runtime Intelligence
 
-Runtime Intelligence is the answer layer above the existing LDS debug panel.
+Runtime Intelligence is a dedicated tab in the existing LDS debug panel.
 
-## What it adds
+## Why it exists
 
-The original panel is still useful for inspecting individual areas such as performance, network, events, memory and Pinpoint.
+The original panel tabs are measurement/debug views:
 
-Runtime Intelligence adds one thing on top:
+- Pinpoint finds known issue patterns.
+- Perf shows render timing.
+- Network/Falcor show requests.
+- Events show activity.
+- Memory shows lifecycle/resource symptoms.
 
-> When a meaningful UI problem happens, combine the related runtime signals and give the developer one simple finding.
+Those views are valuable, but the developer still has to connect the dots manually.
 
-You should not normally read UREP events, `evt-*` IDs, evidence graphs or Evidence Capsules yourself.
+Runtime Intelligence adds an **answer layer**:
+
+> Combine the strongest related runtime signals and tell the developer what happened, why it likely happened, where to look and what to do next.
+
+## Where to find it
+
+Open the LDS panel and select:
+
+`✨ Intelligence`
+
+Runtime Intelligence does **not** render a banner over Summary, Pinpoint, Perf, Network or any other tab.
+
+## What the Intelligence tab shows
+
+The tab is intentionally simple:
+
+1. **What is different from the original toolkit?** — explains the value of the new layer.
+2. **How should I use it?** — a short workflow.
+3. **Current finding** — the actual developer answer.
+4. **Technical evidence (optional)** — hidden unless deeper investigation is needed.
+
+A finding answers:
+
+- **Problem** — what happened?
+- **Likely cause** — strongest related cause found.
+- **Where** — source file/line when available.
+- **Impact** — useful timing/counts such as renders, state changes and requests.
+- **Do next** — where to start investigating.
+- **Confidence** — strength of the evidence.
+
+The top of the tab also shows whether Intelligence, Perf and Network are enabled and how much data they have captured.
 
 ## Normal workflow
 
 1. Enable diagnostics before the application starts.
 2. Open the LDS panel.
-3. Use the application normally.
-4. Reproduce a slow Lit update or runtime error.
-5. Read the Runtime Intelligence card.
-
-The card answers:
-
-- **Problem** — what happened?
-- **Likely cause** — what is the strongest related cause we found?
-- **Where** — source file/line when available.
-- **Impact** — useful counts/timing such as renders, state changes and network requests.
-- **Do next** — where the developer should start investigating.
-- **Confidence** — how strong the evidence is.
-
-## Ready state
-
-After startup the card should say `Runtime Intelligence is ready`.
-
-The browser check is intentionally small:
-
-```js
-window.__LDS_INTELLIGENCE__
-```
-
-This is a compact developer-facing model. It should not contain the full incident, causal-chain arrays or large lists of `evt-*` references.
-
-## Deep evidence is optional
-
-Only when deeper forensic detail or AI handoff is needed:
-
-```js
-window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule()
-```
-
-The Evidence Capsule is privacy-filtered and bounded. It is not the normal UI.
-
-For raw runtime troubleshooting only:
-
-```js
-window.__LDS_EVIDENCE__()
-```
-
-Treat this as an advanced/debugger surface, not something every developer should interpret manually.
+3. Open `✨ Intelligence` once to confirm it is ready.
+4. Use the application normally and reproduce the UI problem.
+5. Return to `✨ Intelligence`.
+6. Read **Problem → Likely cause → Where → Impact → Do next**.
+7. Open Pinpoint/Perf/Network only when supporting detail is needed.
 
 ## What currently creates a finding
 
@@ -66,35 +63,59 @@ Runtime Intelligence currently analyzes:
 - Lit runtime errors
 - Lit updates at or above the configured slow-update threshold (500 ms by default)
 
-Network completions are captured as supporting evidence but a failed request alone does not currently create an incident.
+Network completions are captured as supporting evidence. A failed request alone does not currently create an Intelligence incident.
+
+## Developer-facing browser model
+
+```js
+window.__LDS_INTELLIGENCE__
+```
+
+This is intentionally compact. It should not contain full incident arrays, evidence graphs or dozens of `evt-*` references.
+
+## Deep evidence is optional
+
+Only for forensic debugging or AI handoff:
+
+```js
+window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule()
+```
+
+For raw Runtime Intelligence troubleshooting only:
+
+```js
+window.__LDS_EVIDENCE__()
+```
+
+Neither is intended as the normal developer experience.
 
 ## Memory/safety model
 
 Runtime diagnostics must not become the application problem.
 
-Current safeguards include:
+Safeguards include:
 
 - bounded EvidenceStore retention
-- bounded incident flight recorder retention/time window
+- bounded incident flight-recorder retention/time window
 - bounded Evidence Capsule references
 - bounded root-cause symptoms/candidates
-- compact `window.__LDS_INTELLIGENCE__` model with no raw event arrays
+- compact `window.__LDS_INTELLIGENCE__` with no raw event arrays
 - raw event payloads excluded from Evidence Capsule export
 - privacy filtering before evidence/export boundaries
 
 ## Mental model
 
 ```text
-Existing diagnostics
-(perf / network / events / errors / memory)
-            ↓
-Runtime evidence + correlation
-            ↓
-Runtime Intelligence
-            ↓
-Problem · likely cause · impact · where · next action
-            ↓
-Optional deep evidence only when needed
+Original LDS tabs
+Perf · Network · Events · Errors · Memory · Pinpoint
+                    ↓
+       bounded runtime evidence
+                    ↓
+          Runtime Intelligence
+                    ↓
+ Problem · likely cause · where · impact · next action
+                    ↓
+     original tabs for supporting detail
 ```
 
-The goal is not to expose more telemetry. The goal is to reduce the amount of telemetry a developer has to understand.
+The goal is not to show more telemetry. The goal is to reduce how much telemetry a developer has to understand.
