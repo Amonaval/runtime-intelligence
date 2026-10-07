@@ -16,7 +16,20 @@ function fakeLitElement() {
     };
 }
 
-test('Lit error collector reaches UREP, incident analysis, capsule and verification without duplicate lifecycle', () => {
+test('pipeline starts with a compact developer-facing ready state', () => {
+    const store = new EvidenceStore({ maxEntries: 20 });
+    const pipeline = new LitIntelligencePipeline({ store, windowTarget: null });
+    pipeline.start();
+    const snapshot = pipeline.snapshot();
+    assert.equal(snapshot.status, 'ready');
+    assert.match(snapshot.headline, /ready/i);
+    assert.equal(snapshot.technicalEvidence.eventCount, 0);
+    assert.equal('capsule' in snapshot, false);
+    assert.equal(pipeline.exportCapsule(), null);
+    pipeline.stop();
+});
+
+test('Lit error collector reaches UREP, compact developer view, forensic capsule and verification without duplicate lifecycle', () => {
     const store = new EvidenceStore({ maxEntries: 100 });
     const adapter = new LitAdapter({ store });
     const pipeline = new LitIntelligencePipeline({ store, windowTarget: null });
@@ -49,12 +62,16 @@ test('Lit error collector reaches UREP, incident analysis, capsule and verificat
 
     const snapshot = pipeline.snapshot();
     assert.equal(snapshot.status, 'incident-captured');
-    assert.equal(snapshot.surface, 'lds-debug-panel:pinpoint');
-    assert.equal(snapshot.trigger.type, RuntimeEventType.ERROR);
-    assert.ok(snapshot.rootCause);
-    assert.equal(snapshot.incident.reason, 'lit-runtime-error');
-    assert.ok(snapshot.capsule.evidence.eventIds.includes(errorEvent.id));
-    assert.equal(snapshot.capsule.privacy.enforced, true);
+    assert.match(snapshot.headline, /runtime error/i);
+    assert.match(snapshot.problem, /render exploded/i);
+    assert.ok(snapshot.likelyCause);
+    assert.equal(snapshot.technicalEvidence.available, true);
+    assert.equal(snapshot.technicalEvidence.eventCount, events.length);
+    assert.equal('capsule' in snapshot, false);
+
+    const capsule = pipeline.exportCapsule();
+    assert.ok(capsule.evidence.eventIds.includes(errorEvent.id));
+    assert.equal(capsule.privacy.enforced, true);
 
     const verified = pipeline.recordVerification({
         outcome: 'confirmed',
@@ -62,7 +79,7 @@ test('Lit error collector reaches UREP, incident analysis, capsule and verificat
         metrics: [{ key: 'errors', before: 1, after: 0 }],
     });
     assert.equal(verified.verification.outcome, 'confirmed');
-    assert.equal(verified.capsule.verification.outcome, 'confirmed');
+    assert.equal(pipeline.exportCapsule().verification.outcome, 'confirmed');
 
     pipeline.stop();
 });
@@ -91,12 +108,10 @@ test('slow Lit update is analyzed without consuming the recorder, preserving a l
     });
 
     const slowSnapshot = pipeline.snapshot();
-    assert.ok(slowSnapshot);
-    assert.equal(slowSnapshot.trigger.id, slow.id);
-    assert.equal(slowSnapshot.trigger.type, RuntimeEventType.UPDATE_COMPLETED);
-    assert.equal(slowSnapshot.incident.reason, 'lit-slow-update');
-    assert.equal(slowSnapshot.capsule.problem.title, 'Lit slow update');
-    assert.equal(slowSnapshot.capsule.environment.slowUpdateThresholdMs, 500);
+    assert.equal(slowSnapshot.status, 'incident-captured');
+    assert.match(slowSnapshot.problem, /750 ms/i);
+    assert.equal(pipeline.exportCapsule().problem.title, 'Lit slow update');
+    assert.equal(pipeline.exportCapsule().environment.slowUpdateThresholdMs, 500);
     assert.equal(pipeline.recorder().incident(), null);
 
     const error = new Error('later crash');
@@ -107,13 +122,14 @@ test('slow Lit update is analyzed without consuming the recorder, preserving a l
     }, error, { adapter });
 
     const errorSnapshot = pipeline.snapshot();
-    assert.equal(errorSnapshot.trigger.id, errorEvent.id);
-    assert.equal(errorSnapshot.incident.reason, 'lit-runtime-error');
+    assert.match(errorSnapshot.problem, /later crash/i);
+    assert.equal(errorSnapshot.technicalEvidence.triggerType, 'runtime error');
+    assert.ok(pipeline.exportCapsule().evidence.eventIds.includes(errorEvent.id));
     assert.equal(pipeline.recorder().incident().reason, 'lit-runtime-error');
     pipeline.stop();
 });
 
-test('sub-threshold Lit update does not create an intelligence incident', () => {
+test('sub-threshold Lit update keeps intelligence in ready state', () => {
     const store = new EvidenceStore({ maxEntries: 20 });
     const adapter = new LitAdapter({ store });
     const pipeline = new LitIntelligencePipeline({
@@ -130,7 +146,7 @@ test('sub-threshold Lit update does not create an intelligence incident', () => 
         payload: { durationMs: 499.9 },
     });
 
-    assert.equal(pipeline.snapshot(), null);
+    assert.equal(pipeline.snapshot().status, 'ready');
     assert.equal(pipeline.recorder().incident(), null);
     pipeline.stop();
 });
