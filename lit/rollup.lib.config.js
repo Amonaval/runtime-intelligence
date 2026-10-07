@@ -2,6 +2,7 @@
  * Rollup config for the publishable npm library output.
  * Emits ES modules to lib/ so bundlers can tree-shake individual tools.
  */
+
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 export default [
