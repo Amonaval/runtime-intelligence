@@ -53,6 +53,18 @@ export {
     sanitizeForExportWithAudit,
 } from './core/enterprise-privacy.js';
 export {
+    POLICY_ENGINE_SCHEMA_VERSION,
+    RuleKind,
+    BudgetOperator,
+    Severity,
+    RuleEvaluationStatus,
+    createBudgetRule,
+    createSuppression,
+    createEventCountMetrics,
+    evaluateBudgetRule,
+    DiagnosticPolicyEngine,
+} from './core/diagnostic-policy.js';
+export {
     SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
     EvidenceLevel,
     AttributionQuality,
