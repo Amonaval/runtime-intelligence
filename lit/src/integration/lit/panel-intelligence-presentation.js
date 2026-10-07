@@ -1,44 +1,102 @@
-function _verificationOutcome(model) {
-    return model?.verification?.outcome || null;
+function _text(doc, tag, value, style = '') {
+    const el = doc.createElement(tag);
+    el.textContent = value || '';
+    if (style) el.style.cssText = style;
+    return el;
 }
 
-function _summaryText(model) {
-    if (!model) return 'Runtime Intelligence ready — no captured incident.';
-    const root = model.rootCause?.rootLabel || 'unresolved root';
-    const strength = model.rootCause?.strength || 'correlated';
-    const verification = _verificationOutcome(model);
-    return `Runtime Intelligence: ${root} · ${strength}${verification ? ` · verification ${verification}` : ''}`;
+function _row(doc, label, value) {
+    if (!value) return null;
+    const row = doc.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:88px 1fr;gap:8px;margin-top:6px;';
+    row.appendChild(_text(doc, 'div', label, 'color:#a6adc8;font-weight:600;'));
+    row.appendChild(_text(doc, 'div', value, 'color:#cdd6f4;'));
+    return row;
 }
 
-function _inject(panel, target) {
+function _render(panel, target) {
     const doc = target?.document;
     if (!doc || !panel?.shadowRoot) return;
     const content = panel.shadowRoot.querySelector('.tab-content');
     if (!content) return;
 
-    let banner = panel.shadowRoot.querySelector('#lds-runtime-intelligence-banner');
-    if (!banner) {
-        banner = doc.createElement('div');
-        banner.id = 'lds-runtime-intelligence-banner';
-        banner.style.cssText = [
+    let card = panel.shadowRoot.querySelector('#lds-runtime-intelligence-banner');
+    if (!card) {
+        card = doc.createElement('section');
+        card.id = 'lds-runtime-intelligence-banner';
+        card.style.cssText = [
             'border:1px solid #45475a',
             'border-left:3px solid #89b4fa',
-            'border-radius:5px',
-            'padding:7px 9px',
+            'border-radius:7px',
+            'padding:10px 12px',
             'margin-bottom:10px',
             'background:#181825',
             'color:#cdd6f4',
-            'font-size:10px',
-            'line-height:1.4',
+            'font-size:11px',
+            'line-height:1.45',
         ].join(';');
-        content.prepend(banner);
+        content.prepend(card);
     }
-    banner.textContent = _summaryText(target.__LDS_INTELLIGENCE__);
+
+    card.replaceChildren();
+    const model = target.__LDS_INTELLIGENCE__;
+    if (!model) {
+        card.appendChild(_text(doc, 'strong', 'Runtime Intelligence', 'font-size:12px;color:#89b4fa;'));
+        card.appendChild(_text(doc, 'div', 'Starting…', 'margin-top:4px;color:#a6adc8;'));
+        return;
+    }
+
+    const heading = doc.createElement('div');
+    heading.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
+    heading.appendChild(_text(doc, 'strong', model.headline || 'Runtime Intelligence', 'font-size:12px;color:#89b4fa;'));
+    heading.appendChild(_text(
+        doc,
+        'span',
+        model.status === 'ready' ? 'READY' : (model.confidence || 'FOUND'),
+        'font-size:9px;padding:2px 6px;border:1px solid #45475a;border-radius:999px;color:#bac2de;white-space:nowrap;',
+    ));
+    card.appendChild(heading);
+
+    if (model.status === 'ready') {
+        card.appendChild(_text(doc, 'div', model.explanation, 'margin-top:7px;color:#bac2de;'));
+        const action = _row(doc, 'Try this', model.nextAction);
+        if (action) card.appendChild(action);
+        return;
+    }
+
+    for (const [label, value] of [
+        ['Problem', model.problem],
+        ['Likely cause', model.likelyCause],
+        ['Where', model.source],
+        ['Impact', Array.isArray(model.impact) ? model.impact.join(' · ') : null],
+        ['Next', model.nextAction],
+        ['Verified', model.verification?.outcome || null],
+    ]) {
+        const row = _row(doc, label, value);
+        if (row) card.appendChild(row);
+    }
+
+    const technical = model.technicalEvidence;
+    if (technical?.available) {
+        const details = doc.createElement('details');
+        details.style.cssText = 'margin-top:8px;border-top:1px solid #313244;padding-top:7px;color:#a6adc8;';
+        const summary = doc.createElement('summary');
+        summary.textContent = `Technical evidence (${technical.eventCount || 0} captured signals)`;
+        summary.style.cssText = 'cursor:pointer;user-select:none;color:#89b4fa;';
+        details.appendChild(summary);
+        details.appendChild(_text(
+            doc,
+            'div',
+            'Raw UREP data is intentionally hidden from the main view. Use window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule() only when you need forensic/AI handoff evidence.',
+            'margin-top:6px;color:#a6adc8;',
+        ));
+        card.appendChild(details);
+    }
 }
 
 function _injectAll(target) {
     const panels = target?.document?.querySelectorAll?.('lds-debug-panel') || [];
-    for (const panel of panels) _inject(panel, target);
+    for (const panel of panels) _render(panel, target);
 }
 
 function _patchPanelClass(target) {
@@ -49,7 +107,7 @@ function _patchPanelClass(target) {
     const originalUpdated = proto.updated;
     proto.updated = function (...args) {
         const result = originalUpdated?.apply(this, args);
-        _inject(this, target);
+        _render(this, target);
         return result;
     };
 
@@ -82,9 +140,9 @@ function _patchPanelClass(target) {
 }
 
 /**
- * Transitional presentation bridge: it augments the existing LDS panel rather
- * than creating a second investigation UI. The canonical panel source remains
- * independently importable and byte-compatible with the mature baseline.
+ * Transitional presentation bridge: the mature panel remains unchanged while
+ * Runtime Intelligence adds a small developer-first answer layer above it.
+ * Raw UREP evidence stays available for forensic/AI export, not as the default UX.
  */
 function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null } = {}) {
     if (!target?.customElements) return false;
