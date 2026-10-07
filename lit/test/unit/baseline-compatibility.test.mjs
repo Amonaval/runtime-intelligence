@@ -80,6 +80,19 @@ test('debug panel compatibility surface remains separately exported and built', 
     );
 });
 
+test('Runtime Intelligence remains a dedicated panel tab instead of a global banner', () => {
+    const bridge = readFileSync(join(root, 'src/integration/lit/panel-intelligence-presentation.js'), 'utf8');
+    assert.match(bridge, /INTELLIGENCE_TAB_KEY\s*=\s*['"]intelligence['"]/);
+    assert.match(bridge, /textContent\s*=\s*['"]✨ Intelligence['"]/);
+    assert.match(bridge, /this\._tab\s*===\s*INTELLIGENCE_TAB_KEY/);
+    assert.match(bridge, /_renderIntelligenceTab/);
+    assert.doesNotMatch(
+        bridge,
+        /lds-runtime-intelligence-banner/,
+        'Runtime Intelligence must not inject a banner into every existing tab',
+    );
+});
+
 test('baseline feature documentation remains intact as a product compatibility surface', () => {
     for (const file of featureDocs) {
         const path = join(root, 'docs/features', file);
