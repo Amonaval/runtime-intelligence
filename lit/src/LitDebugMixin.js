@@ -2,8 +2,7 @@
  * LitDebugMixin — drop-in debug mixin for any LitElement base class.
  *
  * v2 also emits Universal Runtime Evidence Protocol events through LitAdapter.
- * Existing LDS tools remain unchanged during the migration, so this is additive
- * and backwards compatible.
+ * Existing LDS tools remain available while the generic evidence migration continues.
  */
 
 import { _toolEnabled }      from './core/gate.js';
@@ -49,17 +48,20 @@ const LitDebugMixin = superclass => class extends superclass {
     disconnectedCallback() {
         super.disconnectedCallback?.();
 
-        LdsMemory.detach(this);
-        LdsErrorBoundary.detach(this);
-        LdsPerfMonitor.detach(this);
-        LdsPropAudit.detach(this);
-        LdsInspector.detach(this);
-        LdsCycleDetector.detach(this);
-        LdsEventTracer.detach(this);
-        LdsSlowApiMonitor.detach(this);
+        // Detach in reverse attach order so nested method wrappers are restored safely.
+        // Memory is detached last because other tools may remove listeners/resources
+        // during cleanup; those releases must be observed before lifetime checks run.
         LdsConsole.detach(this);
+        LdsSlowApiMonitor.detach(this);
+        LdsEventTracer.detach(this);
+        LdsCycleDetector.detach(this);
+        LdsInspector.detach(this);
+        LdsPropAudit.detach(this);
+        LdsPerfMonitor.detach(this);
+        LdsErrorBoundary.detach(this);
+        LdsMemory.detach(this);
+
         // The owner is considered dead only after framework + diagnostic cleanup.
-        // This avoids future resource-ledger checks racing legitimate disconnect cleanup.
         litAdapter.disconnect(this);
     }
 
