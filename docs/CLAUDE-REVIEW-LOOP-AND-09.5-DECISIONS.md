@@ -61,20 +61,26 @@ These are bookkeeping errors, not architecture blockers, but they reinforce the 
 
 ## Feedback accepted and implemented
 
-### 1. Add slow Lit incident triggering
+### 1. Add slow Lit incident analysis
 
-Accepted, with an important semantic refinement.
+Accepted, with two semantic refinements.
 
 `LitAdapter.recordUpdateCompleted()` already emits UREP `UPDATE_COMPLETED` evidence with `payload.durationMs`. That is the correct signal for an individual Lit update/render duration.
 
-Mission 09.5 now treats a qualifying `UPDATE_COMPLETED` as an incident trigger using a configurable threshold. The initial default is 500 ms to align with the mature diagnostic suite's existing notion of a visibly slow component path.
+Mission 09.5 now treats a qualifying `UPDATE_COMPLETED` as an analyzable performance incident using a configurable threshold. The initial default is 500 ms to align with the mature diagnostic suite's existing notion of a visibly slow component path.
 
-The incident pipeline now supports:
+The pipeline now recognizes:
 
 - `ERROR` -> reason `lit-runtime-error`
 - slow `UPDATE_COMPLETED` -> reason `lit-slow-update`
 
-This keeps incident detection inside the framework-neutral evidence path rather than creating a second Lit-specific slow-render collector.
+The second refinement came from a final self-review after implementation: a slow update must not hard-freeze the flight recorder, because that could hide a later runtime error. Therefore:
+
+- runtime errors remain the hard `IncidentFlightRecorder` freeze trigger,
+- slow updates are analyzed from the rolling recorder snapshot without consuming the recorder,
+- a later runtime error still freezes and replaces the performance symptom as the stronger incident.
+
+This keeps incident detection inside the framework-neutral evidence path without creating a second Lit-specific slow-render collector or weakening crash capture.
 
 ### 2. Preserve opt-in diagnostic semantics
 
@@ -102,24 +108,29 @@ window.__LDS_DEBUG__ = { intelligence: true };
 
 The lightweight UREP adapter lifecycle itself remains part of the mixin architecture. The recorder, incident analysis, and panel presentation are the opt-in product behavior.
 
-### 3. Add slow-incident regression coverage
+### 3. Add slow-path regression coverage
 
 Accepted.
 
 The Mission 09.5 integration test now covers:
 
-- a qualifying UREP `UPDATE_COMPLETED` incident,
+- a qualifying UREP `UPDATE_COMPLETED` slow analysis,
 - the `lit-slow-update` reason,
 - capsule problem semantics,
 - the configured threshold in capsule environment metadata,
-- a below-threshold update that must not freeze/create an incident.
+- a below-threshold update that must not create an incident,
+- a slow update not consuming the flight recorder,
+- a later runtime error still becoming the frozen incident.
 
 ### 4. Add root-cause hardening tests
 
-Accepted in principle and intended to be bundled into Mission 09.5 closure rather than split into standalone missions:
+Accepted and bundled into Mission 09.5 closure rather than split into standalone missions.
 
-- confirmed-cluster-strength behavior,
-- candidate-score/tie-break behavior where current implementation contracts expose this deterministically.
+Added coverage protects:
+
+- `CAUSALITY_CONFIRMED` edge -> `confirmed` cluster strength,
+- deterministic earlier-sequence tie-break when root-cause candidate scores are equal,
+- intelligence gate opt-in behavior.
 
 The purpose is to protect root-cause ranking semantics cheaply, not to create test-only scope.
 
@@ -133,7 +144,19 @@ The preferred future direction is a stable replay-complete event or public integ
 
 ### 6. Bridge network evidence after the core incident semantics are stable
 
-Accepted as the next high-value collector integration, provided it can be added without duplicating existing adapter lifecycle evidence or changing legacy network behavior.
+Accepted and implemented with a narrow observer seam.
+
+`LdsNetwork` now exposes `subscribe(fn)`. Its existing fetch/XHR instrumentation remains the only network interceptor. The bridge subscribes to completed legacy network entries and emits privacy-minimized UREP `NETWORK_COMPLETED` evidence.
+
+The bridge deliberately excludes before the EvidenceStore privacy boundary:
+
+- full URL,
+- query string,
+- request body,
+- decoder output,
+- raw network error text.
+
+Network completion enriches the rolling evidence timeline but does not independently freeze an incident in Mission 09.5.
 
 ---
 
@@ -152,7 +175,7 @@ These signals answer different questions:
 - UREP `UPDATE_COMPLETED.durationMs`: how long did this Lit update take?
 - legacy `perf.js`: how long from component connection to first committed render?
 
-Therefore slow update incidents use UREP directly. If legacy perf is bridged later, it must preserve explicit first-render/TTI semantics rather than duplicating `UPDATE_COMPLETED` as another "slow render" event.
+Therefore slow update analysis uses UREP directly. If legacy perf is bridged later, it must preserve explicit first-render/TTI semantics rather than duplicating `UPDATE_COMPLETED` as another "slow render" event.
 
 ### 2. Add `analyzeIncident()` public API now
 
@@ -176,23 +199,23 @@ It is tracked as debt and should be removed at a deliberate panel-integration mi
 
 Rejected for this checkpoint.
 
-Mission 09.5 still needs closure-level hardening and real executable/browser validation. Starting another framework before validating the Lit integration would repeat the pattern this project is explicitly trying to avoid: breadth before verified closure.
+Mission 09.5 still needs real executable/browser validation. Starting another framework before validating the Lit integration would repeat the pattern this project is explicitly trying to avoid: breadth before verified closure.
 
 ---
 
-## Refined Mission 09.5 continuation
+## Refined Mission 09.5 continuation — implemented
 
-The continuation plan is intentionally compact:
+The continuation was intentionally compact:
 
-1. Generalize the intelligence incident trigger policy beyond errors.
-2. Add UREP-native slow Lit update incidents with a configurable 500 ms default.
-3. Restore opt-in intelligence recorder/panel behavior.
-4. Add slow-path and below-threshold regression tests.
-5. Add the remaining root-cause hardening tests where the current public behavior supports deterministic assertions.
-6. Bridge the highest-value remaining legacy signal, starting with network, only if it can remain semantically clean and non-duplicative.
+1. Generalize intelligence analysis beyond errors.
+2. Add UREP-native slow Lit update analysis with a configurable 500 ms default.
+3. Preserve runtime-error priority by keeping slow updates non-freezing.
+4. Restore opt-in intelligence recorder/panel behavior.
+5. Add slow-path, later-error, below-threshold, gate, cluster-strength, and tie-break regression tests.
+6. Bridge network completion through the existing collector using a subscriber seam rather than duplicate interception.
 7. Keep the canonical `LdsDebugPanel.js` untouched.
 8. Keep replay private-method wrapping explicitly transitional.
-9. Perform an executable/browser validation checkpoint before Mission 10/Vue.
+9. Stop before Mission 10/Vue and require an executable/browser validation checkpoint.
 
 ---
 
@@ -202,13 +225,34 @@ For future missions and review cycles:
 
 - code/tests first,
 - documentation should explain decisions, not substitute for implementation,
-- prefer one mission commit, but use 2-3 focused commits when it keeps risk clear,
+- prefer one mission commit, but use a few focused commits when that materially improves risk isolation,
 - do not add public API without a real consumer,
 - do not introduce a second diagnostics product beside the existing LDS panel,
 - do not duplicate evidence already emitted by a framework adapter,
 - preserve baseline compatibility unless an intentional migration explicitly changes it,
 - stop expanding scope once acceptance criteria are met,
 - use independent review at strategic checkpoints, not as a reason to churn working code.
+
+A useful additional invariant from this review cycle:
+
+> Lower-severity diagnostic symptoms must never suppress higher-severity evidence. Performance analysis must not consume the recorder needed for crash capture.
+
+---
+
+## What Claude should review next
+
+Review the exact current `main` commit, not an earlier SHA. Focus on:
+
+1. whether opt-in intelligence startup preserves previous gate semantics,
+2. whether slow-update snapshot analysis is correct and cannot suppress later runtime errors,
+3. whether the 500 ms default is acceptable as compatibility behavior while remaining configurable,
+4. whether the network `subscribe()` seam preserves legacy network behavior and avoids duplicate instrumentation,
+5. whether the network bridge is sufficiently privacy-minimized,
+6. whether root-cause confirmed-strength and tie-break tests accurately lock the intended contract,
+7. whether the canonical panel remains byte-identical and package/build compatibility remains intact,
+8. whether any executable tests/build/browser checks fail at the exact reviewed commit.
+
+Do not recommend Mission 10/Vue until the Mission 09.5 executable/browser closure gate is satisfied, unless there is a concrete reason to change that gate.
 
 ---
 
