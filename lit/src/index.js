@@ -21,6 +21,20 @@ export { RootCauseGrouper } from './core/root-cause.js';
 export { SourceResolutionBasis, SourceResolver, parseRuntimeSourceLocation, sanitizeSourceFile } from './core/source-resolver.js';
 export { RecorderState, IncidentFlightRecorder } from './core/incident-flight-recorder.js';
 export {
+    WORKFLOW_SCHEMA_VERSION,
+    MetricDirection,
+    VerificationOutcome,
+    createWorkflowRun,
+    createWorkflowBaseline,
+    compareWorkflowRuns,
+    verifyFix,
+} from './core/workflow-verification.js';
+export {
+    EVIDENCE_CAPSULE_SCHEMA_VERSION,
+    createEvidenceCapsule,
+    buildEvidenceCapsuleAIPrompt,
+} from './core/evidence-capsule.js';
+export {
     SCHEMA_VERSION as EVIDENCE_SCHEMA_VERSION,
     EvidenceLevel,
     AttributionQuality,
