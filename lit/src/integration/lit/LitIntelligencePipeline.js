@@ -6,6 +6,8 @@ import { RuntimeEventType } from '../../core/evidence-protocol.js';
 import { evidenceStore } from '../../core/evidence-store.js';
 import { installLitIntelligencePanelPresentation } from './panel-intelligence-presentation.js';
 
+const DEFAULT_SLOW_UPDATE_THRESHOLD_MS = 500;
+
 function _eventRef(event) {
     return event ? Object.freeze({
         id: event.id,
@@ -38,6 +40,15 @@ function _freezePresentation(value, seen = new WeakSet()) {
     return Object.freeze(value);
 }
 
+function _incidentReasonFor(event, slowUpdateThresholdMs) {
+    if (event?.type === RuntimeEventType.ERROR) return 'lit-runtime-error';
+    if (event?.type !== RuntimeEventType.UPDATE_COMPLETED) return null;
+    const durationMs = event.payload?.durationMs;
+    return Number.isFinite(durationMs) && durationMs >= slowUpdateThresholdMs
+        ? 'lit-slow-update'
+        : null;
+}
+
 class LitIntelligencePipeline {
     #store;
     #windowTarget;
@@ -47,25 +58,35 @@ class LitIntelligencePipeline {
     #latest = null;
     #analysisContext = null;
     #capsuleSequence = 0;
+    #slowUpdateThresholdMs;
+    #presentInPanel;
 
     constructor({
         store = evidenceStore,
         windowTarget = typeof window !== 'undefined' ? window : null,
         recorderOptions = {},
         rootCauseOptions = {},
+        slowUpdateThresholdMs = DEFAULT_SLOW_UPDATE_THRESHOLD_MS,
+        presentInPanel = true,
     } = {}) {
         if (!store || typeof store.subscribe !== 'function' || typeof store.snapshot !== 'function') {
             throw new TypeError('LitIntelligencePipeline requires an EvidenceStore-compatible store.');
         }
+        if (!Number.isFinite(slowUpdateThresholdMs) || slowUpdateThresholdMs < 0) {
+            throw new TypeError('slowUpdateThresholdMs must be a finite non-negative number.');
+        }
         this.#store = store;
         this.#windowTarget = windowTarget;
+        this.#slowUpdateThresholdMs = slowUpdateThresholdMs;
+        this.#presentInPanel = presentInPanel;
         this.#grouper = new RootCauseGrouper(rootCauseOptions);
         this.#recorder = new IncidentFlightRecorder({
             store,
             start: false,
-            autoFreeze: event => event?.type === RuntimeEventType.ERROR
-                ? { reason: 'lit-runtime-error', postTriggerEvents: 0 }
-                : false,
+            autoFreeze: event => {
+                const reason = _incidentReasonFor(event, this.#slowUpdateThresholdMs);
+                return reason ? { reason, postTriggerEvents: 0 } : false;
+            },
             ...recorderOptions,
         });
     }
@@ -76,7 +97,9 @@ class LitIntelligencePipeline {
         this.#unsubscribe = this.#store.subscribe(event => this.#onEvidence(event));
         if (this.#windowTarget) {
             this.#windowTarget.__LDS_INTELLIGENCE_PIPELINE__ = this;
-            installLitIntelligencePanelPresentation({ target: this.#windowTarget });
+            if (this.#presentInPanel) {
+                installLitIntelligencePanelPresentation({ target: this.#windowTarget });
+            }
         }
         return this;
     }
@@ -123,9 +146,10 @@ class LitIntelligencePipeline {
     }
 
     #onEvidence(event) {
-        if (event?.type !== RuntimeEventType.ERROR) return;
+        const reason = _incidentReasonFor(event, this.#slowUpdateThresholdMs);
+        if (!reason) return;
         const incident = this.#recorder.incident();
-        if (!incident) return;
+        if (!incident || incident.reason !== reason) return;
         this.#analyze(event, incident);
     }
 
@@ -172,11 +196,14 @@ class LitIntelligencePipeline {
     }
 
     #buildCapsule({ triggerEvent, incident, rootCause, rootEvent, causalChain, verification }) {
+        const slowUpdate = incident.reason === 'lit-slow-update';
         return createEvidenceCapsule({
             id: `lit-capsule-${++this.#capsuleSequence}-${triggerEvent.id}`,
             problem: {
-                title: 'Lit runtime error',
-                summary: triggerEvent.payload?.message || 'Lit component runtime error',
+                title: slowUpdate ? 'Lit slow update' : 'Lit runtime error',
+                summary: slowUpdate
+                    ? `Lit component update took ${Math.round(triggerEvent.payload?.durationMs || 0)}ms`
+                    : triggerEvent.payload?.message || 'Lit component runtime error',
                 type: triggerEvent.type,
             },
             trigger: {
@@ -192,12 +219,15 @@ class LitIntelligencePipeline {
             recommendation: rootCause ? {
                 summary: `Inspect ${rootCause.rootLabel} and preserve the recorded evidence strength (${rootCause.strength}).`,
             } : {
-                summary: 'Inspect the attributed component error and surrounding UREP evidence.',
+                summary: slowUpdate
+                    ? 'Inspect the attributed Lit update and its preceding state/update evidence.'
+                    : 'Inspect the attributed component error and surrounding UREP evidence.',
             },
             verification,
             environment: {
                 framework: 'lit',
                 presentationSurface: 'lds-debug-panel:pinpoint',
+                ...(slowUpdate ? { slowUpdateThresholdMs: this.#slowUpdateThresholdMs } : {}),
             },
         });
     }
@@ -220,4 +250,4 @@ function getLitIntelligencePipeline() {
     return _defaultPipeline;
 }
 
-export { LitIntelligencePipeline, getLitIntelligencePipeline };
+export { DEFAULT_SLOW_UPDATE_THRESHOLD_MS, LitIntelligencePipeline, getLitIntelligencePipeline };

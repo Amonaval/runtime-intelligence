@@ -37,7 +37,7 @@ let _pageToolsInited = false;
 function _initPageTools() {
     if (_pageToolsInited) return;
     _pageToolsInited = true;
-    getLitIntelligencePipeline().start();
+    if (_toolEnabled('intelligence')) getLitIntelligencePipeline().start();
     if (_toolEnabled('vitals'))  LdsVitals.init();
     if (_toolEnabled('network')) LdsNetwork.init();
 }
@@ -46,7 +46,7 @@ const LitDebugMixin = superclass => class extends superclass {
     connectedCallback() {
         super.connectedCallback?.();
 
-        // Start the recorder before the first UREP owner event is emitted.
+        // Start opt-in intelligence recording before the first UREP owner event.
         _initPageTools();
         litAdapter.connect(this);
 
