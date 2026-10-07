@@ -1,8 +1,19 @@
 /**
  * LitDebugMixin — drop-in debug mixin for any LitElement base class.
  *
- * v2 also emits Universal Runtime Evidence Protocol events through LitAdapter.
- * Existing LDS tools remain available while the generic evidence migration continues.
+ * Usage:
+ *   import { LitDebugMixin } from 'lit-debug-suite';
+ *   class MyElement extends LitDebugMixin(LitElement) { ... }
+ *
+ * Or wrap your own base class:
+ *   class RufElement extends LitDebugMixin(LitElement) { ... }
+ *
+ * Activation:
+ *   window.__LDS_DEBUG__ = true                         // all tools
+ *   window.__LDS_DEBUG__ = { perf: true, network: true } // selective
+ *
+ * Syndigo-specific plugins (Falcor, ACI, DataObjectManager):
+ *   import 'lit-debug-suite/custom/ui-platform';
  */
 
 import { _toolEnabled }      from './core/gate.js';
@@ -19,6 +30,7 @@ import { LdsVitals }         from './core/vitals.js';
 import { LdsNetwork }        from './core/network.js';
 import { litAdapter }        from './adapter/lit/LitAdapter.js';
 
+// Page-level tools are initialized once per page load
 let _pageToolsInited = false;
 
 function _initPageTools() {
@@ -32,10 +44,15 @@ const LitDebugMixin = superclass => class extends superclass {
     connectedCallback() {
         super.connectedCallback?.();
         litAdapter.connect(this);
+
+        // Initialize page-level tools on first element mount
         _initPageTools();
 
+        // Always-on tools (zero overhead when data is not used)
         LdsMemory.attach(this);
         LdsErrorBoundary.attach(this);
+
+        // Selectively enabled tools
         if (_toolEnabled('perf'))          LdsPerfMonitor.attach(this);
         if (_toolEnabled('propAudit'))     LdsPropAudit.attach(this);
         if (_toolEnabled('inspector'))     LdsInspector.attach(this);
@@ -48,9 +65,8 @@ const LitDebugMixin = superclass => class extends superclass {
     disconnectedCallback() {
         super.disconnectedCallback?.();
 
-        // Detach in reverse attach order so nested method wrappers are restored safely.
-        // Memory is detached last because other tools may remove listeners/resources
-        // during cleanup; those releases must be observed before lifetime checks run.
+        // Detach in reverse attach order so diagnostic-owned resources are
+        // cleaned up before the memory/resource lifetime check runs.
         LdsConsole.detach(this);
         LdsSlowApiMonitor.detach(this);
         LdsEventTracer.detach(this);
@@ -61,7 +77,7 @@ const LitDebugMixin = superclass => class extends superclass {
         LdsErrorBoundary.detach(this);
         LdsMemory.detach(this);
 
-        // The owner is considered dead only after framework + diagnostic cleanup.
+        // The UREP owner is considered dead only after diagnostic cleanup.
         litAdapter.disconnect(this);
     }
 

@@ -26,6 +26,7 @@ function init() {
 
     if (typeof PerformanceObserver === 'undefined') return;
 
+    // LCP
     try {
         new PerformanceObserver(list => {
             const last = list.getEntries().at(-1);
@@ -39,6 +40,7 @@ function init() {
         }).observe({ type: 'largest-contentful-paint', buffered: true });
     } catch {}
 
+    // CLS
     try {
         new PerformanceObserver(list => {
             for (const entry of list.getEntries()) {
@@ -57,6 +59,7 @@ function init() {
         }).observe({ type: 'layout-shift', buffered: true });
     } catch {}
 
+    // INP (falls back to FID)
     try {
         new PerformanceObserver(list => {
             for (const entry of list.getEntries()) {
@@ -80,6 +83,7 @@ function init() {
         } catch {}
     }
 
+    // Long Tasks
     try {
         new PerformanceObserver(list => {
             for (const entry of list.getEntries()) {
@@ -93,7 +97,7 @@ function init() {
     } catch {}
 }
 
-function detach() {}
+function detach() {} // page-level — no per-element cleanup
 
 const LdsVitals = { init, detach };
 export { LdsVitals };

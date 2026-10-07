@@ -14,6 +14,8 @@ These rules apply to every future mission unless a concrete defect requires an e
 8. **Evidence honesty is non-negotiable.** Correlation is not causality; adapters must not advertise proof strength they cannot produce.
 9. **Local-first / bounded / zero-cost core.** Do not add cloud, CI, paid services, telemetry upload, or external runtime dependencies without explicit approval.
 10. **Stop when mission acceptance criteria pass.** Do not spend time polishing history, renaming unrelated files, or expanding documentation after the mission is objectively complete.
+11. **Main Platform compatibility is a first-class invariant.** Generic/runtime-intelligence work is additive. Do not remove, hide, rename, or stop building baseline Main Platform/Syndigo/Falcor surfaces such as `lit/custom/ui-platform` unless an explicit migration mission replaces them with verified compatibility.
+12. **Preserve baseline formatting and minimize diffs.** For files inherited from the canonical baseline, keep the original indentation, comments, ordering, and layout. Change only lines required for the feature or fix; do not minify, compress, broadly reformat, or perform unrelated cleanup in the same mission.
 
 ## Required mission closeout
 

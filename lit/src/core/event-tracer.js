@@ -96,10 +96,12 @@ function _summarise(detail) {
     }
 }
 
+// Walk Error stack to find the first frame that looks like a custom element class
 function _callerFromStack() {
     try {
         const lines = (new Error().stack || '').split('\n');
         for (const line of lines) {
+            // Match custom element tag names: kebab-case words (contain at least one dash)
             const m = line.match(/\/([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?:\/|\.js)/);
             if (m) return m[1];
         }
@@ -121,6 +123,7 @@ function _recordEvent(name, detail) {
     _timeline.push(entry);
     if (_timeline.length > 500) _timeline.shift();
 
+    // R2-C: update frequency table
     const freq = window.__LDS_EVENTS_FREQ__;
     if (freq) {
         if (!freq[name]) freq[name] = { count: 0, sources: [] };
@@ -137,6 +140,18 @@ function _recordEvent(name, detail) {
     }
 }
 
+/**
+ * Wire any dispatch function. The wrapper calls _recordEvent(name, detail)
+ * before delegating to the original.
+ *
+ * Example (generic):
+ *   LdsEventTracer.patchDispatch(wrap => {
+ *     myBus.dispatch = wrap(myBus.dispatch.bind(myBus));
+ *   });
+ *
+ * The callback receives a factory fn(origDispatch) → wrappedDispatch,
+ * where origDispatch takes (action) and wrappedDispatch does the same.
+ */
 function patchDispatch(installFn) {
     if (_patched) return;
     _patched = true;
@@ -152,6 +167,7 @@ function patchDispatch(installFn) {
     });
 }
 
+// attach/detach are no-ops for the generic tracer — patching is done via patchDispatch
 function attach(_el) {}
 function detach(_el) {}
 

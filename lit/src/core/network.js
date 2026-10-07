@@ -52,6 +52,7 @@ function init() {
     _initialized = true;
     window.__LDS_NETWORK_LOG__ = _log;
 
+    // ── Patch fetch ──────────────────────────────────────────────────────────
     const _origFetch = window.fetch;
     window.fetch = function (...args) {
         const rawUrl = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
@@ -64,26 +65,43 @@ function init() {
                 const ms = Math.round(performance.now() - t0);
                 const kb = Math.round(parseInt(response.headers.get('content-length') || '0', 10) / 1024);
                 _push({
-                    url: _shortUrl(rawUrl), fullUrl: String(rawUrl), method,
-                    status: response.status, durationMs: ms, responseSizeKB: kb || null,
-                    ts: new Date().toISOString(), isError: response.status >= 400,
-                    isSlow: ms > SLOW_MS, isLarge: kb > LARGE_KB, type: 'fetch',
-                    decoded: _resolveDecoded(rawUrl, body),
+                    url:            _shortUrl(rawUrl),
+                    fullUrl:        String(rawUrl),
+                    method,
+                    status:         response.status,
+                    durationMs:     ms,
+                    responseSizeKB: kb || null,
+                    ts:             new Date().toISOString(),
+                    isError:        response.status >= 400,
+                    isSlow:         ms > SLOW_MS,
+                    isLarge:        kb > LARGE_KB,
+                    type:           'fetch',
+                    decoded:        _resolveDecoded(rawUrl, body),
                 });
                 return response;
             },
             err => {
                 _push({
-                    url: _shortUrl(rawUrl), fullUrl: String(rawUrl), method, status: 0,
-                    durationMs: Math.round(performance.now() - t0), responseSizeKB: null,
-                    ts: new Date().toISOString(), isError: true, isSlow: false, isLarge: false,
-                    type: 'fetch', decoded: _resolveDecoded(rawUrl, body), error: err?.message || 'Network error',
+                    url:            _shortUrl(rawUrl),
+                    fullUrl:        String(rawUrl),
+                    method,
+                    status:         0,
+                    durationMs:     Math.round(performance.now() - t0),
+                    responseSizeKB: null,
+                    ts:             new Date().toISOString(),
+                    isError:        true,
+                    isSlow:         false,
+                    isLarge:        false,
+                    type:           'fetch',
+                    decoded:        _resolveDecoded(rawUrl, body),
+                    error:          err?.message || 'Network error',
                 });
                 throw err;
             }
         );
     };
 
+    // ── Patch XHR ────────────────────────────────────────────────────────────
     const _origOpen = XMLHttpRequest.prototype.open;
     const _origSend = XMLHttpRequest.prototype.send;
 
@@ -98,21 +116,29 @@ function init() {
         const t0 = performance.now();
         this.addEventListener('loadend', () => {
             const ms = Math.round(performance.now() - t0);
-            const kb = Math.round(parseInt(this.getResponseHeader?.('content-length') || '0', 10) / 1024);
+            const kb = Math.round(
+                parseInt(this.getResponseHeader?.('content-length') || '0', 10) / 1024
+            );
             _push({
-                url: _shortUrl(this.__lds_url || ''), fullUrl: String(this.__lds_url || ''),
-                method: (this.__lds_method || 'GET').toUpperCase(), status: this.status,
-                durationMs: ms, responseSizeKB: kb || null, ts: new Date().toISOString(),
-                isError: this.status === 0 || this.status >= 400, isSlow: ms > SLOW_MS,
-                isLarge: kb > LARGE_KB, type: 'xhr',
-                decoded: _resolveDecoded(this.__lds_url || '', this.__lds_body),
+                url:            _shortUrl(this.__lds_url || ''),
+                fullUrl:        String(this.__lds_url || ''),
+                method:         (this.__lds_method || 'GET').toUpperCase(),
+                status:         this.status,
+                durationMs:     ms,
+                responseSizeKB: kb || null,
+                ts:             new Date().toISOString(),
+                isError:        this.status === 0 || this.status >= 400,
+                isSlow:         ms > SLOW_MS,
+                isLarge:        kb > LARGE_KB,
+                type:           'xhr',
+                decoded:        _resolveDecoded(this.__lds_url || '', this.__lds_body),
             });
         });
         return _origSend.apply(this, args);
     };
 }
 
-function detach() {}
+function detach() {} // page-level, no per-element cleanup
 
 const LdsNetwork = { init, detach, registerDecoder };
 export { LdsNetwork };

@@ -4,6 +4,8 @@ Status: REVIEWED + HARDENING PATCH PREPARED
 
 Scope: current `main` from the Mission 01 foundation through Mission 09 React adapter, compared against the canonical advanced Lit reference `navalamol/ui-toolkit@524d3c9a9e3864cd1f52f59d739ea10b8cdfd10a`.
 
+> **Post-audit compatibility correction:** the audit originally treated missing legacy surfaces as something package metadata should hide. That was too aggressive for this repository. `lit/custom/ui-platform/**` and `lit/docs/features/**` have since been restored byte-for-byte from the canonical baseline, the `./custom/ui-platform` package/build entry has been restored, and a compatibility regression test now protects those surfaces. Statements below describing those areas as absent document the state observed during the audit. The large panel/extension assets remain a separate parity gap and are not claimed restored by this correction.
+
 ## Why this checkpoint exists
 
 The mission-by-mission focused harnesses proved individual changes, but the repository had not yet been treated as one integrated product. This audit deliberately challenged three different questions:
@@ -24,15 +26,15 @@ Before this audit, `package.json` declared:
 
 Those targets/configs are not present in the active runtime-intelligence `lit/` tree.
 
-Hardening:
+Hardening originally:
 
-- remove package exports for absent surfaces;
-- expose only real root/Lit/React targets;
-- restore a truthful library-only Rollup config;
-- make `npm run build` execute unit tests + root-import smoke test + library build;
-- add a package-integrity unit test that fails if any declared export target is missing.
+- removed package exports for absent surfaces;
+- exposed only real root/Lit/React targets;
+- restored a library-only Rollup config;
+- made `npm run build` execute unit tests + root-import smoke test + library build;
+- added a package-integrity unit test that fails if any declared export target is missing.
 
-This does **not** claim the missing panel/extension/custom plugin product surface has been restored. It makes the active package honest and buildable as the source tree that actually exists.
+The subsequent compatibility correction restored `custom/ui-platform` as a mandatory Main Platform surface instead of treating it as optional. The panel/extension remain explicitly unresolved rather than being hidden behind package metadata.
 
 ### 2. Resource IDs could collide across owners — HIGH
 
@@ -139,9 +141,7 @@ The generic engines exist; collector-to-UREP migration/integration is still requ
 
 ## Gold-standard parity gap
 
-The canonical reference contains mature product surfaces that are absent from the active tree, including the large debug panel, extension assets/build, and Syndigo custom/Falcor integration.
-
-This audit intentionally does not copy those files wholesale. The original project rule says they must be ported deliberately into the generic architecture.
+Main Platform/Syndigo/Falcor compatibility and the original feature guides are preserved again. The remaining baseline parity gap is primarily the large debug panel and extension/build assets, plus end-to-end migration of legacy collector signals into the generic UREP pipeline.
 
 Before a release-quality claim, we still need an explicit integration mission for:
 
@@ -154,7 +154,7 @@ legacy Lit collectors
 → product presentation/export
 ```
 
-and a deliberate decision on panel/extension/custom-plugin parity.
+and a deliberate restore/migration decision for panel/extension parity.
 
 ## Validation added by this audit
 
@@ -169,6 +169,8 @@ New regression coverage checks:
 - package root can be imported and exposes key public APIs;
 - library Rollup config exists.
 
+The compatibility correction additionally checks that all six Main Platform integration files, all 17 baseline feature guides, and the `./custom/ui-platform` package export remain present.
+
 ## Validation honesty
 
 This connector session can inspect and modify the private repository but cannot execute a full checked-out repository or browser application locally. Therefore this audit does **not** claim that `npm test` / `npm run build` were executed against a real checkout in this session.
@@ -179,6 +181,6 @@ No GitHub Actions were enabled.
 
 ## Gate before Mission 10
 
-Mission 10 should not start until this hardening commit is reviewed on `main`.
+Mission 10 should not start until this hardening and compatibility correction are reviewed on `main`.
 
 After that, the next architectural priority should be an explicit **Lit Collector → UREP Integration mission** before adding too many more framework adapters. Otherwise we risk proving more adapters against a kernel that the gold-standard Lit product still does not fully use.

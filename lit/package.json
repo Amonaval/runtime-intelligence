@@ -13,6 +13,9 @@
     },
     "./adapter/react": {
       "import": "./src/adapter/react/ReactAdapter.js"
+    },
+    "./custom/ui-platform": {
+      "import": "./custom/ui-platform/index.js"
     }
   },
   "scripts": {

@@ -1,9 +1,22 @@
 /**
  * LdsCycleDetector — detects circular property-update chains between elements.
+ *
+ * Enable: window.__LDS_CYCLE_DETECT__ = true  (or via master __LDS_DEBUG__ flag)
+ * Store:  window.__LDS_CYCLES__  — array of detected cycle events
+ *
+ * Algorithm:
+ *   1. performUpdate() — marks the element as "currently rendering"
+ *   2. requestUpdate(name, oldValue) — checks whether any other element is
+ *      currently in its update cycle and records a directed edge in the update graph.
+ *      Runs a DFS to detect if a cycle now exists.
+ *
+ * A cycle entry: { path, count, prop, ts, stack }
+ * Console helper: window.__LDS_CYCLES_REPORT__()
  */
 
 if (typeof window !== 'undefined' && !window.__LDS_CYCLES__) {
     window.__LDS_CYCLES__ = [];
+
     window.__LDS_CYCLES_REPORT__ = function () {
         const c = window.__LDS_CYCLES__ || [];
         if (!c.length) {
@@ -16,7 +29,10 @@ if (typeof window !== 'undefined' && !window.__LDS_CYCLES__) {
     };
 }
 
+// Tag → count of instances currently inside performUpdate (async)
 const _updatingCounts = new Map();
+
+// Directed update graph: tag → Set<tag>
 const _updateGraph = new Map();
 
 function _graphEdge(fromTag, toTag) {
@@ -27,7 +43,8 @@ function _graphEdge(fromTag, toTag) {
 
 function _findCycle(start) {
     const visited = new Set();
-    const path = [start];
+    const path    = [start];
+
     function dfs(node) {
         for (const next of (_updateGraph.get(node) || [])) {
             if (next === start) return [...path, start];
@@ -41,6 +58,7 @@ function _findCycle(start) {
         }
         return null;
     }
+
     return dfs(start);
 }
 
@@ -60,53 +78,61 @@ function _restoreMethod(el, name, patch) {
     else delete el[name];
 }
 
+function _finishUpdate(tag) {
+    const n = _updatingCounts.get(tag);
+    if (n <= 1) _updatingCounts.delete(tag);
+    else        _updatingCounts.set(tag, n - 1);
+}
+
 function attach(el) {
     if (el.__ldsCyclePatched) return;
     el.__ldsCyclePatched = true;
+
     const tag = el.tagName.toLowerCase();
 
+    // 1. performUpdate — track which element is currently rendering
     const performUpdate = _patchMethod(el, 'performUpdate', original => function (...args) {
         _updatingCounts.set(tag, (_updatingCounts.get(tag) || 0) + 1);
-        const finish = () => {
-            const n = _updatingCounts.get(tag);
-            if (n <= 1) _updatingCounts.delete(tag);
-            else _updatingCounts.set(tag, n - 1);
-        };
         try {
             const result = original.apply(this, args);
             if (result && typeof result.then === 'function') {
-                return Promise.resolve(result).finally(finish);
+                return Promise.resolve(result).finally(() => _finishUpdate(tag));
             }
-            finish();
+            _finishUpdate(tag);
             return result;
         } catch (error) {
-            finish();
+            _finishUpdate(tag);
             throw error;
         }
     });
 
+    // 2. requestUpdate — detect which element triggered this update
     const requestUpdate = _patchMethod(el, 'requestUpdate', original => function (...args) {
         const [name] = args;
         for (const [updatingTag] of _updatingCounts) {
-            if (updatingTag === tag) continue;
-            _graphEdge(updatingTag, tag);
-            const cyclePath = _findCycle(tag);
-            if (!cyclePath) continue;
-            const pathStr = cyclePath.join(' → ');
-            const cycles = typeof window !== 'undefined' ? window.__LDS_CYCLES__ : null;
-            if (!cycles) continue;
-            const existing = cycles.find(c => c.path === pathStr);
-            if (existing) {
-                existing.count++;
-            } else {
-                cycles.push({
-                    path: pathStr,
-                    count: 1,
-                    prop: name != null ? String(name) : null,
-                    ts: new Date().toISOString(),
-                    stack: (new Error().stack || '').split('\n').slice(1, 7).join('\n'),
-                });
-                if (cycles.length > 100) cycles.shift();
+            if (updatingTag !== tag) {
+                _graphEdge(updatingTag, tag);
+
+                const cyclePath = _findCycle(tag);
+                if (cyclePath) {
+                    const pathStr = cyclePath.join(' → ');
+                    const cycles  = window.__LDS_CYCLES__;
+                    if (cycles) {
+                        const existing = cycles.find(c => c.path === pathStr);
+                        if (existing) {
+                            existing.count++;
+                        } else {
+                            cycles.push({
+                                path:  pathStr,
+                                count: 1,
+                                prop:  name != null ? String(name) : null,
+                                ts:    new Date().toISOString(),
+                                stack: (new Error().stack || '').split('\n').slice(1, 7).join('\n'),
+                            });
+                            if (cycles.length > 100) cycles.shift();
+                        }
+                    }
+                }
             }
         }
         return original.apply(this, args);
