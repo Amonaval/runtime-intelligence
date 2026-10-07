@@ -56,13 +56,13 @@ function createReadyDeveloperSummary() {
     return Object.freeze({
         status: 'ready',
         headline: 'Runtime Intelligence is ready',
-        explanation: 'Use the application normally. When a meaningful slow render or runtime error occurs, the panel will explain what happened and the strongest evidence for why.',
+        explanation: 'This is the new layer above the original panel. Existing tabs still show raw diagnostics; Runtime Intelligence correlates Lit updates, errors and related runtime activity into one simple finding when a meaningful problem occurs.',
         problem: null,
         likelyCause: null,
         confidence: null,
         source: null,
         impact: Object.freeze([]),
-        nextAction: 'Reproduce the UI problem you want to investigate.',
+        nextAction: 'Use the application normally and reproduce a slow UI update or runtime error. You do not need to inspect the evidence objects yourself.',
         technicalEvidence: Object.freeze({ available: false, eventCount: 0 }),
         verification: null,
     });
@@ -83,11 +83,11 @@ function createDeveloperIntelligenceSummary({ triggerEvent, incident, rootCause,
         : `${ownerName} hit a runtime error${triggerEvent.payload?.message ? `: ${triggerEvent.payload.message}` : ''}`;
 
     const likelyCause = rootLabel
-        ? `${rootLabel} is the strongest related cause found in the captured runtime activity.`
-        : 'No trustworthy root cause has been isolated yet.';
+        ? `${rootLabel} is the strongest related cause found before this problem.`
+        : 'The problem was captured, but there is not enough trustworthy evidence yet to name a root cause.';
 
     const nextAction = source
-        ? `Inspect ${source}${rootLabel ? ` around ${rootLabel}` : ''}.`
+        ? `Start at ${source}${rootLabel ? ` and inspect ${rootLabel}` : ''}.`
         : slow
             ? 'Inspect the state/update activity immediately before this slow render.'
             : 'Inspect the component error and the updates immediately before it.';
@@ -95,7 +95,7 @@ function createDeveloperIntelligenceSummary({ triggerEvent, incident, rootCause,
     return Object.freeze({
         status: 'incident-captured',
         headline: slow ? 'Slow UI update detected' : 'Runtime error captured',
-        explanation: 'Runtime Intelligence reduced the captured diagnostic events into one developer-focused finding.',
+        explanation: 'This finding combines the relevant runtime signals for you. The raw evidence remains available only when deeper forensic detail is needed.',
         problem,
         likelyCause,
         confidence: _strengthText(rootCause),
