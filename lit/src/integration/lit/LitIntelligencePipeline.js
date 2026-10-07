@@ -16,9 +16,25 @@ function _eventRef(event) {
     }) : null;
 }
 
-function _freezePresentation(value) {
-    if (!value || typeof value !== 'object') return value;
-    for (const child of Object.values(value)) _freezePresentation(child);
+function _portableClone(value, memo = new WeakMap(), stack = new WeakSet()) {
+    if (value === null || typeof value !== 'object') return value;
+    if (stack.has(value)) return '[Circular]';
+    if (memo.has(value)) return memo.get(value);
+
+    const out = Array.isArray(value) ? [] : {};
+    memo.set(value, out);
+    stack.add(value);
+    for (const [key, child] of Object.entries(value)) {
+        out[key] = _portableClone(child, memo, stack);
+    }
+    stack.delete(value);
+    return out;
+}
+
+function _freezePresentation(value, seen = new WeakSet()) {
+    if (!value || typeof value !== 'object' || seen.has(value)) return value;
+    seen.add(value);
+    for (const child of Object.values(value)) _freezePresentation(child, seen);
     return Object.freeze(value);
 }
 
@@ -90,14 +106,15 @@ class LitIntelligencePipeline {
 
     recordVerification(verification) {
         if (!this.#analysisContext || !verification) return null;
+        const verificationSnapshot = _portableClone(verification);
         const capsule = this.#buildCapsule({
             ...this.#analysisContext,
-            verification,
+            verification: verificationSnapshot,
         });
-        this.#analysisContext = { ...this.#analysisContext, verification };
+        this.#analysisContext = { ...this.#analysisContext, verification: verificationSnapshot };
         this.#latest = _freezePresentation({
             ...this.#latest,
-            verification: { ...verification },
+            verification: verificationSnapshot,
             capsule,
             updatedAt: Date.now(),
         });
