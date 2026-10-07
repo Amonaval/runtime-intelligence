@@ -106,7 +106,6 @@ function createDeveloperIntelligenceSummary({ triggerEvent, incident, rootCause,
             available: true,
             eventCount: Array.isArray(incident.events) ? incident.events.length : 0,
             triggerType: _label(triggerEvent.type),
-            rootEventId: rootCause?.rootEventId || null,
         }),
         verification: verification ? Object.freeze({
             outcome: verification.outcome || null,
