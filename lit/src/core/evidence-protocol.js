@@ -79,14 +79,19 @@ function _cloneSnapshot(value, memo = new WeakMap(), stack = new WeakSet()) {
   if (value === null || typeof value !== 'object') return value;
   if (stack.has(value)) return '[Circular]';
   if (memo.has(value)) return memo.get(value);
+
   stack.add(value);
   const out = Array.isArray(value) ? [] : {};
   memo.set(value, out);
+
   if (Array.isArray(value)) {
     for (const item of value) out.push(_cloneSnapshot(item, memo, stack));
   } else {
-    for (const [key, item] of Object.entries(value)) out[key] = _cloneSnapshot(item, memo, stack);
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = _cloneSnapshot(item, memo, stack);
+    }
   }
+
   stack.delete(value);
   return out;
 }
@@ -125,22 +130,41 @@ function summarizeRuntimeValue(value, {
   if (Array.isArray(value)) return { type: 'array', summary: `Array[${value.length}]`, length: value.length, redacted: true };
   const allKeys = Object.keys(value);
   const keys = allKeys.slice(0, maxKeys);
-  return { type: 'object', summary: `{${keys.join(',')}${allKeys.length > maxKeys ? ',…' : ''}}`, keys, redacted: true };
+  return {
+    type: 'object',
+    summary: `{${keys.join(',')}${allKeys.length > maxKeys ? ',…' : ''}}`,
+    keys,
+    redacted: true,
+  };
 }
 
 function normalizeSource(source) {
   if (!source) return null;
   if (typeof source === 'string') return { file: source, line: null, column: null, functionName: null };
-  return { file: source.file || source.url || null, line: Number.isFinite(source.line) ? source.line : null, column: Number.isFinite(source.column) ? source.column : null, functionName: source.functionName || source.function || null };
+  return {
+    file: source.file || source.url || null,
+    line: Number.isFinite(source.line) ? source.line : null,
+    column: Number.isFinite(source.column) ? source.column : null,
+    functionName: source.functionName || source.function || null,
+  };
 }
 
 function normalizeOwner(owner) {
   if (!owner) return null;
-  return { id: owner.id || null, kind: owner.kind || 'component', name: owner.name || owner.label || null, instanceId: owner.instanceId || null, lifecycleGeneration: Number.isFinite(owner.lifecycleGeneration) ? owner.lifecycleGeneration : null, parentId: owner.parentId || null };
+  return {
+    id: owner.id || null,
+    kind: owner.kind || 'component',
+    name: owner.name || owner.label || null,
+    instanceId: owner.instanceId || null,
+    lifecycleGeneration: Number.isFinite(owner.lifecycleGeneration) ? owner.lifecycleGeneration : null,
+    parentId: owner.parentId || null,
+  };
 }
 
 function createEvidenceEvent(input, context = {}) {
-  if (!input || !_eventTypes.has(input.type)) throw new TypeError(`Unknown runtime evidence event type: ${input?.type}`);
+  if (!input || !_eventTypes.has(input.type)) {
+    throw new TypeError(`Unknown runtime evidence event type: ${input?.type}`);
+  }
   const evidence = _plainObject(input.evidence);
   const level = _evidenceLevels.has(evidence.level) ? evidence.level : EvidenceLevel.OBSERVATION;
   const attribution = _attributionQualities.has(evidence.attribution) ? evidence.attribution : AttributionQuality.UNKNOWN;
@@ -151,10 +175,19 @@ function createEvidenceEvent(input, context = {}) {
     sequence: Number.isFinite(input.sequence) ? input.sequence : (context.sequence ?? null),
     timestamp: Number.isFinite(input.timestamp) ? input.timestamp : (context.timestamp ?? Date.now()),
     type: input.type,
-    framework: { name: input.framework?.name || context.framework?.name || 'unknown', version: input.framework?.version || context.framework?.version || null, adapterVersion: input.framework?.adapterVersion || context.framework?.adapterVersion || null },
+    framework: {
+      name: input.framework?.name || context.framework?.name || 'unknown',
+      version: input.framework?.version || context.framework?.version || null,
+      adapterVersion: input.framework?.adapterVersion || context.framework?.adapterVersion || null,
+    },
     owner: normalizeOwner(input.owner),
     source: normalizeSource(input.source),
-    correlation: { traceId: input.correlation?.traceId || null, interactionId: input.correlation?.interactionId || null, parentEventId: input.correlation?.parentEventId || null, causedByEventId: input.correlation?.causedByEventId || null },
+    correlation: {
+      traceId: input.correlation?.traceId || null,
+      interactionId: input.correlation?.interactionId || null,
+      parentEventId: input.correlation?.parentEventId || null,
+      causedByEventId: input.correlation?.causedByEventId || null,
+    },
     evidence: { level, attribution, confidence },
     payload: _cloneSnapshot(_plainObject(input.payload)),
   };
@@ -182,4 +215,15 @@ function validateEvidenceEvent(event, { resolveReference = null } = {}) {
   return { valid: errors.length === 0, errors };
 }
 
-export { SCHEMA_VERSION, EvidenceLevel, AttributionQuality, CapabilitySupport, FrameworkCapability, RuntimeEventType, RuntimeValueCapture, summarizeRuntimeValue, createEvidenceEvent, validateEvidenceEvent };
+export {
+  SCHEMA_VERSION,
+  EvidenceLevel,
+  AttributionQuality,
+  CapabilitySupport,
+  FrameworkCapability,
+  RuntimeEventType,
+  RuntimeValueCapture,
+  summarizeRuntimeValue,
+  createEvidenceEvent,
+  validateEvidenceEvent,
+};
