@@ -1,68 +1,46 @@
 # Mission 09 — React Production Adapter
 
-Status: COMPLETE
+Status: COMPLETE + HARDENED
 
 ## Goal
 
-Prove the framework-neutral runtime intelligence architecture against React without forcing React to imitate Lit lifecycle semantics.
+Prove the framework-neutral runtime intelligence architecture against React without forcing React to imitate Lit semantics.
 
-The React adapter is production-safe, dependency-free and based only on public/explicit integration points.
+The adapter is dependency-free at runtime and uses only public/explicit integration points.
 
 ## Delivered
 
 - `src/adapter/react/ReactAdapter.js`
-  - framework-neutral `FrameworkAdapter v2` implementation for React;
   - stable opaque instance tokens with lifecycle generations;
-  - explicit mount/unmount evidence for instrumented component boundaries;
+  - explicit mount/unmount evidence;
   - React Profiler-compatible callback bridge;
   - explicit update-request and state-change instrumentation;
   - effect lifecycle diagnostics;
   - resource acquire/release evidence compatible with Mission 06;
-  - capability resolver for downstream evidence-strength capping;
+  - capability resolver for downstream certainty capping;
   - no React Fiber/private internals;
-  - no monkey-patching React;
+  - no React monkey-patching;
   - no runtime dependency on `react` or `react-dom`.
 
 - `test/unit/react-adapter.test.mjs`
-  - capability honesty;
-  - lifecycle generation isolation;
+  - lifecycle isolation;
   - Profiler timing;
-  - single-request structural correlation;
-  - concurrent/batched-request ambiguity;
-  - state evidence honesty;
-  - resource ownership;
+  - structural single-request parenting;
+  - batched/concurrent ambiguity;
+  - state/resource attribution honesty;
+  - resource cleanup after disconnect;
   - effect lifecycle;
-  - late cleanup during unmount ordering;
-  - reconnect isolation;
-  - invalid-token fail-closed behavior;
-  - duplicate connect idempotence;
-  - structural diagnostics state.
+  - capability resolver behavior;
+  - fail-closed invalid tokens;
+  - diagnostics callback isolation.
 
-- `src/index.js`
-  - public `ReactAdapter` / `reactAdapter` export.
-
-- `package.json`
-  - direct `./adapter/react` export;
-  - Lit peer dependency marked optional so React-only consumers are not forced to install Lit;
-  - package description/keywords updated to reflect the framework-neutral direction.
+- package/barrel exports from the initial Mission 09 commit remain unchanged.
 
 ## React integration model
 
-The adapter intentionally does not import React. A React application supplies a stable opaque token, normally from `useRef({})`.
+A React application owns the React APIs. The adapter only receives signals.
 
-```text
-React component boundary
-       ↓
-stable useRef token
-       ↓
-effect mount / cleanup
-       ↓
-ReactAdapter owner lifecycle
-       ↓
-UREP
-```
-
-A typical integration shape is:
+Typical component identity:
 
 ```js
 const runtimeToken = useRef({});
@@ -73,22 +51,26 @@ useEffect(() => {
     source: { file: '/src/ProductEditor.jsx' },
   });
 
-  return () => {
-    reactAdapter.disconnect(runtimeToken.current);
-  };
+  return () => reactAdapter.disconnect(runtimeToken.current);
 }, []);
 ```
 
-The token is not a DOM node and not a Fiber object. It is only a stable application-owned identity handle.
+Profiler integration:
+
+```js
+const onRender = reactAdapter.createProfilerCallback(runtimeToken.current);
+```
+
+The callback is compatible with React Profiler's public `onRender` shape.
 
 ## Capability model
 
-Default adapter capability declaration:
+Default:
 
 ```text
 owner-lifecycle       partial
 update-lifecycle      partial
-update-cause          partial
+update-cause          unsupported
 state-change          partial
 render-timing         partial
 source-location       partial
@@ -97,126 +79,142 @@ resource-ownership    partial
 effect-lifecycle      partial
 ```
 
-`render-timing` becomes `framework-reported` only when the adapter is created with:
+When constructed with:
 
 ```js
 new ReactAdapter({ profilingEnabled: true })
 ```
 
-This distinction is intentional because React's normal production build does not enable Profiler timing by default. Applications that use a profiling-enabled React production build can opt into the stronger capability declaration.
+`render-timing` becomes `framework-reported`.
 
-All other capability defaults remain conservative. A fully controlled integration may explicitly override individual capabilities through `options.capabilities` only when that deployment can actually prove stronger coverage.
+### Why update-cause is unsupported
 
-## Profiler bridge
-
-The adapter exposes a callback compatible with React Profiler's public `onRender` signature:
-
-```js
-const onRender = reactAdapter.createProfilerCallback(runtimeToken.current);
-```
-
-The callback records:
+The adapter may observe:
 
 ```text
-profiler id
-phase
-actual duration
-base duration
-start time
-commit time
+instrumented update request
+        ↓
+later React Profiler commit
 ```
 
-It emits `component.update.completed`.
+but React concurrency and batching mean that this does not prove one-to-one causality.
 
-### Important correlation rule
-
-React concurrent rendering and batching mean multiple scheduled updates may contribute to one commit.
-
-Therefore:
+With one pending request, the adapter may use:
 
 ```text
-1 pending explicit request
-    → may become parentEventId structural context
+parentEventId = request event
+```
 
-2+ pending requests
-    → no single parent is selected
+as structural context.
 
+It never synthesizes:
+
+```text
 causedByEventId
-    → never synthesized by the adapter
 ```
 
-The adapter does not claim that one setter/dispatch definitely caused a specific commit.
+For multiple pending requests, it does not choose one parent.
 
-## Update and state instrumentation
+## Mission 09 hardening
 
-`recordUpdateRequested()` records that an explicitly instrumented application path scheduled/requested work.
-
-`recordStateChange()` records an explicitly observed state value change.
-
-These stay at observation-level evidence. They do not become causal attribution merely because they occurred before a Profiler commit.
-
-State values flow through the existing Mission 07 enterprise privacy boundary when emitted to the normal `EvidenceStore`.
-
-## Effect lifecycle
-
-React effect lifecycle is represented as diagnostic evidence:
+The initial implementation had one unsafe certainty path:
 
 ```text
-react.effect.started
-react.effect.cleanup
+explicit resource wrapper
+→ deterministic attribution
 ```
 
-The adapter provides:
+while adapter-wide resource ownership was only:
 
-```js
-createEffectBridge(token, effectId)
+```text
+resource-ownership = partial
 ```
 
-Cleanup remains recordable even after owner disconnect so different React cleanup ordering does not silently lose late cleanup evidence.
+That could become unsafe if Mission 06 were used without the adapter capability resolver.
+
+The hardened adapter now fails safe at the event level:
+
+```text
+explicit instrumentation + no source
+→ attribution = unknown
+
+explicit instrumentation + source location
+→ attribution = source-attributed
+```
+
+This applies to state, resource and effect instrumentation.
+
+The adapter may still expose a capability resolver, but correctness no longer depends on every consumer remembering to install it.
+
+## Evidence law
+
+React-specific instrumentation follows the same project rules:
+
+```text
+Profiler timing
+→ framework-reported timing fact
+
+instrumented update request
+→ observed scheduled/requested work
+
+single pending request
+→ structural parent context only
+
+state observation before commit
+→ not render causality
+
+resource wrapper observed acquisition
+→ explicit local fact
+→ not framework-wide deterministic ownership
+
+resource active after owner cleanup
+→ Mission 06 determines violation certainty
+```
+
+Observability limits cap claims.
+
+## Profiler safety
+
+`createProfilerCallback()` isolates diagnostics failures:
+
+```text
+diagnostic store failure
+≠
+React onRender failure
+```
+
+The callback returns `null` on diagnostic failure instead of throwing into the host rendering path.
+
+Direct explicit adapter calls remain normal API calls and may surface configuration/programming errors.
 
 ## Resource ownership
 
-Explicitly instrumented resources can emit:
+Resources still use standard UREP events:
 
 ```text
 resource.acquired
 resource.released
 ```
 
-Examples include:
+Late release remains recordable after owner disconnect so React cleanup ordering does not silently lose cleanup evidence.
 
-```text
-event listeners
-timers
-animation frames
-observers
-AbortController/fetch
-WebSocket
-workers
-subscriptions
-```
-
-The individual acquire/release events can be deterministic because the wrapper knows exactly when it acquired or released the resource.
-
-However the adapter-level capability remains:
+The adapter-level capability remains:
 
 ```text
 resource-ownership = partial
 ```
 
-This is critical for Mission 06. The Resource Ownership Ledger can use:
+and the Resource Ownership Ledger can additionally use:
 
 ```js
 reactAdapter.createCapabilityResolver()
 ```
 
-to cap lifetime-violation certainty to what the React integration really supports.
-
-Explicit local instrumentation cannot silently upgrade framework-wide resource ownership coverage.
+for framework-level certainty capping.
 
 ## Strict Mode / reconnect behavior
 
-The same opaque token keeps the same physical `instanceId`, but every connect after a disconnect gets a new lifecycle generation:
+The same opaque token keeps its physical instance identity while each reconnect receives a new lifecycle generation:
 
 ```text
 react-7-life-1
@@ -224,7 +222,7 @@ react-7-life-2
 react-7-life-3
 ```
 
-This prevents development Strict Mode mount/cleanup/remount behavior or real reconnects from collapsing separate ownership windows.
+This keeps separate ownership windows from collapsing together.
 
 ## Production-safety decisions
 
@@ -232,76 +230,44 @@ Mission 09 deliberately does not use:
 
 - Fiber traversal;
 - React DevTools global hooks;
-- private renderer internals;
+- renderer internals;
 - scheduler monkey-patching;
-- patched `useState` / `useReducer`;
+- patched hooks;
 - patched `createElement`;
 - automatic dependency introspection.
 
-Those approaches could increase coverage but would make the adapter fragile across React releases and undermine the evidence-quality model.
-
-## Evidence law
-
-React adapter events follow the same project invariant:
-
-**observability limits cap claims.**
-
-Examples:
-
-```text
-Profiler callback happened
-→ framework-reported commit timing
-
-instrumented set/dispatch path happened
-→ observed update request
-
-state observation happened before commit
-→ temporal/structural context only
-
-resource acquired in explicit wrapper
-→ deterministic acquisition event
-
-resource still active after owner cleanup
-→ Mission 06 decides violation certainty using adapter capability
-```
-
-No React-specific bridge may promote correlation to causality by convention.
-
 ## Validation
 
-Focused Mission 09 adapter tests were executed with Node's built-in test runner in an isolated ESM harness:
+Focused hardened Mission 09 suite:
 
-**14 passed, 0 failed**
+**16 passed, 0 failed**
 
-The tests exercise the adapter contract without importing React itself, which is intentional because the adapter has no React runtime dependency.
+The tests run with Node's built-in test runner in an isolated ESM harness and intentionally do not import React.
 
-A full checked-out repository test run and a browser React application integration run are not claimed in this connector environment.
+A full checked-out repository test run and browser React application integration run are not claimed in the connector environment.
 
 ## Known limits
 
-- Automatic component coverage is not provided; applications must instrument the boundaries they care about.
-- Standard React production builds do not provide Profiler timing callbacks by default.
-- A profiling-enabled production build adds runtime overhead and should be enabled selectively.
-- React concurrent rendering means an explicit update request cannot always be mapped one-to-one to a commit.
-- Hook dependency causality is not inferred.
-- Server Components / server rendering lifecycle are not covered by this client adapter.
-- No Fiber/private React internals are used.
-- No React-specific UI/panel integration is added in this mission.
+- Application boundaries must opt into instrumentation.
+- Standard React production builds may not expose Profiler timing unless profiling support is enabled.
+- Profiling has overhead and should be enabled selectively.
+- Concurrent rendering prevents reliable one-request-to-one-commit causal mapping.
+- Hook dependency causality is unsupported.
+- Server Components / server-rendering lifecycle are outside this client adapter.
+- Final generic package/repository naming is separate from this adapter mission.
 
-## Architecture proof achieved
-
-Mission 09 demonstrates that the core does not depend on Lit semantics:
+## Architecture proof
 
 ```text
 Lit Adapter ───┐
-               ├─→ UREP → Privacy → Graph → Root Cause
-React Adapter ─┘              ↓
-                        Recorder / Verify
-                        Ledger / Rules
-                        Evidence Capsule
+               ├─→ UREP → Privacy → Evidence Graph → Root Cause
+React Adapter ─┘                ↓
+                         Recorder / Verify
+                         Ledger / Rules
+                         Evidence Capsule
 ```
 
-The same downstream intelligence layers can consume a second framework while preserving different capability strengths.
+The same downstream intelligence stack now accepts a second framework while preserving framework-specific evidence limits.
 
 ## Next mission
 
@@ -309,4 +275,4 @@ Mission 10 — Vue Production Adapter
 
 Effort: MEDIUM-HIGH
 
-Goal: add a Vue adapter using Vue's public lifecycle/watch/performance integration points while preserving the same capability-honesty and framework-neutral evidence contract.
+Goal: add Vue support using public lifecycle/watch/performance integration points while preserving the same capability-honesty rules.

@@ -26,6 +26,14 @@ function _sourceAttribution(source) {
   return source ? AttributionQuality.SOURCE_ATTRIBUTED : AttributionQuality.UNKNOWN;
 }
 
+function _instrumentedEvidence(source, level = EvidenceLevel.OBSERVATION) {
+  return {
+    level,
+    attribution: _sourceAttribution(source),
+    confidence: source ? 0.9 : 0.7,
+  };
+}
+
 class ReactAdapter extends FrameworkAdapter {
   #profilingEnabled;
   #owners = new WeakMap();
@@ -39,11 +47,11 @@ class ReactAdapter extends FrameworkAdapter {
     super({
       ...options,
       framework: 'react',
-      adapterVersion: '2.0',
+      adapterVersion: '2.1',
       capabilities: {
         [FrameworkCapability.OWNER_LIFECYCLE]: CapabilitySupport.PARTIAL,
         [FrameworkCapability.UPDATE_LIFECYCLE]: CapabilitySupport.PARTIAL,
-        [FrameworkCapability.UPDATE_CAUSE]: CapabilitySupport.PARTIAL,
+        [FrameworkCapability.UPDATE_CAUSE]: CapabilitySupport.UNSUPPORTED,
         [FrameworkCapability.STATE_CHANGE]: CapabilitySupport.PARTIAL,
         [FrameworkCapability.RENDER_TIMING]: profilingEnabled
           ? CapabilitySupport.FRAMEWORK_REPORTED
@@ -150,11 +158,7 @@ class ReactAdapter extends FrameworkAdapter {
       owner,
       source,
       correlation: interactionId ? { interactionId } : undefined,
-      evidence: {
-        level: EvidenceLevel.OBSERVATION,
-        attribution: _sourceAttribution(source),
-        confidence: source ? 0.9 : 0.7,
-      },
+      evidence: _instrumentedEvidence(source),
       payload: {
         reason: String(reason || 'instrumented-update'),
         stateKey: stateKey == null ? null : String(stateKey),
@@ -173,16 +177,12 @@ class ReactAdapter extends FrameworkAdapter {
 
   recordStateChange(target, key, oldValue, newValue, { source = null } = {}) {
     const owner = this.#owners.get(target);
-    if (!owner?.connected) return null;
+    if (!owner?.connected || key == null) return null;
 
     return this.emit(RuntimeEventType.STATE_CHANGED, {
       owner,
       source,
-      evidence: {
-        level: EvidenceLevel.OBSERVATION,
-        attribution: _sourceAttribution(source),
-        confidence: source ? 0.9 : 0.7,
-      },
+      evidence: _instrumentedEvidence(source),
       payload: {
         property: String(key),
         oldValue: summarizeRuntimeValue(oldValue),
@@ -236,16 +236,21 @@ class ReactAdapter extends FrameworkAdapter {
   }
 
   createProfilerCallback(target, { source = null } = {}) {
-    return (id, phase, actualDuration, baseDuration, startTime, commitTime) =>
-      this.recordProfilerRender(target, {
-        id,
-        phase,
-        actualDuration,
-        baseDuration,
-        startTime,
-        commitTime,
-        source,
-      });
+    return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+      try {
+        return this.recordProfilerRender(target, {
+          id,
+          phase,
+          actualDuration,
+          baseDuration,
+          startTime,
+          commitTime,
+          source,
+        });
+      } catch {
+        return null;
+      }
+    };
   }
 
   recordEffectStarted(target, effectId, { source = null, kind = 'effect' } = {}) {
@@ -254,11 +259,7 @@ class ReactAdapter extends FrameworkAdapter {
     return this.emit(RuntimeEventType.DIAGNOSTIC, {
       owner,
       source,
-      evidence: {
-        level: EvidenceLevel.OBSERVATION,
-        attribution: AttributionQuality.FRAMEWORK_REPORTED,
-        confidence: 0.95,
-      },
+      evidence: _instrumentedEvidence(source),
       payload: {
         diagnostic: 'react.effect.started',
         effectId: String(effectId),
@@ -273,11 +274,7 @@ class ReactAdapter extends FrameworkAdapter {
     return this.emit(RuntimeEventType.DIAGNOSTIC, {
       owner,
       source,
-      evidence: {
-        level: EvidenceLevel.OBSERVATION,
-        attribution: AttributionQuality.FRAMEWORK_REPORTED,
-        confidence: 0.95,
-      },
+      evidence: _instrumentedEvidence(source),
       payload: {
         diagnostic: 'react.effect.cleanup',
         effectId: String(effectId),
@@ -297,11 +294,7 @@ class ReactAdapter extends FrameworkAdapter {
     return this.emit(RuntimeEventType.RESOURCE_ACQUIRED, {
       owner,
       source,
-      evidence: {
-        level: EvidenceLevel.ATTRIBUTION,
-        attribution: AttributionQuality.DETERMINISTIC,
-        confidence: 1,
-      },
+      evidence: _instrumentedEvidence(source, EvidenceLevel.ATTRIBUTION),
       payload: {
         resourceId: String(resourceId),
         resourceType: String(resourceType || 'unknown'),
@@ -321,11 +314,7 @@ class ReactAdapter extends FrameworkAdapter {
     return this.emit(RuntimeEventType.RESOURCE_RELEASED, {
       owner,
       source,
-      evidence: {
-        level: EvidenceLevel.ATTRIBUTION,
-        attribution: AttributionQuality.DETERMINISTIC,
-        confidence: 1,
-      },
+      evidence: _instrumentedEvidence(source, EvidenceLevel.OBSERVATION),
       payload: {
         resourceId: String(resourceId),
         resourceType: String(resourceType || 'unknown'),
@@ -335,10 +324,10 @@ class ReactAdapter extends FrameworkAdapter {
   }
 
   createEffectBridge(target, effectId, { source = null, kind = 'effect' } = {}) {
-    return {
+    return Object.freeze({
       start: () => this.recordEffectStarted(target, effectId, { source, kind }),
       cleanup: () => this.recordEffectCleanup(target, effectId, { source, kind }),
-    };
+    });
   }
 
   createCapabilityResolver() {
