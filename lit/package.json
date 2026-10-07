@@ -1,7 +1,7 @@
 {
   "name": "lit-debug-suite",
   "version": "1.0.0",
-  "description": "Zero-overhead debug suite for LitElement apps. Drop-in mixin, floating panel, Chrome extension.",
+  "description": "Runtime intelligence and diagnostics foundation with framework adapters for Lit and React.",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -10,6 +10,9 @@
     },
     "./panel": {
       "import": "./src/panel/LdsDebugPanel.js"
+    },
+    "./adapter/react": {
+      "import": "./src/adapter/react/ReactAdapter.js"
     },
     "./custom/ui-platform": {
       "import": "./custom/ui-platform/index.js"
@@ -24,8 +27,10 @@
     "test": "node --test test/unit/*.test.mjs"
   },
   "keywords": [
+    "runtime-intelligence",
+    "diagnostics",
     "lit",
-    "debug",
+    "react",
     "performance",
     "web-components",
     "devtools"
@@ -33,6 +38,11 @@
   "license": "MIT",
   "peerDependencies": {
     "lit": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "lit": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.0.0",
