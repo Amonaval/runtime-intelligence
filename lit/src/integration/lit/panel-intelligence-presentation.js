@@ -14,11 +14,20 @@ function _row(doc, label, value) {
     return row;
 }
 
+function _mountPoint(panel) {
+    const root = panel?.shadowRoot;
+    if (!root) return null;
+    return root.querySelector('.tab-content')
+        || root.querySelector('.panel-content')
+        || root.querySelector('.content')
+        || root.querySelector('main')
+        || root;
+}
+
 function _render(panel, target) {
     const doc = target?.document;
-    if (!doc || !panel?.shadowRoot) return;
-    const content = panel.shadowRoot.querySelector('.tab-content');
-    if (!content) return;
+    const mount = _mountPoint(panel);
+    if (!doc || !mount) return;
 
     let card = panel.shadowRoot.querySelector('#lds-runtime-intelligence-banner');
     if (!card) {
@@ -29,13 +38,13 @@ function _render(panel, target) {
             'border-left:3px solid #89b4fa',
             'border-radius:7px',
             'padding:10px 12px',
-            'margin-bottom:10px',
+            'margin:8px 0 10px',
             'background:#181825',
             'color:#cdd6f4',
             'font-size:11px',
             'line-height:1.45',
         ].join(';');
-        content.prepend(card);
+        mount.prepend(card);
     }
 
     card.replaceChildren();
@@ -59,7 +68,7 @@ function _render(panel, target) {
 
     if (model.status === 'ready') {
         card.appendChild(_text(doc, 'div', model.explanation, 'margin-top:7px;color:#bac2de;'));
-        const action = _row(doc, 'Try this', model.nextAction);
+        const action = _row(doc, 'How to use', model.nextAction);
         if (action) card.appendChild(action);
         return;
     }
@@ -69,7 +78,7 @@ function _render(panel, target) {
         ['Likely cause', model.likelyCause],
         ['Where', model.source],
         ['Impact', Array.isArray(model.impact) ? model.impact.join(' · ') : null],
-        ['Next', model.nextAction],
+        ['Do next', model.nextAction],
         ['Verified', model.verification?.outcome || null],
     ]) {
         const row = _row(doc, label, value);
@@ -81,13 +90,13 @@ function _render(panel, target) {
         const details = doc.createElement('details');
         details.style.cssText = 'margin-top:8px;border-top:1px solid #313244;padding-top:7px;color:#a6adc8;';
         const summary = doc.createElement('summary');
-        summary.textContent = `Technical evidence (${technical.eventCount || 0} captured signals)`;
+        summary.textContent = `Technical evidence (${technical.eventCount || 0} signals)`;
         summary.style.cssText = 'cursor:pointer;user-select:none;color:#89b4fa;';
         details.appendChild(summary);
         details.appendChild(_text(
             doc,
             'div',
-            'Raw UREP data is intentionally hidden from the main view. Use window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule() only when you need forensic/AI handoff evidence.',
+            'You normally do not need this. Full privacy-filtered evidence is available with window.__LDS_INTELLIGENCE_PIPELINE__.exportCapsule() for deep debugging or AI handoff.',
             'margin-top:6px;color:#a6adc8;',
         ));
         card.appendChild(details);
