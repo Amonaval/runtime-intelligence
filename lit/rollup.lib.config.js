@@ -2,7 +2,6 @@
  * Rollup config for the publishable npm library output.
  * Emits ES modules to lib/ so bundlers can tree-shake individual tools.
  */
-
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 export default [
@@ -15,6 +14,17 @@ export default [
             format: 'esm',
             preserveModules: true,
             preserveModulesRoot: 'src',
+        },
+        plugins: [nodeResolve()],
+    },
+    // Panel remains a separate, opt-in entry point so browser UI code does not
+    // enter the root runtime-intelligence barrel.
+    {
+        input: 'src/panel/LdsDebugPanel.js',
+        external: [/^lit(?:\/|$)/],
+        output: {
+            file: 'lib/panel/LdsDebugPanel.js',
+            format: 'esm',
         },
         plugins: [nodeResolve()],
     },
