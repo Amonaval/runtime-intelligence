@@ -33,19 +33,6 @@ function _getDebugFlag() {
 }
 
 function _toolEnabled(toolKey) {
-    window.__LDS_PERF_ENABLED__    = true
-    window.__LDS_PROP_DEBUG__      = '*'   // all components
-    window.__LDS_PROP_DEBUG__      = 'my-element'  // targeted
-    window.__LDS_INSPECTOR__       = true
-    window.__LDS_EVENTS_TRACE__    = true
-    window.__LDS_SLOW_API__        = true
-    window.__LDS_CONSOLE_ENABLED__ = true
-    window.__LDS_VITALS_ENABLED__  = true
-    window.__LDS_NETWORK_ENABLED__ = true
-    window.__LDS_CYCLE_DETECT__        = true
-    window.__LDS_RESOURCE_TRACKER__   = true   // Phase 9 resource lifetime model
-    window.__LDS_WORKFLOW_BASELINE__  = true   // Phase 10 workflow baseline tracking
-
     if (typeof window === 'undefined') return false;
 
     // Per-tool standalone flags — work without master flag
