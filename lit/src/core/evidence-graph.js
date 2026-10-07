@@ -7,15 +7,6 @@ const EdgeRelation = Object.freeze({
   TRACE_CONTEXT: 'trace-context',
 });
 
-const _levelRank = Object.freeze({
-  [EvidenceLevel.OBSERVATION]: 1,
-  [EvidenceLevel.CORRELATION]: 2,
-  [EvidenceLevel.ATTRIBUTION]: 3,
-  [EvidenceLevel.LIFETIME_VIOLATION]: 4,
-  [EvidenceLevel.RETAINER_CONFIRMED]: 5,
-  [EvidenceLevel.CAUSALITY_CONFIRMED]: 6,
-});
-
 function _edgeEvidence(event, relation) {
   if (relation === EdgeRelation.CAUSES) {
     return Object.freeze({
@@ -25,10 +16,8 @@ function _edgeEvidence(event, relation) {
     });
   }
   if (relation === EdgeRelation.PARENT) {
-    const level = (_levelRank[event.evidence?.level] || 0) >= _levelRank[EvidenceLevel.ATTRIBUTION]
-      ? EvidenceLevel.ATTRIBUTION : EvidenceLevel.CORRELATION;
     return Object.freeze({
-      level,
+      level: EvidenceLevel.CORRELATION,
       attribution: event.evidence?.attribution || AttributionQuality.UNKNOWN,
       confidence: event.evidence?.confidence ?? null,
     });
@@ -115,8 +104,6 @@ class EvidenceGraph {
       groups.get(value).push(event);
     }
     for (const group of groups.values()) {
-      // `events` is ordered, so the earliest event is the only safe context anchor.
-      // Interaction markers that arrive later remain correlated, never back-linked.
       const anchor = group[0];
       for (const event of group) {
         if (event.id === anchor.id || this.#hasDirectPath(anchor.id, event.id)) continue;

@@ -5,6 +5,14 @@ const RecorderState = Object.freeze({
   STOPPED: 'stopped',
 });
 
+function _positiveInt(value, fallback, minimum = 1) {
+  return Number.isFinite(value) ? Math.max(minimum, Math.floor(value)) : fallback;
+}
+
+function _nonNegativeInt(value, fallback = 0) {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
+}
+
 function _freezeEvents(events) {
   return Object.freeze([...events]);
 }
@@ -60,8 +68,11 @@ class IncidentFlightRecorder {
     if (autoFreeze != null && typeof autoFreeze !== 'function') {
       throw new TypeError('autoFreeze must be a function when provided.');
     }
+    if (typeof clock !== 'function') {
+      throw new TypeError('IncidentFlightRecorder clock must be a function.');
+    }
     this.#store = store;
-    this.#maxEvents = Math.max(1, Math.floor(maxEvents));
+    this.#maxEvents = _positiveInt(maxEvents, 300);
     this.#maxAgeMs = Number.isFinite(maxAgeMs) && maxAgeMs >= 0 ? maxAgeMs : 30_000;
     this.#autoFreeze = autoFreeze;
     this.#clock = clock;
@@ -136,7 +147,7 @@ class IncidentFlightRecorder {
     const trigger = triggerEvent || (triggerEventId
       ? this.#events.find(event => event.id === triggerEventId) || null
       : this.#events.at(-1) || null);
-    const remaining = Math.max(0, Math.floor(postTriggerEvents));
+    const remaining = _nonNegativeInt(postTriggerEvents, 0);
 
     this.#pending = {
       id: `incident-${++this.#incidentSequence}`,

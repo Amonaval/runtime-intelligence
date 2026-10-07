@@ -4,6 +4,10 @@ import {
   applyPrivacyPolicyToEvidenceInput,
 } from './enterprise-privacy.js';
 
+function _boundedEntries(value, fallback = 1000) {
+  return Number.isFinite(value) ? Math.max(50, Math.floor(value)) : fallback;
+}
+
 /**
  * Bounded framework-neutral event store with bounded eviction tombstones.
  * Correlation references have explicit states: present, evicted, or unknown.
@@ -26,7 +30,8 @@ class EvidenceStore {
     clock = () => Date.now(),
     privacyPolicy = ENTERPRISE_SAFE_PRIVACY_POLICY,
   } = {}) {
-    this.#maxEntries = Math.max(50, maxEntries);
+    if (typeof clock !== 'function') throw new TypeError('EvidenceStore clock must be a function.');
+    this.#maxEntries = _boundedEntries(maxEntries);
     this.#clock = clock;
     this.#privacyPolicy = privacyPolicy === false ? null : (privacyPolicy || ENTERPRISE_SAFE_PRIVACY_POLICY);
   }

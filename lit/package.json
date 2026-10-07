@@ -8,23 +8,18 @@
     ".": {
       "import": "./src/index.js"
     },
-    "./panel": {
-      "import": "./src/panel/LdsDebugPanel.js"
+    "./adapter/lit": {
+      "import": "./src/adapter/lit/LitAdapter.js"
     },
     "./adapter/react": {
       "import": "./src/adapter/react/ReactAdapter.js"
-    },
-    "./custom/ui-platform": {
-      "import": "./custom/ui-platform/index.js"
     }
   },
   "scripts": {
-    "build:extension": "rollup -c rollup.extension.config.js",
-    "build:extension:prod": "NODE_ENV=production rollup -c rollup.extension.config.js",
+    "test": "node --test test/unit/*.test.mjs",
+    "test:smoke": "node -e \"import('./src/index.js').then(m=>{if(!m.EvidenceStore||!m.LitAdapter||!m.ReactAdapter)process.exit(1)})\"",
     "build:lib": "rollup -c rollup.lib.config.js",
-    "build": "npm run build:lib && npm run build:extension:prod",
-    "serve": "npx serve . -p 8080",
-    "test": "node --test test/unit/*.test.mjs"
+    "build": "npm run test && npm run test:smoke && npm run build:lib"
   },
   "keywords": [
     "runtime-intelligence",

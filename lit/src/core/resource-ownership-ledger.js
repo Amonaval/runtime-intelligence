@@ -22,12 +22,6 @@ const ResourceFindingKind = Object.freeze({
   SUSPECTED_LIFETIME_VIOLATION: 'resource-lifetime-suspected',
 });
 
-function _resourceStillActive(status) {
-  return status === ResourceStatus.ACTIVE
-    || status === ResourceStatus.VIOLATION_CONFIRMED
-    || status === ResourceStatus.VIOLATION_SUSPECTED;
-}
-
 const RuntimeResourceKind = Object.freeze({
   EVENT_LISTENER: 'event-listener',
   TIMEOUT: 'timeout',
@@ -51,6 +45,16 @@ const _supportRank = Object.freeze({
   [CapabilitySupport.DETERMINISTIC]: 4,
 });
 const _validSupport = new Set(Object.values(CapabilitySupport));
+
+function _positiveInt(value, fallback) {
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : fallback;
+}
+
+function _resourceStillActive(status) {
+  return status === ResourceStatus.ACTIVE
+    || status === ResourceStatus.VIOLATION_CONFIRMED
+    || status === ResourceStatus.VIOLATION_SUSPECTED;
+}
 
 function _deepFreeze(value, seen = new WeakSet()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return value;
@@ -105,8 +109,8 @@ function _frameworkName(event) {
   return event?.framework?.name || 'unknown';
 }
 
-function _resourceKey(event, resourceId = _resourceId(event)) {
-  return resourceId ? `${_frameworkName(event)}:${resourceId}` : null;
+function _resourceKey(event, resourceId = _resourceId(event), ownerKey = _ownerKey(event?.owner)) {
+  return resourceId && ownerKey ? `${_frameworkName(event)}:${ownerKey}:${resourceId}` : null;
 }
 
 function _supportFromAttribution(attribution) {
@@ -177,8 +181,8 @@ class RuntimeResourceOwnershipLedger {
       throw new TypeError('onFinding must be a function when provided.');
     }
     this.#store = store;
-    this.#maxRecords = Math.max(1, Math.floor(maxRecords));
-    this.#maxFindings = Math.max(1, Math.floor(maxFindings));
+    this.#maxRecords = _positiveInt(maxRecords, 1000);
+    this.#maxFindings = _positiveInt(maxFindings, 500);
     this.#capabilityResolver = capabilityResolver;
     this.#onFinding = onFinding;
     this.#replayExisting = replayExisting;
@@ -203,7 +207,7 @@ class RuntimeResourceOwnershipLedger {
 
   ingest(event) {
     if (!event?.type) return Object.freeze([]);
-    if (event.id && this.#seen(event.id)) return Object.freeze([]);
+    if (event.id && this.#processedIds.has(event.id)) return Object.freeze([]);
     if (event.id) this.#rememberProcessed(event.id);
 
     let findings = [];
@@ -216,7 +220,7 @@ class RuntimeResourceOwnershipLedger {
     } else if (event.type === RuntimeEventType.RESOURCE_RELEASED) {
       this.#recordReleased(event);
     }
-    return Object.freeze(findings);
+    return Object.freeze(findings.filter(Boolean));
   }
 
   #recordOwnerCreated(event) {
@@ -262,7 +266,7 @@ class RuntimeResourceOwnershipLedger {
   #recordAcquired(event) {
     const resourceId = _resourceId(event);
     const ownerKey = _ownerKey(event.owner);
-    const key = _resourceKey(event, resourceId);
+    const key = _resourceKey(event, resourceId, ownerKey);
     if (!resourceId || !ownerKey || !key) {
       this.#untracked += 1;
       return [];
@@ -317,19 +321,37 @@ class RuntimeResourceOwnershipLedger {
 
   #recordReleased(event) {
     const resourceId = _resourceId(event);
-    const key = _resourceKey(event, resourceId);
-    if (!key) {
+    if (!resourceId) {
       this.#untracked += 1;
       return;
     }
-    const record = this.#records.get(key);
-    if (!record) {
-      this.#untracked += 1;
-      return;
-    }
+
+    const framework = _frameworkName(event);
     const releaseOwnerKey = _ownerKey(event.owner);
-    if (releaseOwnerKey && releaseOwnerKey !== record.ownerKey) {
-      this.#releaseMismatches += 1;
+    let key = _resourceKey(event, resourceId, releaseOwnerKey);
+    let record = key ? this.#records.get(key) : null;
+
+    if (!record && !releaseOwnerKey) {
+      const matches = [...this.#records.entries()].filter(([, item]) =>
+        item.framework === framework
+        && item.resourceId === resourceId
+        && _resourceStillActive(item.status)
+      );
+      if (matches.length === 1) [key, record] = matches[0];
+      else {
+        this.#untracked += 1;
+        return;
+      }
+    }
+
+    if (!record && releaseOwnerKey) {
+      const belongsElsewhere = [...this.#records.values()].some(item =>
+        item.framework === framework
+        && item.resourceId === resourceId
+        && _resourceStillActive(item.status)
+      );
+      if (belongsElsewhere) this.#releaseMismatches += 1;
+      else this.#untracked += 1;
       return;
     }
 
@@ -417,11 +439,10 @@ class RuntimeResourceOwnershipLedger {
     try {
       const resolved = this.#capabilityResolver(framework, capability, context);
       if (!_validSupport.has(resolved)) return CapabilitySupport.UNSUPPORTED;
-      support = _weakerSupport(support, resolved);
+      return _weakerSupport(support, resolved);
     } catch {
       return CapabilitySupport.UNSUPPORTED;
     }
-    return support;
   }
 
   toEvidenceInput(finding) {
@@ -433,9 +454,7 @@ class RuntimeResourceOwnershipLedger {
       framework: { name: finding.framework || 'unknown' },
       owner: _clone(finding.owner),
       source: _clone(finding.source),
-      correlation: {
-        parentEventId: finding.ownerDestroyedEventId || null,
-      },
+      correlation: { parentEventId: finding.ownerDestroyedEventId || null },
       evidence: _clone(finding.evidence),
       payload: {
         diagnostic: finding.kind,
@@ -450,11 +469,14 @@ class RuntimeResourceOwnershipLedger {
     });
   }
 
-  resource(resourceId, framework = null) {
+  resource(resourceId, framework = null, owner = null) {
     if (!resourceId) return null;
-    if (framework) return this.#snapshotRecord(this.#records.get(`${framework}:${resourceId}`));
+    const ownerKey = typeof owner === 'string' ? owner : _ownerKey(owner);
     for (const record of this.#records.values()) {
-      if (record.resourceId === resourceId) return this.#snapshotRecord(record);
+      if (record.resourceId !== resourceId) continue;
+      if (framework && record.framework !== framework) continue;
+      if (ownerKey && record.ownerKey !== ownerKey) continue;
+      return this.#snapshotRecord(record);
     }
     return null;
   }
@@ -468,9 +490,7 @@ class RuntimeResourceOwnershipLedger {
   }
 
   findings({ confirmed = null } = {}) {
-    return Object.freeze(this.#findings
-      .filter(item => confirmed == null || item.confirmed === confirmed)
-      .map(item => item));
+    return Object.freeze(this.#findings.filter(item => confirmed == null || item.confirmed === confirmed));
   }
 
   snapshot() {
@@ -512,12 +532,7 @@ class RuntimeResourceOwnershipLedger {
   }
 
   #snapshotRecord(record) {
-    if (!record) return null;
-    return _deepFreeze(_clone(record));
-  }
-
-  #seen(id) {
-    return this.#processedIds.has(id);
+    return record ? _deepFreeze(_clone(record)) : null;
   }
 
   #rememberProcessed(id) {
