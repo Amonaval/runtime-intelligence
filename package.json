@@ -1,0 +1,32 @@
+{
+  "name": "runtime-intelligence",
+  "version": "0.1.0",
+  "description": "Framework-neutral runtime intelligence with React, Lit and panel entry points.",
+  "type": "module",
+  "exports": {
+    "./core": "./lit/src/core/index.js",
+    "./react": "./lit/src/react/index.js",
+    "./lit": "./lit/src/lit/index.js",
+    "./panel": "./lit/src/panel/index.js",
+    "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lit/src",
+    "lit/custom"
+  ],
+  "scripts": {
+    "test": "npm --prefix lit test",
+    "test:smoke": "npm --prefix lit run test:smoke",
+    "build": "npm --prefix lit run build"
+  },
+  "peerDependencies": {
+    "lit": ">=3.0.0",
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "lit": { "optional": true },
+    "react": { "optional": true }
+  },
+  "license": "MIT"
+}
