@@ -2,174 +2,97 @@
 
 Last updated: 2026-10-10
 
----
+## Strategic direction
 
-## Strategic direction (confirmed)
+Runtime Intelligence is one reusable product with a framework-neutral core. Lit and React are consumers of the same evidence protocol, analyzers, root-cause engine, verification flow, and presentation contracts. TrustWeave is the first large React/Next.js dogfood consumer; it must not own a divergent copy of the toolkit.
 
-The system is intentionally **generic**: Lit + React now, Angular/Vue eventually. Do not narrow it back to Lit-only.
-
-Core product constraint:
-> The tool must feel simpler than the problem it is helping debug.
-
-Progression gate:
-> Before adding more architecture, prove that a developer using Lit/UI Platform can say: *"The baseline showed symptoms, but Intelligence connected them and gave me the right place to investigate faster."*
-
----
-
-## Architecture layers (current state)
+Target package boundary:
 
 ```
-UREP core (keep)
-├── evidence-protocol.js       — event schema, evidence ladder
-├── evidence-store.js          — bounded rolling store
-├── evidence-graph.js          — causal + structural graph
-├── root-cause.js              — grouper + scoring (FIXED this session)
-├── incident-flight-recorder.js — bounded freeze/resume
-├── evidence-capsule.js        — privacy-filtered AI export
-├── enterprise-privacy.js      — sanitization boundary
-└── source-resolver.js         — file:line attribution
-
-Framework adapters (keep, React coming soon)
-├── FrameworkAdapter.js        — generic base
-├── adapter/lit/LitAdapter.js  — Lit lifecycle → UREP
-└── adapter/react/ReactAdapter.js — React → UREP (ready for React work)
-
-Lit integration (keep + maintain)
-├── LitIntelligencePipeline.js        — orchestrator
-├── legacy-collector-bridge.js        — LdsErrorBoundary → UREP
-├── network-evidence-bridge.js        — network log → UREP
-├── developer-intelligence-summary.js — human-readable finding (FIXED this session)
-└── panel-intelligence-presentation.js — Intelligence tab (FIXED this session)
-
-Deferred (archive/ and future/)
-├── src/archive/diagnostic-policy.js  — over-abstracted gate; reconnect if dynamic budgets needed
-└── src/future/resource-ownership-ledger.js — resource lifetime violations; reconnect after memory.js UREP bridge
+runtime-intelligence
+├── @runtime-intelligence/core
+├── @runtime-intelligence/react
+├── @runtime-intelligence/lit
+└── @runtime-intelligence/panel   (optional UI)
 ```
 
----
+TrustWeave target consumption: `core + react + panel` in development only.
 
-## Missions 10A–10E — Developer Pain Point Series
+## Current state
 
-These five missions extend the tool beyond slow-render/error detection into the hardest daily
-developer problems. Each is independently releasable. All emit standard UREP events — the core
-(EvidenceGraph, RootCauseGrouper, IncidentFlightRecorder) processes them identically for
-Lit, React, and Vue.
+- UREP core, evidence store/graph, root-cause grouping, recorder, capsule, privacy and source resolution: complete.
+- Lit adapter + LitIntelligencePipeline: active.
+- ReactAdapter v2.1: active at the framework adapter boundary.
+- Mission 10A–10F developer-pain series: complete on canonical main, including the later Mission 10F evidence-semantics hardening.
+- Mission 11 runtime intelligence: synced from the user-provided ZIP into canonical main.
+  - BackgroundSessionStore
+  - FalcorCallGraph
+  - SequentialApiDetector
+  - network call-site stack capture
+  - session/background report plumbing
+- Mission 12 Opportunities advisor series: synced from the ZIP into canonical main.
+  - DOM duplication
+  - virtualization
+  - paint
+  - worker opportunity
+  - idle scheduling
+  - dedicated Opportunities presentation surface
+- Focused Mission 11 + 12 ZIP validation: 44/44 tests passing before reconciliation.
 
-| Mission | Status | Pain solved | Key file |
-|---|---|---|---|
-| **10B** Property Watch | ✅ Done | "Where is this property being set?" | `property-watch-manager.js` |
-| **10A** Cascade Tracker | Queued | "Why did 20 components re-render?" | `cascade-analyzer.js` |
-| **10C** Navigation+Orphan | Queued | "What's leaking after route change?" | `navigation-bridge.js` |
-| **10D** Network→State | Queued | "Which API call caused this spike?" | `network-state-correlator.js` |
-| **10E** Update Budget | Queued | "Something is over-reacting" | `update-budget-monitor.js` |
+## Immediate next mission — Package Boundary + React Dogfood
 
-See `lit/CLAUDE.md` for the full mission spec structure and `lit/docs/MISSION-10B-*.md` for an
-example of a completed mission doc.
+### Goal
 
-### Protocol events waiting to be wired (emit before defining new types)
-`DEPENDENCY_TRIGGERED` (10A), `NAVIGATION` (10C), `INTERACTION` (future), `BROWSER_FRAME` (future)
+Make `Amonaval/runtime-intelligence` the only implementation source used by TrustWeave and future apps.
 
----
+### Work
 
-## Immediate next missions
+1. Establish package/build boundaries for:
+   - `@runtime-intelligence/core`
+   - `@runtime-intelligence/react`
+   - `@runtime-intelligence/lit`
+   - `@runtime-intelligence/panel`
+2. Keep core free of React/Lit imports.
+3. Build a `ReactIntelligencePipeline` that composes the existing ReactAdapter with the same generic evidence store, graph/root-cause engine, recorder, advisors and verification model.
+4. Make the panel consume framework-neutral presentation data; framework-specific detail may be added through adapters/plugins.
+5. Replace TrustWeave's transitional vendored toolkit with the canonical package/product boundary.
+6. Keep TrustWeave integration hard-disabled outside development builds.
 
-### Mission A — Real UI Platform validation (P0, not yet done)
+### Validation target
 
-**This is the highest priority before any new features.**
+In TrustWeave development mode, prove that the canonical product can capture and surface at least:
+- React profiler render timing
+- component owner lifecycle
+- effect/resource lifecycle where explicitly instrumented
+- network/runtime evidence available to the generic core
+- update-budget/opportunity signals applicable to React
+- one trustworthy root-cause/intelligence finding
 
-Run two specific scenarios in UI Platform with `npm link`:
+Then compare usefulness against the existing TrustWeave vendored toolkit and remove the latter once the canonical path is at least feature-equivalent for the scenarios we use.
 
-**Scenario 1: Runtime error**
-1. Enable: `window.__LDS_INTELLIGENCE_ENABLED__ = true; window.__LDS_DEBUG__ = true`
-2. Trigger a known RufElement render error
-3. Open the `✨ Intelligence` tab
-4. Check: does "Problem" show the correct component? Does "Strongest signal" (new label after this session's fix) name something genuinely related?
+## Package/publication sequence
 
-**Scenario 2: Slow render**
-1. Force a >500ms Lit update
-2. Open Intelligence tab
-3. Check: does the component shown match what was actually slow? Is the label honest ("Strongest signal" for correlated, "Likely cause" only for attributed)?
+1. TrustWeave dogfood from canonical repo boundary.
+2. Harden package exports/build/minification/types.
+3. Publish private/beta package or internal registry artifact.
+4. Broader npm distribution only after real React + Lit validation.
 
-If both scenarios produce trustworthy output → expand. If not → audit scoring further.
+Browser-delivered JavaScript cannot be made truly untraceable. Distribution hardening should publish `dist` only, omit source maps/source/tests/internal docs, minify/mangle production artifacts, and keep any future proprietary recommendation/brainwork server-side when that backend is introduced.
 
-### Mission B — perf.js slow renders bridged to UREP (P1)
+## Architectural invariants
 
-`perf.js` currently writes to `window.__LDS_SLOW_RENDERS__` only. It never emits UREP events.
+1. Generic intelligence lives in `Amonaval/runtime-intelligence`, never in a consumer app.
+2. Consumer-specific plugins may live in the consumer only when they translate proprietary app concepts into the generic evidence protocol; generic functionality must move upstream.
+3. Evidence strength must remain honest: observation < correlation < attribution < lifetime-violation < retainer-confirmed < causality-confirmed.
+4. Core has zero framework imports.
+5. React/Lit adapters emit UREP rather than teaching core framework-specific lifecycle semantics.
+6. Presentation is optional and replaceable; analyzers must not depend on the panel.
+7. TrustWeave runtime instrumentation is development-only.
+8. Expensive collectors can be optimized later with sampling/overhead budgets; correctness and real-world usefulness are the current dogfood priority.
 
-**What to add in `legacy-collector-bridge.js`:**
+## Deferred
 
-```js
-export function recordSlowRender({ component, durationMs, timestamp, source }) {
-  const store = evidenceStore;
-  store.emit({
-    type: RuntimeEventType.UPDATE_COMPLETED,
-    framework: { name: 'lit' },
-    owner: { id: component, name: component, lifecycleGeneration: 1 },
-    evidence: {
-      level: EvidenceLevel.ATTRIBUTION,
-      attribution: AttributionQuality.FRAMEWORK_REPORTED,
-      confidence: 0.9,
-    },
-    source: source || null,
-    payload: { durationMs },
-  });
-}
-```
-
-Then call `recordSlowRender()` from `perf.js` when it detects a slow render. This means slow renders become first-class UREP evidence and can participate in root-cause scoring.
-
-### Mission C — `_toolEnabled('intelligence')` gate on panel bridge (P2)
-
-`panel-intelligence-presentation.js` currently installs the Intelligence tab unconditionally.
-
-Add gate check:
-```js
-// In installLitIntelligencePanelPresentation()
-if (!_toolEnabled('intelligence') && !target?.__LDS_INTELLIGENCE_PIPELINE__) return false;
-```
-
-This ensures the tab only appears when Intelligence is actually enabled.
-
-### Mission D — React adapter work (user-directed, no date yet)
-
-`ReactAdapter.js` is active and ready. When the user decides to start React work:
-1. Wire `ReactAdapter` into a `ReactIntelligencePipeline` (similar to `LitIntelligencePipeline`)
-2. Bridge React error boundaries → UREP
-3. Bridge React profiler renders → UREP
-4. Evidence ladder is already generic — no changes needed there
-
-Start here only when the user explicitly starts a React consumer project.
-
----
-
-## Deferred missions (do not start yet)
-
-| Mission | Why deferred |
-|---|---|
-| Reconnect `resource-ownership-ledger.js` from `src/future/` | Needs `memory.js` to emit `RESOURCE_ACQUIRED`/`RESOURCE_RELEASED` UREP events first |
-| Event tracer → UREP bridge | High noise risk; defer until causal accuracy proven |
-| Dynamic enable/disable after page load | Complex patch/unpatch; defer until needed |
-| Vue / Angular adapters | No consumer; defer after React is proven |
-| Rich causal timeline visualization | Beautiful but dangerous if scoring is wrong; defer until accuracy proven |
-| AI handoff improvements | `exportCapsule()` already works; improvements defer until UX is stable |
-
----
-
-## Architectural invariants (never break)
-
-1. **Generic intelligence is additive** — never remove/hide Lit/Main Platform surfaces
-2. **Evidence ladder** (ascending): observation < correlation < attribution < lifetime-violation < retainer-confirmed < causality-confirmed
-3. **`_reachable()` uses CAUSES + PARENT only in graph traversal** — IC/TC edges must not inflate anchor scores
-4. **`gate.js` is read-only** — `_toolEnabled()` must never write to `window`, only read. SSR guard MUST be first line.
-5. **Privacy at capture and export boundaries** — does not change evidence semantics
-6. **Recorder starts before adapter.connect()** — do not regress this ordering
-7. **Slow render analysis does not freeze the recorder** — a later crash must still be capturable as a stronger incident
-8. **Structural ancestry does not equal causation** — root-cause scoring weights explicit CAUSES edges far above PARENT tree position
-
----
-
-## Known recurring bug to watch
-
-**`gate.js` force-write regression.** The other AI has re-introduced this bug at least twice. Every review session should check `_toolEnabled()` starts with `if (typeof window === 'undefined') return false;` and contains NO write lines before that guard.
-
-Run: `npm test` — if `diagnostic gate is SSR-safe and does not force-enable tools` fails, gate.js has the bug again.
+- Backend recommendation/brainwork service: after frontend evidence quality is proven.
+- Vue/Angular adapters: after React path is proven.
+- Heavy obfuscation: not a security boundary and not worth the debugging/compatibility cost now.
+- Production TrustWeave instrumentation: explicitly out of scope.

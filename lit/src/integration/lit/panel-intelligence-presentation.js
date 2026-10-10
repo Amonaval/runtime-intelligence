@@ -94,7 +94,6 @@ function _renderBudgetViolationSection(target) {
         ?.filter?.(e => e.payload?.budgetViolation === true) ?? [];
     if (violations.length === 0) return '';
 
-    // Deduplicate by tag — keep worst (highest updateCount)
     const byTag = new Map();
     for (const v of violations) {
         const tag = v.payload.tag;
@@ -131,32 +130,30 @@ function _renderNetworkCorrelationSection(target) {
         ?.filter?.(e => e.payload?.networkCorrelation === true) ?? [];
     if (links.length === 0) return '';
 
-    // Group by traceId — show one entry per network call, newest first
-    const byTrace = new Map();
+    const byPath = new Map();
     for (const d of links) {
-        const tid = d.payload.traceId;
-        if (!byTrace.has(tid)) byTrace.set(tid, []);
-        byTrace.get(tid).push(d);
+        const { networkPath, networkMethod, tracedMs } = d.payload;
+        const key  = `${networkMethod ?? 'GET'}:${networkPath ?? '(unknown)'}`;
+        const prev = byPath.get(key) ?? { count: 0, tracedMs: 0, networkPath, networkMethod };
+        byPath.set(key, { ...prev, count: prev.count + 1, tracedMs: Math.max(prev.tracedMs, tracedMs ?? 0) });
     }
-    const traces = [...byTrace.values()].slice(-5).reverse(); // latest 5 network calls
+    const rows = [...byPath.values()].sort((a, b) => b.count - a.count).slice(0, 20);
 
     return html`
         <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #cba6f7;border-radius:7px;padding:8px 10px;">
             <summary style="cursor:pointer;color:#cba6f7;font-weight:700;">
-                Network → State — ${byTrace.size} correlated network call${byTrace.size === 1 ? '' : 's'}
+                Network → State — ${byPath.size} path${byPath.size === 1 ? '' : 's'} · ${links.length} total correlations
             </summary>
             <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
-                <div style="margin-bottom:6px;color:#6c7086;">State changes that occurred within the correlation window after a network call completed.</div>
+                <div style="margin-bottom:6px;color:#6c7086;">State changes that occurred within the correlation window after a network call completed. Counts accumulate across the session.</div>
                 <ul style="margin:0;padding-left:16px;">
-                    ${traces.map(group => {
-                        const first = group[0];
-                        const method = first.payload.networkMethod ?? 'GET';
-                        const path = first.payload.networkPath ?? '(unknown)';
-                        const ms = first.payload.tracedMs ?? '?';
-                        const stateCount = group.length;
+                    ${rows.map(r => {
+                        const method = r.networkMethod ?? 'GET';
+                        const path   = r.networkPath ?? '(unknown)';
                         return html`<li>
                             <code style="color:#89b4fa;">${method} ${path}</code>
-                            → ${stateCount} state change${stateCount === 1 ? '' : 's'} within ${ms}ms
+                            → ${r.count} state change${r.count === 1 ? '' : 's'}
+                            <span style="color:#6c7086;">(latest: ${r.tracedMs}ms)</span>
                         </li>`;
                     })}
                 </ul>
@@ -173,7 +170,6 @@ function _renderOrphanSection(target) {
         ?.filter?.(e => e.payload?.orphanSuspect === true) ?? [];
     if (orphanDiagnostics.length === 0) return '';
 
-    // Deduplicate by ownerId — keep highest survivedNavigationCount
     const byOwner = new Map();
     for (const d of orphanDiagnostics) {
         const id = d.payload.ownerId;
@@ -201,6 +197,71 @@ function _renderOrphanSection(target) {
     `;
 }
 
+function _renderBackgroundHistorySection(target) {
+    const pipeline = target?.__LDS_INTELLIGENCE_PIPELINE__;
+    if (!pipeline) return '';
+    const history = pipeline.backgroundHistory?.() ?? [];
+    if (!history.length) return '';
+
+    const titleFreq = new Map();
+    const rootFreq  = new Map();
+    let netTotal = 0, budgetTotal = 0, cascadeTotal = 0;
+    const pageSet = new Set();
+
+    for (const e of history) {
+        pageSet.add(e.pageUrl || 'unknown');
+        if (e.title) titleFreq.set(e.title, (titleFreq.get(e.title) || 0) + 1);
+        if (e.rootLabel) rootFreq.set(e.rootLabel, (rootFreq.get(e.rootLabel) || 0) + 1);
+        netTotal    += e.networkCorrelationCount || 0;
+        budgetTotal += e.budgetViolationCount || 0;
+        cascadeTotal += e.cascadeSummary ? 1 : 0;
+    }
+
+    const topIssues = [...titleFreq.entries()]
+        .sort((a, b) => b[1] - a[1]).slice(0, 4)
+        .map(([t, n]) => html`<li><span style="color:#f9e2af">${t}</span> <span style="color:#585b70">×${n}</span></li>`);
+
+    const topRoots = [...rootFreq.entries()]
+        .sort((a, b) => b[1] - a[1]).slice(0, 3)
+        .map(([r, n]) => html`<li><span style="color:#cba6f7">${r}</span> <span style="color:#585b70">×${n}</span></li>`);
+
+    const openReport = () => {
+        const html = pipeline.exportSessionReport?.();
+        if (!html) return;
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); }
+    };
+
+    return html`
+        <div style="margin-top:10px;border:1px solid #313244;border-left:3px solid #89b4fa;border-radius:7px;padding:10px 12px;background:#181825">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="color:#89b4fa;font-weight:700;font-size:12px;">
+                    Session Monitor — ${history.length} finding${history.length > 1 ? 's' : ''} · ${pageSet.size} page${pageSet.size > 1 ? 's' : ''}
+                </span>
+                <button @click=${openReport}
+                    style="font-size:10px;padding:3px 10px;background:#313244;border:1px solid #458588;color:#a6e3a1;border-radius:4px;cursor:pointer;">
+                    Open Full Report
+                </button>
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px;color:#6c7086">
+                ${cascadeTotal ? html`<span style="color:#cba6f7">${cascadeTotal} cascade${cascadeTotal > 1 ? 's' : ''}</span>` : ''}
+                ${netTotal ? html`<span style="color:#89b4fa">${netTotal} net correlations</span>` : ''}
+                ${budgetTotal ? html`<span style="color:#f9e2af">${budgetTotal} budget violations</span>` : ''}
+            </div>
+            ${topIssues.length ? html`
+                <div style="margin-bottom:6px">
+                    <div style="font-size:10px;color:#585b70;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em">Top issues</div>
+                    <ul style="margin:0;padding-left:14px;font-size:11px;color:#cdd6f4;line-height:1.7">${topIssues}</ul>
+                </div>` : ''}
+            ${topRoots.length ? html`
+                <div>
+                    <div style="font-size:10px;color:#585b70;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em">Root signals</div>
+                    <ul style="margin:0;padding-left:14px;font-size:11px;color:#cdd6f4;line-height:1.7">${topRoots}</ul>
+                </div>` : ''}
+        </div>
+    `;
+}
+
 function _renderCascadeSection(target) {
     const cascade = target?.__LDS_CASCADE_REPORT__;
     if (!cascade?.hasCascade) return '';
@@ -211,10 +272,15 @@ function _renderCascadeSection(target) {
           </div>`
         : '';
 
+    const refreshedAt = cascade.capturedAt
+        ? new Date(cascade.capturedAt).toLocaleTimeString()
+        : null;
+
     return html`
         <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #a6e3a1;border-radius:7px;padding:8px 10px;">
-            <summary style="cursor:pointer;color:#a6e3a1;font-weight:700;">
-                Reactive Cascade — 1 change → ${cascade.componentCount} component${cascade.componentCount === 1 ? '' : 's'} · depth ${cascade.depth} · ${cascade.totalUpdateMs}ms total
+            <summary style="cursor:pointer;color:#a6e3a1;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+                <span>Reactive Cascade — 1 change → ${cascade.componentCount} component${cascade.componentCount === 1 ? '' : 's'} · depth ${cascade.depth} · ${cascade.totalUpdateMs}ms total</span>
+                ${refreshedAt ? html`<span style="color:#585b70;font-size:10px;font-weight:400">updated ${refreshedAt}</span>` : ''}
             </summary>
             <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
                 <div style="margin-bottom:4px;"><strong style="color:#cdd6f4;">${cascade.triggerCount} cascade trigger${cascade.triggerCount === 1 ? '' : 's'}</strong> detected in this incident.</div>
@@ -275,6 +341,7 @@ function _renderIntelligenceTab(target) {
         ${_renderOrphanSection(target)}
         ${_renderNetworkCorrelationSection(target)}
         ${_renderBudgetViolationSection(target)}
+        ${_renderBackgroundHistorySection(target)}
 
         <details style="margin-top:14px;border-top:1px solid #313244;padding-top:8px;">
             <summary style="cursor:pointer;color:#89b4fa;">Technical evidence (optional)</summary>
@@ -355,9 +422,6 @@ function _patchPanelClass(target) {
         return originalRenderContent?.apply(this, args);
     };
 
-    // Verification feedback is now handled via the lds-replay-complete CustomEvent
-    // dispatched from LdsDebugPanel._completeReplay() — no private method patching needed.
-
     Object.defineProperty(proto, '__ldsIntelligencePresentationPatched', {
         value: true,
         configurable: false,
@@ -369,10 +433,6 @@ function _patchPanelClass(target) {
     return true;
 }
 
-/**
- * Adds Runtime Intelligence as a dedicated tab in the mature LDS panel.
- * Existing tabs remain unchanged. No global/banner UI is injected into them.
- */
 function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null } = {}) {
     if (!target?.customElements) return false;
 
@@ -381,7 +441,9 @@ function installLitIntelligencePanelPresentation({ target = typeof window !== 'u
         target.addEventListener?.('lds-intelligence-updated', () => {
             const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
             for (const panel of panels) {
-                if (panel._tab === INTELLIGENCE_TAB_KEY) panel.requestUpdate?.();
+                if (panel._tab === INTELLIGENCE_TAB_KEY || panel._tab === 'falcor') {
+                    panel.requestUpdate?.();
+                }
             }
         });
         target.addEventListener?.('lds-replay-complete', (e) => {

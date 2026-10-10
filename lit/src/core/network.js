@@ -69,6 +69,10 @@ function init() {
         const method = (args[1]?.method || 'GET').toUpperCase();
         const body   = typeof args[1]?.body === 'string' ? args[1].body : null;
         const t0     = performance.now();
+        // Capture call stack synchronously at fetch() call site (before async).
+        // Any active LDS debug flag enables capture — not just __LDS_FALCOR_VIEW__.
+        const callStack = (window.__LDS_DEBUG__ || window.__LDS_FALCOR_VIEW__ || window.__LDS_INTELLIGENCE_ENABLED__)
+            ? new Error().stack : undefined;
 
         return _origFetch.apply(this, args).then(
             response => {
@@ -87,6 +91,7 @@ function init() {
                     isLarge:        kb > LARGE_KB,
                     type:           'fetch',
                     decoded:        _resolveDecoded(rawUrl, body),
+                    callStack,
                 });
                 return response;
             },
@@ -105,6 +110,7 @@ function init() {
                     type:           'fetch',
                     decoded:        _resolveDecoded(rawUrl, body),
                     error:          err?.message || 'Network error',
+                    callStack,
                 });
                 throw err;
             }

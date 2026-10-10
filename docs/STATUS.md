@@ -1,90 +1,38 @@
-# Runtime Intelligence — Current Status
+# STATUS — Runtime Intelligence
 
-**Updated:** 2026-10-10  
-**Canonical implementation baseline:** the latest user-supplied `v2/runtime-intelligence` snapshot. This file summarizes current state; it does not override implementation contracts established in that snapshot.
+Updated: 2026-10-10
 
-## Current product state
+## Canonical source of truth
 
-Runtime Intelligence is an additive developer-answer layer above the mature LDS panel.
+`Amonaval/runtime-intelligence` is the reusable product source. Consumer applications such as TrustWeave must consume this product through package/build boundaries rather than evolve generic runtime-intelligence logic in their own repository.
 
-Active path:
+## Completed and active
 
-```text
-runtime collectors/adapters
-  -> UREP evidence store
-  -> incident recorder
-  -> evidence graph
-  -> root-cause grouping
-  -> developer summary
-  -> Intelligence tab / evidence capsule
-```
-
-Evidence quality remains explicit: observations, correlations, attributions and confirmed findings must retain their actual evidence level.
-
-## Strategic review state — keep intact
-
-Claude's strategic review deliberately narrowed the active surface:
-
-- `lit/src/archive/diagnostic-policy.js` — archived; detached from the active pipeline.
-- `lit/src/future/resource-ownership-ledger.js` — deferred until resource acquire/release UREP wiring exists.
-- historical architecture/mission material belongs under `lit/docs/archive/`.
-- Claude's `lit/CLAUDE.md`, `lit/CODEBASE.md`, roadmap/session handovers and feature guides are part of the current knowledge surface.
-- active development must build on this topology; do not automatically reconnect archived/future modules.
-
-Lit is a **required** peer dependency by product decision. Do not make it optional unless that decision changes explicitly.
-
-## Completed active missions
-
-- Missions 01–09.5 — historical foundation; archive/defer decisions preserved.
-- Mission 10A — Reactive Cascade Tracker.
-- Mission 10B — Property Watch + mutation source.
-- Mission 10C — Navigation / orphan-suspect diagnostics.
-- Mission 10D — Network -> State correlator.
-- Mission 10E — Component Update Budget Monitor.
-- Mission 10F — Integrity hardening rebased on the canonical v2 implementation.
-
-## Mission 10F state
-
-1. **Mission 10D contract preserved.** A temporal network/state diagnostic keeps:
-   - `correlation.causedByEventId = pending.networkEventId`
-   - `correlation.traceId = net-trace-<network-event-id>`
-   - `evidence.level = CORRELATION`
-   - `evidence.attribution = TEMPORAL_INFERENCE`
-   - `evidence.confidence = 0.6`
-2. EvidenceGraph may therefore contain a `CAUSES` relation for that explicit reference, but the edge retains correlation-level / temporal-inference evidence. 10F must not silently upgrade the evidence quality.
-3. Update-budget diagnostics emit once per continuous violation episode and re-arm after recovery.
-4. Strategic archive/future topology remains authoritative.
-5. Lit remains required in package metadata.
-6. Confidence-aware product wording and structural-ancestry discounting from Claude's strategic review remain intact.
-7. The canonical v2 replay-completion event (`lds-replay-complete`) is part of the expected panel/integration contract and must be retained.
-
-## Source-of-truth correction
-
-An earlier 10F pass incorrectly removed `causedByEventId` and documented Network -> State as TRACE_CONTEXT-only. That interpretation is superseded. The latest supplied v2 implementation is authoritative.
-
-Likewise, an earlier repository overlay retained the older panel body and therefore missed the v2 `lds-replay-complete` dispatch. The corrective v2 rebase restores that integration contract rather than redesigning it.
+- UREP evidence protocol/store/graph/root-cause/recorder/capsule/privacy/source-resolution core
+- Lit adapter + LitIntelligencePipeline
+- ReactAdapter v2.1
+- Mission 10A–10F developer-pain series, including Mission 10F evidence-semantics and update-budget hardening
+- Mission 11 ZIP reconciliation: background session history, Falcor call graph, sequential API detector, network call-site stacks and session report plumbing
+- Mission 12 ZIP reconciliation: DOM duplication, virtualization, paint, worker opportunity and idle-scheduling advisors plus dedicated Opportunities presentation
 
 ## Validation
 
-Focused hardening checks cover:
+- Canonical pre-sync Mission 10F: npm test, smoke test and library build were passing at commit `cda72da22fd3a47ee1af9fdaa87f98280e5ce444`.
+- User-provided ZIP focused Mission 11 + 12 suites: 44/44 passing before reconciliation.
+- A reconciliation regression test preserves public exports and Mission 10F update-budget episode semantics.
 
-- canonical Mission 10D correlation metadata and evidence quality;
-- update-budget episode de-duplication/recovery;
-- required Lit dependency policy;
-- strategic archive/future separation.
+## Current mission
 
-A final browser checkpoint in the real UI Platform remains required for product-level validation.
+Package Boundary + React Dogfood:
 
-## Next validation checkpoint
+1. define `@runtime-intelligence/core`, `@runtime-intelligence/react`, `@runtime-intelligence/lit` and optional `@runtime-intelligence/panel` boundaries;
+2. build the React intelligence pipeline on the same generic core;
+3. make TrustWeave consume `core + react + panel` in development mode only;
+4. retire the transitional TrustWeave-vendored generic toolkit after canonical feature equivalence is proven.
 
-Use real UI Platform scenarios:
+## Explicit non-goals right now
 
-1. runtime error -> wording must reflect actual evidence strength;
-2. slow render -> named component/signal must be genuinely related, not merely a high ancestor;
-3. network followed by state mutation -> Mission 10D correlation must retain its canonical metadata and temporal-inference evidence quality;
-4. replay completion -> `lds-replay-complete` must reach Intelligence verification handling;
-5. sustained over-render burst -> one budget diagnostic per episode, not one per render.
-
-## Next development decision
-
-After real-app validation, choose the next mission from current active value and Claude's canonical roadmap. Do not reconnect `src/archive/` or `src/future/` without an explicit product decision.
+- production instrumentation in TrustWeave
+- backend recommendation/brainwork service before frontend evidence quality is proven
+- Vue/Angular before React dogfood works
+- heavy JavaScript obfuscation as a supposed security boundary
