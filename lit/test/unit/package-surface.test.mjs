@@ -13,21 +13,30 @@ function read(relativePath) {
 
 test('root consumer package exposes independent product surfaces', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.exports['./core'], './lit/src/core/index.js');
-  assert.equal(pkg.exports['./react'], './lit/src/react/index.js');
-  assert.equal(pkg.exports['./lit'], './lit/src/lit/index.js');
-  assert.equal(pkg.exports['./panel'], './lit/src/panel/index.js');
+  assert.equal(pkg.exports['./core'].import, './lit/src/core/index.js');
+  assert.equal(pkg.exports['./react'].import, './lit/src/react/index.js');
+  assert.equal(pkg.exports['./lit'].import, './lit/src/lit/index.js');
+  assert.equal(pkg.exports['./panel'].import, './lit/src/panel/index.js');
 });
 
-test('core and react entry points do not import Lit', () => {
-  const core = read('lit/src/core/index.js');
-  const react = read('lit/src/react/index.js');
-  assert.doesNotMatch(core, /from ['\"]lit(?:\/|['\"])/);
-  assert.doesNotMatch(react, /from ['\"]lit(?:\/|['\"])/);
+test('core and react entry points do not directly import Lit UI runtime', () => {
+  assert.doesNotMatch(read('lit/src/core/index.js'), /from ['\"]lit(?:\/|['\"])/);
+  assert.doesNotMatch(read('lit/src/react/index.js'), /from ['\"]lit(?:\/|['\"])/);
 });
 
-test('framework peers are optional at repository consumer boundary', () => {
+test('canonical panel owns Lit internally while React remains an optional peer', () => {
   const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.dependencies.lit, '^3.3.1');
   assert.equal(pkg.peerDependenciesMeta.react.optional, true);
-  assert.equal(pkg.peerDependenciesMeta.lit.optional, true);
+  assert.equal(pkg.peerDependencies?.lit, undefined);
+});
+
+test('parallel lightweight panel architecture is absent', () => {
+  assert.equal(
+    fs.existsSync(path.join(repoRoot, 'lit/src/panel/runtime-panel-model.js')),
+    false,
+  );
+  const panelIndex = read('lit/src/panel/index.js');
+  assert.match(panelIndex, /LdsDebugPanel/);
+  assert.match(panelIndex, /mountRuntimeIntelligencePanel/);
 });
