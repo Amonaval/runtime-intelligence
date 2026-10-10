@@ -25,14 +25,17 @@ The governing rule remains evidence honesty: observation, correlation, attributi
 - R5.4 — React Component & Ownership Intelligence: owner hierarchy plus opt-in tracked state/effect/resource evidence feeds mature Perf/Memory/Pinpoint workflows.
 - R5.5 — React Correlation + Intelligence: shared interaction context, EvidenceGraph, RootCauseGrouper, incident recorder, navigation/network correlation and Intelligence tab/evidence capsule.
 - R5.6 — TrustWeave React Parity Closure: root-profiler de-duplication option, low-friction HOC boundaries, budget-monitor integration, package/test hardening and explicit parity matrix.
+- R5.7 — React Fault Lab: isolated behavioral faults + explicitly labeled UREP injection now provide a deterministic validation surface without adding fake defects to TrustWeave. The mission also closes React payload mismatches in idle-scheduling and worker-opportunity advisers.
 
 ## Product/packaging boundary
 
 `LdsDebugPanel` remains the canonical mature product UI and is implemented with Lit. The root package therefore carries `lit` as an internal dependency for the panel. React remains an optional peer for the React adapter/runtime. React consumers do not maintain a second panel implementation.
 
+The React Fault Lab lives under `examples/` and is outside the root package `files` allowlist, so validation faults are not shipped to consumers.
+
 ## Practical parity expectation
 
-React now targets roughly 80–90% of Lit's practical product value. The remaining gap is primarily native framework semantics: arbitrary Lit reactive-property watching/dependency cascades do not have a defensible automatic React equivalent without explicit instrumentation. Runtime Intelligence exposes opt-in tracked state/effect/resource hooks rather than guessing.
+React targets roughly 80–90% of Lit's practical product value. The remaining gap is primarily native framework semantics: arbitrary Lit reactive-property watching/dependency cascades do not have a defensible automatic React equivalent without explicit instrumentation. Runtime Intelligence exposes opt-in tracked state/effect/resource hooks rather than guessing.
 
 ## Evidence safeguards retained
 
@@ -42,7 +45,10 @@ React now targets roughly 80–90% of Lit's practical product value. The remaini
 - Nested owner hierarchy is structural, not causal.
 - Profiler timing is framework-reported observation.
 - Network→state matching is correlation and never sets `causedByEventId`.
+- Fault-lab injected evidence is explicitly labeled `fault-lab-injected` and is never presented as detected application truth.
 
 ## Validation
 
-Unit/regression coverage exists for canonical panel bridging, shared browser runtime capture, React ownership/resource mapping, interaction-context correlation and parity architecture. Real TrustWeave browser testing remains the final product-level checkpoint.
+Unit/regression coverage exists for canonical panel bridging, shared browser runtime capture, React ownership/resource mapping, interaction-context correlation, parity architecture and the R5.7 cross-surface payload contracts.
+
+Use `examples/react-fault-lab` for deliberate end-to-end validation of the React runtime and mature panel. Use TrustWeave only for real application dogfood.

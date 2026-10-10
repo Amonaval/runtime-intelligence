@@ -45,7 +45,7 @@ class IdleSchedulingAdvisor {
 
     #onEvent(event) {
         if (event.type !== RuntimeEventType.UPDATE_COMPLETED) return;
-        const durationMs = event.payload?.durationMs;
+        const durationMs = event.payload?.actualDurationMs ?? event.payload?.durationMs;
         if (!Number.isFinite(durationMs) || durationMs < this.#minUpdateDurationMs) return;
 
         const ownerId = event.owner?.id ?? event.owner ?? null;
@@ -88,11 +88,19 @@ class IdleSchedulingAdvisor {
     }
 
     #hasRecentInteraction(beforeTs) {
-        // Uses STATE_CHANGED as interaction proxy.
-        // When RuntimeEventType.INTERACTION is wired in the adapter, swap to that.
         try {
-            const recent = this.#store.snapshot({ type: RuntimeEventType.STATE_CHANGED }) ?? [];
-            return recent.some(e => {
+            // Prefer explicit UREP interaction evidence now that browser/runtime
+            // surfaces emit it. Keep STATE_CHANGED as a compatibility fallback
+            // for framework integrations that do not yet publish INTERACTION.
+            const interactions = this.#store.snapshot({ type: RuntimeEventType.INTERACTION }) ?? [];
+            const interactionHit = interactions.some(e => {
+                const ts = e.timestamp ?? 0;
+                return ts >= beforeTs - this.#lookbackWindowMs && ts <= beforeTs;
+            });
+            if (interactionHit) return true;
+
+            const stateChanges = this.#store.snapshot({ type: RuntimeEventType.STATE_CHANGED }) ?? [];
+            return stateChanges.some(e => {
                 const ts = e.timestamp ?? 0;
                 return ts >= beforeTs - this.#lookbackWindowMs && ts <= beforeTs;
             });

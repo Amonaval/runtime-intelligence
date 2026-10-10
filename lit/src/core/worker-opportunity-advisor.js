@@ -1,5 +1,16 @@
 import { EvidenceLevel, AttributionQuality, RuntimeEventType } from './evidence-protocol.js';
 
+function _responseSizeBytes(payload = {}) {
+    if (Number.isFinite(payload.responseSizeBytes)) return payload.responseSizeBytes;
+    if (Number.isFinite(payload.responseSize)) return payload.responseSize;
+    if (Number.isFinite(payload.responseSizeKB)) return payload.responseSizeKB * 1024;
+    return 0;
+}
+
+function _networkUrl(payload = {}) {
+    return payload.url ?? payload.path ?? '';
+}
+
 class WorkerOpportunityAdvisor {
     #store;
     #windowTarget;
@@ -38,11 +49,11 @@ class WorkerOpportunityAdvisor {
 
         this.#networkUnsub = this.#store.subscribe(event => {
             if (event.type !== RuntimeEventType.NETWORK_COMPLETED) return;
-            const sizeBytes = event.payload?.responseSize ?? 0;
+            const sizeBytes = _responseSizeBytes(event.payload);
             if (sizeBytes < this.#networkSizeThresholdBytes) return;
             if (this.#recentLargeNetworkEvents.length >= 50) this.#recentLargeNetworkEvents.shift();
             this.#recentLargeNetworkEvents.push({
-                url: event.payload?.url ?? '',
+                url: _networkUrl(event.payload),
                 responseSizeBytes: sizeBytes,
                 completedAtMs: this.#now(),
             });

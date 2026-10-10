@@ -18,7 +18,10 @@
   "scripts": {
     "test": "npm --prefix lit test",
     "test:smoke": "npm --prefix lit run test:smoke",
-    "build": "npm --prefix lit run build"
+    "build": "npm --prefix lit run build",
+    "lab:react:install": "npm --prefix examples/react-fault-lab install",
+    "lab:react": "npm --prefix examples/react-fault-lab run dev",
+    "lab:react:build": "npm --prefix examples/react-fault-lab run build"
   },
   "dependencies": {
     "lit": "^3.3.1"
