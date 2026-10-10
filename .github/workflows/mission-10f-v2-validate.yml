@@ -24,9 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: lit/package-lock.json
-      - run: npm ci
+      - run: npm install
       - name: Canonical source assertions
         run: |
           test "$(git hash-object src/panel/LdsDebugPanel.js)" = "1cdc054f6d368a3fd9e0a3e2262d22f207b35943"
