@@ -6,6 +6,7 @@ import { DomDuplicationAdvisor } from '../core/dom-duplication-advisor.js';
 import { VirtualizationAdvisor } from '../core/virtualization-advisor.js';
 import { PaintAdvisor } from '../core/paint-advisor.js';
 import { WorkerOpportunityAdvisor } from '../core/worker-opportunity-advisor.js';
+import { BrowserRuntimeSurface } from '../integration/shared/browser-runtime-surface.js';
 
 function _defaultWindow() {
   return typeof window !== 'undefined' ? window : null;
@@ -46,6 +47,11 @@ class ReactIntelligenceRuntime {
     ];
 
     if (this.#windowTarget) {
+      services.unshift(new BrowserRuntimeSurface({
+        store: this.#store,
+        windowTarget: this.#windowTarget,
+        documentTarget: this.#windowTarget.document || null,
+      }));
       services.push(
         new DomDuplicationAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
         new VirtualizationAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
