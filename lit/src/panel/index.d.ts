@@ -17,16 +17,47 @@ export interface RuntimeRenderActivity {
   totalDurationMs: number;
   maxDurationMs: number;
   boundaries: readonly RuntimeRenderBoundarySummary[];
+  displayBoundaries: readonly RuntimeRenderBoundarySummary[];
+  hiddenOverlapCount: number;
   interpretation: string;
+}
+
+export interface RuntimeOpportunitySummary {
+  flag: string | null;
+  label: string;
+  source: string | null;
+  count: number;
+  confidence: number | null;
+  attribution: string | null;
+  evidenceLevel: string | null;
+  lastTimestamp: number | null;
+  why: string;
+  inspect: string;
+}
+
+export interface RuntimeRecentSignal {
+  id: string;
+  type: string;
+  timestamp: number | null;
+  owner: string | null;
+  source: string | null;
+  label: string;
+  occurrences: number;
+  evidenceLevel: string | null;
+  attribution: string | null;
+  confidence: number | null;
+  opportunity: boolean;
 }
 
 export interface RuntimePanelModel {
   eventCount: number;
   diagnosticCount: number;
   opportunityCount: number;
+  opportunitySummaries: readonly RuntimeOpportunitySummary[];
   byType: Readonly<Record<string, number>>;
   framework: any;
   renderActivity: RuntimeRenderActivity;
+  recentSignals: readonly RuntimeRecentSignal[];
   recent: readonly any[];
 }
 
