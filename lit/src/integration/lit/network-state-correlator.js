@@ -70,6 +70,7 @@ class NetworkStateCorrelator {
         }
 
         if (event.type === RuntimeEventType.STATE_CHANGED && this.#pending.length > 0) {
+            // Correlate with the most-recent non-expired network completion (closest in time)
             const best = this.#bestMatch(now);
             if (!best) return;
             this.#emitLink(best, event, now);
@@ -78,13 +79,14 @@ class NetworkStateCorrelator {
 
     #addPending(networkEvent, now) {
         const entry = {
-            traceId: networkEvent.correlation?.traceId || `net-trace-${networkEvent.id}`,
+            traceId: `net-trace-${networkEvent.id}`,
             networkEventId: networkEvent.id,
             expiresAt: now + this.#windowMs,
             path: networkEvent.payload?.path ?? null,
             method: networkEvent.payload?.method ?? 'GET',
             networkTimestamp: now,
         };
+        // Enforce bounded size: drop oldest if full
         if (this.#pending.length >= this.#maxPending) this.#pending.shift();
         this.#pending.push(entry);
     }
@@ -93,7 +95,8 @@ class NetworkStateCorrelator {
         this.#pending = this.#pending.filter(p => p.expiresAt > now);
     }
 
-    #bestMatch() {
+    #bestMatch(now) {
+        // Return the most recent pending correlation (closest to now, not yet expired)
         return this.#pending.length > 0 ? this.#pending[this.#pending.length - 1] : null;
     }
 
@@ -105,6 +108,7 @@ class NetworkStateCorrelator {
                 type: RuntimeEventType.DIAGNOSTIC,
                 owner: stateEvent.owner ?? null,
                 correlation: {
+                    causedByEventId: pending.networkEventId,
                     traceId: pending.traceId,
                 },
                 evidence: {
