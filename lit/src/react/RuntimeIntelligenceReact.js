@@ -32,6 +32,7 @@ function _profilerCallback(adapter, token, name, source = null) {
 function RuntimeIntelligenceProvider({
   children,
   name = 'react-root',
+  source = null,
   enabled = true,
   profilingEnabled = true,
   runtime: externalRuntime = null,
@@ -49,16 +50,16 @@ function RuntimeIntelligenceProvider({
   useEffect(() => {
     if (!enabled) return undefined;
     runtime.start();
-    if (!runtime.adapter.isManaged(token)) runtime.adapter.connect(token, { name });
+    if (!runtime.adapter.isManaged(token)) runtime.adapter.connect(token, { name, source });
     return () => {
-      try { runtime.adapter.disconnect(token); } catch { /* noop */ }
+      try { runtime.adapter.disconnect(token, { source }); } catch { /* noop */ }
       if (ownsRuntime) runtime.stop();
     };
-  }, [enabled, name, ownsRuntime, runtime, token]);
+  }, [enabled, name, source, ownsRuntime, runtime, token]);
 
   const onRender = useMemo(
-    () => _profilerCallback(runtime.adapter, token, name),
-    [runtime, token, name],
+    () => _profilerCallback(runtime.adapter, token, name, source),
+    [runtime, token, name, source],
   );
   const value = useMemo(() => Object.freeze({ runtime, adapter: runtime.adapter, store: runtime.store, enabled }), [runtime, enabled]);
 

@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react';
 
+export interface RuntimeSourceLocation {
+  file?: string | null;
+  line?: number | null;
+  column?: number | null;
+  functionName?: string | null;
+}
+
+export type RuntimeSource = string | RuntimeSourceLocation | null;
+
 export class ReactAdapter {
   constructor(options?: Record<string, unknown>);
   readonly profilingEnabled: boolean;
@@ -35,6 +44,7 @@ export const reactAdapter: ReactAdapter;
 export interface RuntimeIntelligenceProviderProps {
   children: ReactNode;
   name?: string;
+  source?: RuntimeSource;
   enabled?: boolean;
   profilingEnabled?: boolean;
   runtime?: ReactIntelligenceRuntime | null;
@@ -42,6 +52,6 @@ export interface RuntimeIntelligenceProviderProps {
 }
 
 export function RuntimeIntelligenceProvider(props: RuntimeIntelligenceProviderProps): ReactNode;
-export function RuntimeIntelligenceProfiler(props: { children: ReactNode; name: string; source?: unknown; enabled?: boolean }): ReactNode;
+export function RuntimeIntelligenceProfiler(props: { children: ReactNode; name: string; source?: RuntimeSource; enabled?: boolean }): ReactNode;
 export function useRuntimeIntelligence(): { runtime: ReactIntelligenceRuntime; adapter: ReactAdapter; store: RuntimeEvidenceStore; enabled: boolean } | null;
 export const RuntimeIntelligenceContext: any;

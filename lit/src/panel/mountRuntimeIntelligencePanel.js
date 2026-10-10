@@ -10,6 +10,10 @@ function _formatConfidence(value) {
   return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—';
 }
 
+function _formatMs(value) {
+  return Number.isFinite(value) ? `${Math.round(value * 100) / 100}ms` : '—';
+}
+
 function mountRuntimeIntelligencePanel({
   store,
   adapter = null,
@@ -29,12 +33,12 @@ function mountRuntimeIntelligencePanel({
   const root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host;
   const style = _el(documentTarget, 'style');
   style.textContent = `
-    :host{all:initial} .ri{position:fixed;right:16px;bottom:16px;z-index:2147483646;font:12px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;color:#eef2ff}
+    :host{all:initial}.ri{position:fixed;right:16px;bottom:16px;z-index:2147483646;font:12px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;color:#eef2ff}
     button{font:inherit;color:inherit;background:#111827;border:1px solid #374151;border-radius:999px;padding:8px 12px;cursor:pointer;box-shadow:0 6px 24px #0006}
-    .panel{width:min(440px,calc(100vw - 32px));max-height:min(70vh,620px);overflow:auto;background:#0b1020;border:1px solid #334155;border-radius:12px;box-shadow:0 14px 44px #0009;margin-bottom:8px}
+    .panel{width:min(480px,calc(100vw - 32px));max-height:min(72vh,680px);overflow:auto;background:#0b1020;border:1px solid #334155;border-radius:12px;box-shadow:0 14px 44px #0009;margin-bottom:8px}
     .head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid #1f2937;position:sticky;top:0;background:#0b1020}
-    .title{font-weight:700;font-size:13px}.sub{color:#94a3b8;font-size:11px}.body{padding:12px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.card{background:#111827;border:1px solid #1f2937;border-radius:8px;padding:8px}.n{font-size:18px;font-weight:700}.label{color:#94a3b8}
-    .section{margin-top:12px}.section h3{font:600 11px/1.3 ui-sans-serif,system-ui;margin:0 0 6px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.05em}.row{padding:7px 0;border-top:1px solid #1f2937}.row:first-child{border-top:0}.meta{color:#94a3b8;font-size:10px}.opp{color:#fde68a}.empty{color:#64748b;padding:10px 0}.cap{display:flex;justify-content:space-between;gap:8px;padding:3px 0;color:#cbd5e1}.hidden{display:none}
+    .title{font-weight:700;font-size:13px}.sub,.note{color:#94a3b8;font-size:11px}.body{padding:12px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.card{background:#111827;border:1px solid #1f2937;border-radius:8px;padding:8px}.n{font-size:18px;font-weight:700}.label{color:#94a3b8}
+    .section{margin-top:12px}.section h3{font:600 11px/1.3 ui-sans-serif,system-ui;margin:0 0 6px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.05em}.row{padding:7px 0;border-top:1px solid #1f2937}.row:first-child{border-top:0}.meta{color:#94a3b8;font-size:10px;margin-top:2px}.opp{color:#fde68a}.empty{color:#64748b;padding:10px 0}.cap{display:flex;justify-content:space-between;gap:8px;padding:3px 0;color:#cbd5e1}.metric{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.metric strong{overflow:hidden;text-overflow:ellipsis}.source{color:#93c5fd;overflow-wrap:anywhere}.hidden{display:none}
   `;
   root.appendChild(style);
 
@@ -80,6 +84,27 @@ function mountRuntimeIntelligencePanel({
     }
     body.appendChild(cards);
 
+    if (model.renderActivity.totalCommits > 0) {
+      const section = _el(documentTarget, 'div'); section.className = 'section';
+      section.appendChild(_el(documentTarget, 'h3', 'Render activity'));
+      const note = _el(documentTarget, 'div', `${model.renderActivity.totalCommits} profiler commits across ${model.renderActivity.boundaries.length} shown boundaries. ${model.renderActivity.interpretation}`);
+      note.className = 'note';
+      section.appendChild(note);
+      for (const item of model.renderActivity.boundaries) {
+        const row = _el(documentTarget, 'div'); row.className = 'row';
+        const metric = _el(documentTarget, 'div'); metric.className = 'metric';
+        const name = _el(documentTarget, 'strong', item.name);
+        const total = _el(documentTarget, 'span', _formatMs(item.totalDurationMs));
+        metric.append(name, total);
+        row.appendChild(metric);
+        const details = _el(documentTarget, 'div', `${item.commits} commits · avg ${_formatMs(item.avgDurationMs)} · max ${_formatMs(item.maxDurationMs)} · mounts ${item.mountCommits} · updates ${item.updateCommits}`);
+        details.className = 'meta'; row.appendChild(details);
+        if (item.source) { const source = _el(documentTarget, 'div', item.source); source.className = 'meta source'; row.appendChild(source); }
+        section.appendChild(row);
+      }
+      body.appendChild(section);
+    }
+
     const capabilities = model.framework?.capabilities || null;
     if (capabilities) {
       const section = _el(documentTarget, 'div'); section.className = 'section';
@@ -98,8 +123,11 @@ function mountRuntimeIntelligencePanel({
     for (const event of model.recent) {
       const row = _el(documentTarget, 'div'); row.className = `row${event.opportunity ? ' opp' : ''}`;
       row.appendChild(_el(documentTarget, 'div', event.label));
-      const meta = _el(documentTarget, 'div', `${event.type} · ${event.owner || 'unowned'} · confidence ${_formatConfidence(event.confidence)}`);
-      meta.className = 'meta'; row.appendChild(meta); recentSection.appendChild(row);
+      const metaParts = [event.type, event.owner || 'unowned', event.evidenceLevel || 'evidence', event.attribution || 'unknown attribution', `confidence ${_formatConfidence(event.confidence)}`];
+      const meta = _el(documentTarget, 'div', metaParts.join(' · '));
+      meta.className = 'meta'; row.appendChild(meta);
+      if (event.source) { const source = _el(documentTarget, 'div', event.source); source.className = 'meta source'; row.appendChild(source); }
+      recentSection.appendChild(row);
     }
     body.appendChild(recentSection);
     panel.append(head, body);
