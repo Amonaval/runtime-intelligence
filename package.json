@@ -4,10 +4,10 @@
   "description": "Framework-neutral runtime intelligence with React, Lit and panel entry points.",
   "type": "module",
   "exports": {
-    "./core": "./lit/src/core/index.js",
-    "./react": "./lit/src/react/index.js",
-    "./lit": "./lit/src/lit/index.js",
-    "./panel": "./lit/src/panel/index.js",
+    "./core": { "import": "./lit/src/core/index.js" },
+    "./react": { "types": "./lit/src/react/index.d.ts", "import": "./lit/src/react/index.js" },
+    "./lit": { "import": "./lit/src/lit/index.js" },
+    "./panel": { "types": "./lit/src/panel/index.d.ts", "import": "./lit/src/panel/index.js" },
     "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
     "./package.json": "./package.json"
   },
