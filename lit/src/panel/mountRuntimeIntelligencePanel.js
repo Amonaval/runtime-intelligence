@@ -14,6 +14,12 @@ function _formatMs(value) {
   return Number.isFinite(value) ? `${Math.round(value * 100) / 100}ms` : '—';
 }
 
+function _badge(doc, text, tone = '') {
+  const node = _el(doc, 'span', text);
+  node.className = `badge${tone ? ` ${tone}` : ''}`;
+  return node;
+}
+
 function mountRuntimeIntelligencePanel({
   store,
   adapter = null,
@@ -33,12 +39,16 @@ function mountRuntimeIntelligencePanel({
   const root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host;
   const style = _el(documentTarget, 'style');
   style.textContent = `
-    :host{all:initial}.ri{position:fixed;right:16px;bottom:16px;z-index:2147483646;font:12px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;color:#eef2ff}
-    button{font:inherit;color:inherit;background:#111827;border:1px solid #374151;border-radius:999px;padding:8px 12px;cursor:pointer;box-shadow:0 6px 24px #0006}
-    .panel{width:min(480px,calc(100vw - 32px));max-height:min(72vh,680px);overflow:auto;background:#0b1020;border:1px solid #334155;border-radius:12px;box-shadow:0 14px 44px #0009;margin-bottom:8px}
-    .head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid #1f2937;position:sticky;top:0;background:#0b1020}
-    .title{font-weight:700;font-size:13px}.sub,.note{color:#94a3b8;font-size:11px}.body{padding:12px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.card{background:#111827;border:1px solid #1f2937;border-radius:8px;padding:8px}.n{font-size:18px;font-weight:700}.label{color:#94a3b8}
-    .section{margin-top:12px}.section h3{font:600 11px/1.3 ui-sans-serif,system-ui;margin:0 0 6px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.05em}.row{padding:7px 0;border-top:1px solid #1f2937}.row:first-child{border-top:0}.meta{color:#94a3b8;font-size:10px;margin-top:2px}.opp{color:#fde68a}.empty{color:#64748b;padding:10px 0}.cap{display:flex;justify-content:space-between;gap:8px;padding:3px 0;color:#cbd5e1}.metric{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.metric strong{overflow:hidden;text-overflow:ellipsis}.source{color:#93c5fd;overflow-wrap:anywhere}.hidden{display:none}
+    :host{all:initial}.ri{position:fixed;right:18px;bottom:18px;z-index:2147483646;font:13px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb}
+    button{font:inherit;color:inherit;background:#111827;border:1px solid #374151;border-radius:10px;padding:8px 11px;cursor:pointer}.launcher{border-radius:999px;box-shadow:0 10px 30px #0007;font-weight:650}
+    .panel{width:min(560px,calc(100vw - 28px));max-height:min(78vh,760px);overflow:auto;background:linear-gradient(180deg,#0b1220 0%,#0a0f1a 100%);border:1px solid #263244;border-radius:16px;box-shadow:0 22px 70px #000b;margin-bottom:10px}
+    .head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:15px 16px;border-bottom:1px solid #1f2937;position:sticky;top:0;background:#0b1220f2;backdrop-filter:blur(8px);z-index:2}
+    .title{font-weight:750;font-size:14px;letter-spacing:-.01em}.sub{color:#94a3b8;font-size:11px;margin-top:2px}.body{padding:14px 16px 16px}
+    .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}.summary-card{background:#101826;border:1px solid #202b3b;border-radius:12px;padding:10px}.summary-card .n{font-size:19px;font-weight:750}.summary-card .label{color:#94a3b8;font-size:11px}
+    .section{margin-top:16px}.section:first-of-type{margin-top:0}.section h3{font:700 11px/1.3 ui-sans-serif,system-ui;margin:0 0 8px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.08em}.section-note{color:#94a3b8;font-size:11px;margin:-2px 0 8px}
+    .finding{background:#101826;border:1px solid #243044;border-radius:12px;padding:11px 12px;margin-top:8px}.finding:first-of-type{margin-top:0}.finding-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;font-weight:700}.finding p{margin:6px 0 0;color:#cbd5e1}.inspect{margin-top:7px;color:#93c5fd}.meta{color:#94a3b8;font-size:10.5px;margin-top:5px}.source{color:#93c5fd;overflow-wrap:anywhere}.badge{display:inline-flex;align-items:center;border:1px solid #334155;border-radius:999px;padding:2px 7px;color:#cbd5e1;font-size:10px;white-space:nowrap}.badge.warn{color:#fde68a;border-color:#66521c;background:#2f260b}.badge.info{color:#bfdbfe;border-color:#28466f;background:#10213b}
+    .metric{background:#101826;border:1px solid #243044;border-radius:12px;padding:11px 12px;margin-top:8px}.metric-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.metric strong{overflow:hidden;text-overflow:ellipsis}.metric .big{font-weight:750}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.mini{background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:7px}.mini b{display:block;font-size:12px}.mini span{display:block;color:#94a3b8;font-size:9.5px;margin-top:1px}
+    details{margin-top:16px;border-top:1px solid #1f2937;padding-top:12px}summary{cursor:pointer;color:#94a3b8;font-weight:650;list-style:none}summary::-webkit-details-marker{display:none}.tech{padding-top:10px}.tech-row{padding:7px 0;border-top:1px solid #172033}.tech-row:first-child{border-top:0}.tech-title{font-weight:600}.caps{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;color:#cbd5e1;font-size:11px}.empty{color:#64748b;padding:10px 0}.hidden{display:none}
   `;
   root.appendChild(style);
 
@@ -47,6 +57,7 @@ function mountRuntimeIntelligencePanel({
   const panel = _el(documentTarget, 'div');
   panel.className = 'panel';
   const toggle = _el(documentTarget, 'button', title);
+  toggle.className = 'launcher';
   toggle.type = 'button';
   shell.append(panel, toggle);
   root.appendChild(shell);
@@ -64,7 +75,7 @@ function mountRuntimeIntelligencePanel({
     const headingTitle = _el(documentTarget, 'div', title);
     headingTitle.className = 'title';
     const frameworkName = model.framework?.framework || model.framework?.name || 'framework-neutral';
-    const headingSub = _el(documentTarget, 'div', `${frameworkName} · live evidence`);
+    const headingSub = _el(documentTarget, 'div', `${frameworkName} · live developer findings`);
     headingSub.className = 'sub';
     heading.append(headingTitle, headingSub);
     const close = _el(documentTarget, 'button', 'Hide');
@@ -74,62 +85,99 @@ function mountRuntimeIntelligencePanel({
 
     const body = _el(documentTarget, 'div');
     body.className = 'body';
-    const cards = _el(documentTarget, 'div');
-    cards.className = 'cards';
-    for (const [value, label] of [[model.eventCount, 'Events'], [model.diagnosticCount, 'Diagnostics'], [model.opportunityCount, 'Opportunities']]) {
-      const card = _el(documentTarget, 'div'); card.className = 'card';
+
+    const summary = _el(documentTarget, 'div');
+    summary.className = 'summary';
+    const cards = [
+      [model.opportunitySummaries.length, 'Findings'],
+      [model.renderActivity.displayBoundaries.length, 'Render areas'],
+      [model.eventCount, 'Evidence'],
+    ];
+    for (const [value, label] of cards) {
+      const card = _el(documentTarget, 'div'); card.className = 'summary-card';
       const n = _el(documentTarget, 'div', value); n.className = 'n';
       const l = _el(documentTarget, 'div', label); l.className = 'label';
-      card.append(n, l); cards.appendChild(card);
+      card.append(n, l); summary.appendChild(card);
     }
-    body.appendChild(cards);
+    body.appendChild(summary);
+
+    const findings = _el(documentTarget, 'div'); findings.className = 'section';
+    findings.appendChild(_el(documentTarget, 'h3', 'Top findings'));
+    if (!model.opportunitySummaries.length) {
+      const empty = _el(documentTarget, 'div', 'No optimization findings yet. Use the app normally and this view will update from collected evidence.');
+      empty.className = 'empty'; findings.appendChild(empty);
+    }
+    for (const item of model.opportunitySummaries) {
+      const card = _el(documentTarget, 'div'); card.className = 'finding';
+      const top = _el(documentTarget, 'div'); top.className = 'finding-title';
+      top.append(_el(documentTarget, 'span', item.label), _badge(documentTarget, item.count > 1 ? `${item.count}× seen` : 'observed', 'warn'));
+      card.appendChild(top);
+      card.appendChild(_el(documentTarget, 'p', item.why));
+      const inspect = _el(documentTarget, 'div', `Inspect: ${item.inspect}`); inspect.className = 'inspect'; card.appendChild(inspect);
+      const meta = _el(documentTarget, 'div', `${item.evidenceLevel || 'evidence'} · ${item.attribution || 'unknown attribution'} · confidence ${_formatConfidence(item.confidence)}`); meta.className = 'meta'; card.appendChild(meta);
+      if (item.source) { const source = _el(documentTarget, 'div', item.source); source.className = 'meta source'; card.appendChild(source); }
+      findings.appendChild(card);
+    }
+    body.appendChild(findings);
 
     if (model.renderActivity.totalCommits > 0) {
       const section = _el(documentTarget, 'div'); section.className = 'section';
-      section.appendChild(_el(documentTarget, 'h3', 'Render activity'));
-      const note = _el(documentTarget, 'div', `${model.renderActivity.totalCommits} profiler commits across ${model.renderActivity.boundaries.length} shown boundaries. ${model.renderActivity.interpretation}`);
-      note.className = 'note';
-      section.appendChild(note);
-      for (const item of model.renderActivity.boundaries) {
-        const row = _el(documentTarget, 'div'); row.className = 'row';
-        const metric = _el(documentTarget, 'div'); metric.className = 'metric';
-        const name = _el(documentTarget, 'strong', item.name);
-        const total = _el(documentTarget, 'span', _formatMs(item.totalDurationMs));
-        metric.append(name, total);
-        row.appendChild(metric);
-        const details = _el(documentTarget, 'div', `${item.commits} commits · avg ${_formatMs(item.avgDurationMs)} · max ${_formatMs(item.maxDurationMs)} · mounts ${item.mountCommits} · updates ${item.updateCommits}`);
-        details.className = 'meta'; row.appendChild(details);
+      section.appendChild(_el(documentTarget, 'h3', 'Render hotspots'));
+      const noteText = model.renderActivity.hiddenOverlapCount > 0
+        ? `${model.renderActivity.hiddenOverlapCount} near-identical nested boundary hidden to avoid double-counting noise. Timings rank observed render work; they do not identify cause.`
+        : 'Timings rank observed render work within each boundary; they do not identify cause.';
+      const note = _el(documentTarget, 'div', noteText); note.className = 'section-note'; section.appendChild(note);
+      for (const item of model.renderActivity.displayBoundaries) {
+        const row = _el(documentTarget, 'div'); row.className = 'metric';
+        const metricHead = _el(documentTarget, 'div'); metricHead.className = 'metric-head';
+        metricHead.append(_el(documentTarget, 'strong', item.name), _badge(documentTarget, `${item.commits} commits`, 'info'));
+        row.appendChild(metricHead);
+        const grid = _el(documentTarget, 'div'); grid.className = 'metric-grid';
+        for (const [value, label] of [[_formatMs(item.avgDurationMs), 'Average'], [_formatMs(item.maxDurationMs), 'Slowest'], [_formatMs(item.totalDurationMs), 'Recorded total']]) {
+          const mini = _el(documentTarget, 'div'); mini.className = 'mini';
+          mini.append(_el(documentTarget, 'b', value), _el(documentTarget, 'span', label)); grid.appendChild(mini);
+        }
+        row.appendChild(grid);
+        const detail = _el(documentTarget, 'div', `${item.mountCommits} mount · ${item.updateCommits} updates`); detail.className = 'meta'; row.appendChild(detail);
         if (item.source) { const source = _el(documentTarget, 'div', item.source); source.className = 'meta source'; row.appendChild(source); }
         section.appendChild(row);
       }
       body.appendChild(section);
     }
 
-    const capabilities = model.framework?.capabilities || null;
-    if (capabilities) {
-      const section = _el(documentTarget, 'div'); section.className = 'section';
-      section.appendChild(_el(documentTarget, 'h3', 'Capabilities'));
-      for (const [key, value] of Object.entries(capabilities)) {
-        const row = _el(documentTarget, 'div'); row.className = 'cap';
-        row.append(_el(documentTarget, 'span', key), _el(documentTarget, 'span', value));
-        section.appendChild(row);
+    const details = _el(documentTarget, 'details');
+    const detailsSummary = _el(documentTarget, 'summary', `Technical evidence · ${model.eventCount} events`);
+    details.appendChild(detailsSummary);
+    const tech = _el(documentTarget, 'div'); tech.className = 'tech';
+
+    if (model.recentSignals.length) {
+      const evidenceTitle = _el(documentTarget, 'h3', 'Recent signals');
+      tech.appendChild(evidenceTitle);
+      for (const event of model.recentSignals) {
+        const row = _el(documentTarget, 'div'); row.className = 'tech-row';
+        const titleRow = _el(documentTarget, 'div'); titleRow.className = 'tech-title';
+        titleRow.append(_el(documentTarget, 'span', event.label));
+        if (event.occurrences > 1) titleRow.append(' ', _badge(documentTarget, `${event.occurrences}×`));
+        row.appendChild(titleRow);
+        const meta = _el(documentTarget, 'div', `${event.type} · ${event.evidenceLevel || 'evidence'} · ${event.attribution || 'unknown'} · confidence ${_formatConfidence(event.confidence)}`); meta.className = 'meta'; row.appendChild(meta);
+        if (event.source) { const source = _el(documentTarget, 'div', event.source); source.className = 'meta source'; row.appendChild(source); }
+        tech.appendChild(row);
       }
-      body.appendChild(section);
     }
 
-    const recentSection = _el(documentTarget, 'div'); recentSection.className = 'section';
-    recentSection.appendChild(_el(documentTarget, 'h3', 'Recent evidence'));
-    if (!model.recent.length) recentSection.appendChild(_el(documentTarget, 'div', 'No runtime evidence yet.'));
-    for (const event of model.recent) {
-      const row = _el(documentTarget, 'div'); row.className = `row${event.opportunity ? ' opp' : ''}`;
-      row.appendChild(_el(documentTarget, 'div', event.label));
-      const metaParts = [event.type, event.owner || 'unowned', event.evidenceLevel || 'evidence', event.attribution || 'unknown attribution', `confidence ${_formatConfidence(event.confidence)}`];
-      const meta = _el(documentTarget, 'div', metaParts.join(' · '));
-      meta.className = 'meta'; row.appendChild(meta);
-      if (event.source) { const source = _el(documentTarget, 'div', event.source); source.className = 'meta source'; row.appendChild(source); }
-      recentSection.appendChild(row);
+    const capabilities = model.framework?.capabilities || null;
+    if (capabilities) {
+      const capabilityTitle = _el(documentTarget, 'h3', 'Adapter coverage');
+      capabilityTitle.style.marginTop = '14px';
+      tech.appendChild(capabilityTitle);
+      const caps = _el(documentTarget, 'div'); caps.className = 'caps';
+      for (const [key, value] of Object.entries(capabilities)) caps.append(_el(documentTarget, 'span', key), _el(documentTarget, 'span', value));
+      tech.appendChild(caps);
     }
-    body.appendChild(recentSection);
+
+    details.appendChild(tech);
+    body.appendChild(details);
+
     panel.append(head, body);
     panel.classList.toggle('hidden', isCollapsed);
     toggle.classList.toggle('hidden', !isCollapsed);
