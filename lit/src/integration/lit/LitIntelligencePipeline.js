@@ -5,6 +5,13 @@ import { createEvidenceCapsule } from '../../core/evidence-capsule.js';
 import { RuntimeEventType } from '../../core/evidence-protocol.js';
 import { evidenceStore } from '../../core/evidence-store.js';
 import { installLitIntelligencePanelPresentation } from './panel-intelligence-presentation.js';
+import { _toolEnabled } from '../../core/gate.js';
+import { PropertyWatchManager } from './property-watch-manager.js';
+import { litAdapter } from '../../adapter/lit/LitAdapter.js';
+import { CascadeAnalyzer } from '../../core/cascade-analyzer.js';
+import { NavigationBridge } from './navigation-bridge.js';
+import { NetworkStateCorrelator } from './network-state-correlator.js';
+import { UpdateBudgetMonitor } from '../../core/update-budget-monitor.js';
 import {
     createReadyDeveloperSummary,
     createDeveloperIntelligenceSummary,
@@ -59,9 +66,15 @@ class LitIntelligencePipeline {
     #windowTarget;
     #recorder;
     #grouper;
+    #cascadeAnalyzer;
+    #watchManager;
+    #navBridge;
+    #networkCorrelator;
+    #budgetMonitor;
     #unsubscribe = null;
     #latest = null;
     #latestCapsule = null;
+    #latestCascade = null;
     #analysisContext = null;
     #capsuleSequence = 0;
     #transientIncidentSequence = 0;
@@ -75,6 +88,7 @@ class LitIntelligencePipeline {
         rootCauseOptions = {},
         slowUpdateThresholdMs = DEFAULT_SLOW_UPDATE_THRESHOLD_MS,
         presentInPanel = true,
+        adapter = litAdapter,
     } = {}) {
         if (!store || typeof store.subscribe !== 'function' || typeof store.snapshot !== 'function') {
             throw new TypeError('LitIntelligencePipeline requires an EvidenceStore-compatible store.');
@@ -87,6 +101,12 @@ class LitIntelligencePipeline {
         this.#slowUpdateThresholdMs = slowUpdateThresholdMs;
         this.#presentInPanel = presentInPanel;
         this.#grouper = new RootCauseGrouper(rootCauseOptions);
+        this.#cascadeAnalyzer = new CascadeAnalyzer();
+        if (windowTarget) {
+            this.#navBridge = new NavigationBridge({ store, windowTarget });
+        }
+        this.#networkCorrelator = new NetworkStateCorrelator({ store });
+        this.#budgetMonitor = new UpdateBudgetMonitor({ store });
         this.#recorder = new IncidentFlightRecorder({
             store,
             start: false,
@@ -97,6 +117,9 @@ class LitIntelligencePipeline {
                 : false,
             ...recorderOptions,
         });
+        if (adapter && typeof adapter.addStateChangeInterceptor === 'function') {
+            this.#watchManager = new PropertyWatchManager({ adapter, store });
+        }
     }
 
     start() {
@@ -104,10 +127,22 @@ class LitIntelligencePipeline {
         this.#recorder.start();
         this.#unsubscribe = this.#store.subscribe(event => this.#onEvidence(event));
         this.#latest = createReadyDeveloperSummary();
+        this.#watchManager?.start();
+        this.#navBridge?.start();
+        this.#networkCorrelator?.start();
+        this.#budgetMonitor?.start();
         if (this.#windowTarget) {
             this.#windowTarget.__LDS_INTELLIGENCE_PIPELINE__ = this;
-            if (this.#presentInPanel) {
-                installLitIntelligencePanelPresentation({ target: this.#windowTarget });
+            if (_toolEnabled('intelligence')) {
+                if (this.#presentInPanel) {
+                    installLitIntelligencePanelPresentation({ target: this.#windowTarget });
+                }
+                if (this.#watchManager) {
+                    this.#windowTarget.__LDS_WATCH_PROPERTY__ =
+                        (tag, prop, opts) => this.#watchManager.watch(tag, prop, opts);
+                    this.#windowTarget.__LDS_UNWATCH_PROPERTY__ =
+                        (tag, prop) => this.#watchManager.unwatch(tag, prop);
+                }
             }
         }
         this.#publish();
@@ -118,11 +153,35 @@ class LitIntelligencePipeline {
         if (this.#unsubscribe) this.#unsubscribe();
         this.#unsubscribe = null;
         this.#recorder.stop();
+        this.#watchManager?.stop();
+        this.#navBridge?.stop();
+        this.#networkCorrelator?.stop();
+        this.#budgetMonitor?.stop();
         return this;
     }
 
     snapshot() {
         return this.#latest;
+    }
+
+    watchManager() {
+        return this.#watchManager ?? null;
+    }
+
+    cascadeReport() {
+        return this.#latestCascade;
+    }
+
+    navigationBridge() {
+        return this.#navBridge ?? null;
+    }
+
+    networkCorrelator() {
+        return this.#networkCorrelator ?? null;
+    }
+
+    budgetMonitor() {
+        return this.#budgetMonitor ?? null;
     }
 
     /**
@@ -141,6 +200,7 @@ class LitIntelligencePipeline {
         this.#recorder.resume({ clear });
         this.#analysisContext = null;
         this.#latestCapsule = null;
+        this.#latestCascade = null;
         this.#latest = createReadyDeveloperSummary();
         this.#publish();
         return this;
@@ -207,12 +267,15 @@ class LitIntelligencePipeline {
                 .map(id => _eventRef(graph.node(id)))
                 .filter(Boolean)
             : [_eventRef(triggerEvent)].filter(Boolean);
+        const cascade = this.#cascadeAnalyzer.analyze(graph);
+        this.#latestCascade = cascade;
         const context = {
             triggerEvent,
             incident,
             rootCause,
             rootEvent,
             causalChain,
+            cascade,
             verification: null,
         };
         this.#analysisContext = context;
@@ -221,7 +284,7 @@ class LitIntelligencePipeline {
         this.#publish();
     }
 
-    #buildCapsule({ triggerEvent, incident, rootCause, rootEvent, causalChain, verification }) {
+    #buildCapsule({ triggerEvent, incident, rootCause, rootEvent, causalChain, cascade, verification }) {
         const slowUpdate = incident.reason === 'lit-slow-update';
         return createEvidenceCapsule({
             id: `lit-capsule-${++this.#capsuleSequence}-${triggerEvent.id}`,
@@ -254,6 +317,7 @@ class LitIntelligencePipeline {
                 framework: 'lit',
                 presentationSurface: 'lds-debug-panel:pinpoint',
                 ...(slowUpdate ? { slowUpdateThresholdMs: this.#slowUpdateThresholdMs } : {}),
+                ...(cascade ? { cascade } : {}),
             },
         });
     }
@@ -263,6 +327,7 @@ class LitIntelligencePipeline {
         // This global is intentionally a compact developer view. Heavy forensic
         // evidence is available only through __LDS_INTELLIGENCE_PIPELINE__.exportCapsule().
         this.#windowTarget.__LDS_INTELLIGENCE__ = this.#latest;
+        this.#windowTarget.__LDS_CASCADE_REPORT__ = this.#latestCascade;
         const EventCtor = this.#windowTarget.CustomEvent;
         if (typeof this.#windowTarget.dispatchEvent === 'function' && typeof EventCtor === 'function') {
             this.#windowTarget.dispatchEvent(new EventCtor('lds-intelligence-updated', {

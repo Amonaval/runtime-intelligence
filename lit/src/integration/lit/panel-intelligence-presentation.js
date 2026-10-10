@@ -53,6 +53,12 @@ function _infoCard(title, body, tone = 'blue') {
     `;
 }
 
+function _causeLabel(confidence) {
+    if (confidence === 'Confirmed') return 'Confirmed cause';
+    if (confidence === 'High confidence') return 'Likely cause';
+    return 'Strongest signal';
+}
+
 function _renderFinding(model) {
     if (!model || model.status === 'ready') {
         return html`
@@ -72,12 +78,156 @@ function _renderFinding(model) {
                 <span style="font-size:9px;padding:2px 7px;border:1px solid #45475a;border-radius:999px;color:#bac2de;white-space:nowrap;">${model.confidence || 'Possible'}</span>
             </div>
             ${model.problem ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Problem</strong><div style="margin-top:2px;color:#cdd6f4;">${model.problem}</div></div>` : ''}
-            ${model.likelyCause ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Likely cause</strong><div style="margin-top:2px;color:#cdd6f4;">${model.likelyCause}</div></div>` : ''}
+            ${model.likelyCause ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">${_causeLabel(model.confidence)}</strong><div style="margin-top:2px;color:#cdd6f4;">${model.likelyCause}</div></div>` : ''}
             ${model.source ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Where</strong><div style="margin-top:2px;color:#cdd6f4;overflow-wrap:anywhere;">${model.source}</div></div>` : ''}
             ${Array.isArray(model.impact) && model.impact.length ? html`<div style="margin-bottom:7px;"><strong style="color:#89b4fa;">Impact</strong><div style="margin-top:2px;color:#cdd6f4;">${model.impact.join(' · ')}</div></div>` : ''}
             ${model.nextAction ? html`<div style="margin-bottom:7px;"><strong style="color:#a6e3a1;">Do next</strong><div style="margin-top:2px;color:#cdd6f4;">${model.nextAction}</div></div>` : ''}
             ${model.verification?.outcome ? html`<div><strong style="color:#89b4fa;">Verification</strong><div style="margin-top:2px;color:#cdd6f4;">${model.verification.outcome}</div></div>` : ''}
         </div>
+    `;
+}
+
+function _renderBudgetViolationSection(target) {
+    const store = target?.__LDS_EVIDENCE_STORE__;
+    if (!store) return '';
+    const violations = store.snapshot?.({ type: 'diagnostic' })
+        ?.filter?.(e => e.payload?.budgetViolation === true) ?? [];
+    if (violations.length === 0) return '';
+
+    // Deduplicate by tag — keep worst (highest updateCount)
+    const byTag = new Map();
+    for (const v of violations) {
+        const tag = v.payload.tag;
+        const prev = byTag.get(tag);
+        if (!prev || v.payload.updateCount > prev.updateCount) byTag.set(tag, v.payload);
+    }
+
+    return html`
+        <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #f9e2af;border-radius:7px;padding:8px 10px;">
+            <summary style="cursor:pointer;color:#f9e2af;font-weight:700;">
+                Over-rendering — ${byTag.size} component${byTag.size === 1 ? '' : 's'} exceeded update budget
+            </summary>
+            <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
+                <div style="margin-bottom:6px;color:#6c7086;">These components updated more times than their budget allows within the rolling window. They may be reacting to state changes they don't need.</div>
+                <ul style="margin:0;padding-left:16px;">
+                    ${[...byTag.values()].map(p => html`
+                        <li>
+                            <code style="color:#cba6f7;">&lt;${p.tag}&gt;</code>
+                            — ${p.updateCount} updates in ${p.windowMs}ms
+                            (budget: ${p.countPerWindow})
+                        </li>
+                    `)}
+                </ul>
+                <div style="margin-top:6px;color:#6c7086;font-size:10px;">Set per-tag budget: <code style="color:#cba6f7;">window.__LDS_INTELLIGENCE_PIPELINE__.budgetMonitor().setBudget('tag-name', &#123;countPerWindow, windowMs&#125;)</code></div>
+            </div>
+        </details>
+    `;
+}
+
+function _renderNetworkCorrelationSection(target) {
+    const store = target?.__LDS_EVIDENCE_STORE__;
+    if (!store) return '';
+    const links = store.snapshot?.({ type: 'diagnostic' })
+        ?.filter?.(e => e.payload?.networkCorrelation === true) ?? [];
+    if (links.length === 0) return '';
+
+    // Group by traceId — show one entry per network call, newest first
+    const byTrace = new Map();
+    for (const d of links) {
+        const tid = d.payload.traceId;
+        if (!byTrace.has(tid)) byTrace.set(tid, []);
+        byTrace.get(tid).push(d);
+    }
+    const traces = [...byTrace.values()].slice(-5).reverse(); // latest 5 network calls
+
+    return html`
+        <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #cba6f7;border-radius:7px;padding:8px 10px;">
+            <summary style="cursor:pointer;color:#cba6f7;font-weight:700;">
+                Network → State — ${byTrace.size} correlated network call${byTrace.size === 1 ? '' : 's'}
+            </summary>
+            <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
+                <div style="margin-bottom:6px;color:#6c7086;">State changes that occurred within the correlation window after a network call completed.</div>
+                <ul style="margin:0;padding-left:16px;">
+                    ${traces.map(group => {
+                        const first = group[0];
+                        const method = first.payload.networkMethod ?? 'GET';
+                        const path = first.payload.networkPath ?? '(unknown)';
+                        const ms = first.payload.tracedMs ?? '?';
+                        const stateCount = group.length;
+                        return html`<li>
+                            <code style="color:#89b4fa;">${method} ${path}</code>
+                            → ${stateCount} state change${stateCount === 1 ? '' : 's'} within ${ms}ms
+                        </li>`;
+                    })}
+                </ul>
+                <div style="margin-top:6px;color:#6c7086;font-size:10px;">Evidence level: correlation (temporal). EvidenceGraph TRACE_CONTEXT edges link these events.</div>
+            </div>
+        </details>
+    `;
+}
+
+function _renderOrphanSection(target) {
+    const store = target?.__LDS_EVIDENCE_STORE__;
+    if (!store) return '';
+    const orphanDiagnostics = store.snapshot?.({ type: 'diagnostic' })
+        ?.filter?.(e => e.payload?.orphanSuspect === true) ?? [];
+    if (orphanDiagnostics.length === 0) return '';
+
+    // Deduplicate by ownerId — keep highest survivedNavigationCount
+    const byOwner = new Map();
+    for (const d of orphanDiagnostics) {
+        const id = d.payload.ownerId;
+        const prev = byOwner.get(id);
+        if (!prev || d.payload.survivedNavigationCount > prev.survivedNavigationCount) {
+            byOwner.set(id, d.payload);
+        }
+    }
+
+    return html`
+        <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #f38ba8;border-radius:7px;padding:8px 10px;">
+            <summary style="cursor:pointer;color:#f38ba8;font-weight:700;">
+                Orphan Suspects — ${byOwner.size} component${byOwner.size === 1 ? '' : 's'} survived navigation without disconnect
+            </summary>
+            <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
+                <div style="margin-bottom:6px;color:#6c7086;">These components were alive before a route change but were never destroyed. They may be holding event listeners or references that prevent GC.</div>
+                <ul style="margin:0;padding-left:16px;">
+                    ${[...byOwner.values()].map(p => html`
+                        <li><code style="color:#cba6f7;">&lt;${p.tag}&gt;</code> — survived ${p.survivedNavigationCount} navigation${p.survivedNavigationCount === 1 ? '' : 's'}</li>
+                    `)}
+                </ul>
+                <div style="margin-top:6px;color:#6c7086;font-size:10px;">Evidence level: correlation (temporal). Confirm with DevTools Memory snapshot.</div>
+            </div>
+        </details>
+    `;
+}
+
+function _renderCascadeSection(target) {
+    const cascade = target?.__LDS_CASCADE_REPORT__;
+    if (!cascade?.hasCascade) return '';
+
+    const overReacting = cascade.overReactingOwners?.length
+        ? html`<div style="margin-top:6px;color:#f9e2af;font-size:11px;">
+            ⚠ Over-reacting: ${cascade.overReactingOwners.map(o => html`<code style="color:#cba6f7;">&lt;${o.tag}&gt;</code> ×${o.triggerCount} `)}
+          </div>`
+        : '';
+
+    return html`
+        <details style="margin-top:10px;border:1px solid #313244;border-left:3px solid #a6e3a1;border-radius:7px;padding:8px 10px;">
+            <summary style="cursor:pointer;color:#a6e3a1;font-weight:700;">
+                Reactive Cascade — 1 change → ${cascade.componentCount} component${cascade.componentCount === 1 ? '' : 's'} · depth ${cascade.depth} · ${cascade.totalUpdateMs}ms total
+            </summary>
+            <div style="margin-top:8px;font-size:11px;color:#bac2de;line-height:1.6;">
+                <div style="margin-bottom:4px;"><strong style="color:#cdd6f4;">${cascade.triggerCount} cascade trigger${cascade.triggerCount === 1 ? '' : 's'}</strong> detected in this incident.</div>
+                ${cascade.branches?.length ? html`
+                    <div style="margin-bottom:2px;color:#6c7086;text-transform:uppercase;letter-spacing:.04em;font-size:10px;">Components in cascade</div>
+                    <ul style="margin:0;padding-left:16px;">
+                        ${cascade.branches.map(b => html`<li><code style="color:#cba6f7;">&lt;${b.tag}&gt;</code> — depth ${b.depth}, triggered ${b.triggerCount}×</li>`)}
+                    </ul>
+                ` : ''}
+                ${overReacting}
+                <div style="margin-top:6px;color:#6c7086;font-size:10px;">Access full data: <code style="color:#cba6f7;">window.__LDS_CASCADE_REPORT__</code></div>
+            </div>
+        </details>
     `;
 }
 
@@ -120,6 +270,11 @@ function _renderIntelligenceTab(target) {
                 Perf is enabled but has no samples yet. Navigate/remount Lit components or exercise the screen before judging Perf coverage.
             </div>
         ` : ''}
+
+        ${_renderCascadeSection(target)}
+        ${_renderOrphanSection(target)}
+        ${_renderNetworkCorrelationSection(target)}
+        ${_renderBudgetViolationSection(target)}
 
         <details style="margin-top:14px;border-top:1px solid #313244;padding-top:8px;">
             <summary style="cursor:pointer;color:#89b4fa;">Technical evidence (optional)</summary>
@@ -200,23 +355,8 @@ function _patchPanelClass(target) {
         return originalRenderContent?.apply(this, args);
     };
 
-    const originalCompleteReplay = proto._completeReplay;
-    if (typeof originalCompleteReplay === 'function') {
-        proto._completeReplay = function (...args) {
-            const result = originalCompleteReplay.apply(this, args);
-            const comparison = this._replayState?.comparison;
-            if (this._replayState?.status === 'done' && comparison) {
-                target.__LDS_INTELLIGENCE_PIPELINE__?.recordVerification?.({
-                    source: 'panel-replay',
-                    outcome: comparison.overallVerified ? 'confirmed' : 'not-confirmed',
-                    confirmed: comparison.overallVerified === true,
-                    metrics: comparison.metrics || [],
-                    comparedAt: comparison.comparedAt || new Date().toISOString(),
-                });
-            }
-            return result;
-        };
-    }
+    // Verification feedback is now handled via the lds-replay-complete CustomEvent
+    // dispatched from LdsDebugPanel._completeReplay() — no private method patching needed.
 
     Object.defineProperty(proto, '__ldsIntelligencePresentationPatched', {
         value: true,
@@ -242,6 +382,18 @@ function installLitIntelligencePanelPresentation({ target = typeof window !== 'u
             const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
             for (const panel of panels) {
                 if (panel._tab === INTELLIGENCE_TAB_KEY) panel.requestUpdate?.();
+            }
+        });
+        target.addEventListener?.('lds-replay-complete', (e) => {
+            const { comparison, status } = e.detail || {};
+            if (status === 'done' && comparison) {
+                target.__LDS_INTELLIGENCE_PIPELINE__?.recordVerification?.({
+                    source: 'panel-replay',
+                    outcome: comparison.overallVerified ? 'confirmed' : 'not-confirmed',
+                    confirmed: comparison.overallVerified === true,
+                    metrics: comparison.metrics || [],
+                    comparedAt: comparison.comparedAt || new Date().toISOString(),
+                });
             }
         });
     }
