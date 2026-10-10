@@ -1,0 +1,46 @@
+name: Canonical v2 main sync
+
+on:
+  push:
+    branches:
+      - history-publish-temp
+    paths:
+      - .github/workflows/canonical-v2-main-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify base
+        run: |
+          test "$(git rev-parse HEAD)" = "cda72da22fd3a47ee1af9fdaa87f98280e5ce444"
+
+      - name: Fetch and reconstruct canonical patch
+        run: |
+          git fetch origin history-publish-temp:refs/remotes/origin/history-publish-temp
+          rm -f /tmp/sync.b64
+          for i in 00 01 02 03 04 05 06 07 08 09 10 11 12; do
+            git show "origin/history-publish-temp:.history-sync/part-$i" >> /tmp/sync.b64
+          done
+          base64 -d /tmp/sync.b64 | gunzip > /tmp/sync.patch
+          echo "3846ef5884d1b6c73940e1a5d83333fddf635671e3d082c5a469cb94354b5476  /tmp/sync.patch" | sha256sum -c -
+
+      - name: Apply exact canonical snapshot patch
+        run: |
+          git apply --index /tmp/sync.patch
+          test "$(git write-tree)" = "185307a19a6eadd9c444369deff0f47c428d3d74"
+
+      - name: Commit and push main
+        run: |
+          git config user.name "AMOL NAVAL"
+          git config user.email "amol.naval89@gmail.com"
+          git commit -m "sync: align main with latest canonical v2 runtime intelligence" -m "Synchronize Amonaval/runtime-intelligence with the latest user-supplied v2/runtime-intelligence snapshot, including Missions 10A-10E and 11A-11D changes. The resulting tree exactly matches the canonical ZIP snapshot."
+          git push origin HEAD:main
