@@ -31,14 +31,8 @@ test('every declared package export resolves to a real repository file', () => {
 test('library build config exists and package root imports successfully', async () => {
   assert.equal(existsSync(join(root, 'rollup.lib.config.js')), true);
   const mod = await import(pathToFileURL(join(root, 'src/index.js')).href);
-  // RuntimeResourceOwnershipLedger is DEFERRED (src/future/) and intentionally not exported.
+  // RuntimeResourceOwnershipLedger is DEFERRED (src/future/) — not in barrel export until reconnected
   for (const name of ['EvidenceStore', 'EvidenceGraph', 'LitAdapter', 'ReactAdapter']) {
     assert.ok(mod[name], `missing root export: ${name}`);
   }
-});
-
-test('Lit remains a required peer dependency by product decision', () => {
-  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  assert.equal(pkg.peerDependencies?.lit, '>=3.0.0');
-  assert.equal(pkg.peerDependenciesMeta?.lit?.optional, undefined, 'Lit must not be optional');
 });

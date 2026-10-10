@@ -80,9 +80,11 @@ export class SequentialApiDetector {
         this.#buffer = [];
         if (calls.length < this.#minCalls) return;
 
+        // Already parallel: all starts within PARALLEL_MS
         const startSpan = calls[calls.length - 1].startTs - calls[0].startTs;
         if (startSpan < PARALLEL_MS) return;
 
+        // Sequential: each start is within SEQ_GAP_MS of the previous end
         let isSequential = true;
         for (let i = 1; i < calls.length; i++) {
             const gap = calls[i].startTs - calls[i - 1].endTs;
@@ -128,6 +130,9 @@ export class SequentialApiDetector {
     #findLCA(stacks) {
         const empty = { fn: 'unknown', file: '', line: '' };
         if (!stacks.length || !stacks[0].length) return empty;
+        // Scan from most-recent frame (index 0) to oldest — the first frame common
+        // to ALL stacks is the most-specific shared callsite (the loop body / direct
+        // caller of the API chain), which is where the developer should add Promise.all.
         for (const frame of stacks[0]) {
             if (stacks.every(s => s.includes(frame))) return this.#parseFrame(frame);
         }

@@ -140,6 +140,8 @@ test('IncidentFlightRecorder fails safe for NaN bounds and post-trigger counts',
 // test('resource ledger normalizes NaN memory bounds instead of disabling pruning', ...)
 
 test('causality-confirmed edge produces confirmed cluster strength', () => {
+  // Edge evidence level is derived from the TARGET event (the one with causedByEventId).
+  // So e2 must carry CAUSALITY_CONFIRMED to make the CAUSES edge confirmed.
   const store = new EvidenceStore({ maxEntries: 20, privacyPolicy: false, clock: () => 1 });
   const e1 = store.emit({
     type: RuntimeEventType.STATE_CHANGED,

@@ -108,13 +108,25 @@ test('paintTiming emits only once per metric', () => {
 test('stop() → no further DIAGNOSTICs', () => {
     const store = makeStore();
     const els = Array.from({ length: 15 }, () => ({ localName: 'x-item' }));
+    // Use a window WITHOUT requestIdleCallback so setTimeout is used and clearTimeout works
     const win = {
-        getComputedStyle: (el) => ({ filter: 'blur(4px)', backdropFilter: 'none', boxShadow: 'none', webkitFilter: 'none' }),
-        PerformanceObserver: class { constructor() {} observe() {} disconnect() {} },
+        getComputedStyle: (el) => ({
+            filter: 'blur(4px)',
+            backdropFilter: 'none',
+            boxShadow: 'none',
+            webkitFilter: 'none',
+        }),
+        PerformanceObserver: class {
+            constructor() {}
+            observe() {}
+            disconnect() {}
+        },
         document: { querySelectorAll: () => els },
     };
     const advisor = new PaintAdvisor({ store, windowTarget: win, cssExpensiveThreshold: 10 });
-    advisor.start(); advisor.stop(); advisor.scanExpensiveCss();
+    advisor.start();
+    advisor.stop();
+    advisor.scanExpensiveCss();
     const diags = store.snapshot({ type: 'diagnostic' }).filter(e => e.payload?.expensivePaint);
     assert.equal(diags.length, 0);
 });

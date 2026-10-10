@@ -393,6 +393,130 @@ function _buildPinpointIssues(report) {
         issues.push(iss);
     });
 
+    // DOM Duplication
+    const domDupDiags = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .filter(e => e.payload?.domDuplication === true)
+        : [];
+    if (domDupDiags.length > 0) {
+        const worst = domDupDiags.sort((a, b) => b.payload.instanceCount - a.payload.instanceCount)[0];
+        const p = worst.payload;
+        issues.push({
+            id: `dom-dup-${p.duplicateTag}`,
+            component: p.commonAncestorTag || '(shared ancestor)',
+            filePath: _tagToFilePath(p.commonAncestorTag || ''),
+            issueType: 'dom-duplication',
+            severity: p.identicalContent ? 'high' : 'medium',
+            details: `<${p.duplicateTag}> is instantiated ${p.instanceCount}× under <${p.commonAncestorTag}>${p.identicalContent ? ' with identical content' : ''}.`,
+            callStacks: [],
+            recommendation: `Hoist one shared <${p.duplicateTag}> instance to <${p.commonAncestorTag}> level. Toggle its content and visibility via a component property rather than mounting N instances.`,
+            observed: { instanceCount: p.instanceCount, identicalContent: p.identicalContent },
+        });
+    }
+
+    // Virtualization Candidates
+    const virtDiags = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .filter(e => e.payload?.virtualizationOpportunity === true)
+        : [];
+    if (virtDiags.length > 0) {
+        const worst = virtDiags.sort((a, b) => b.payload.childCount - a.payload.childCount)[0];
+        const p = worst.payload;
+        issues.push({
+            id: `virt-${p.parentTag}-${p.childTag}`,
+            component: p.parentTag || '(list container)',
+            filePath: _tagToFilePath(p.parentTag || ''),
+            issueType: 'virtualization-opportunity',
+            severity: p.strength === 'high' ? 'high' : 'medium',
+            details: `<${p.childTag}> rendered ×${p.childCount} inside <${p.parentTag}> — ${Math.round(p.offScreenRatio * 100)}% off-screen.`,
+            callStacks: [],
+            recommendation: `Wrap the list in a virtual scroller. Use @lit-labs/virtualizer or a native <virtual-list>. This avoids rendering ${Math.round(p.offScreenRatio * p.childCount)} off-screen DOM nodes.`,
+            observed: { childCount: p.childCount, offScreenRatio: p.offScreenRatio, parentTag: p.parentTag },
+        });
+    }
+
+    // Expensive Paint
+    const expensivePaintDiags = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .filter(e => e.payload?.expensivePaint === true)
+        : [];
+    for (const d of expensivePaintDiags) {
+        const p = d.payload;
+        issues.push({
+            id: `paint-css-${p.property}`,
+            component: p.exampleTag || '(multiple)',
+            filePath: _tagToFilePath(p.exampleTag || ''),
+            issueType: 'expensive-paint',
+            severity: p.elementCount > 30 ? 'high' : 'medium',
+            details: `${p.elementCount} elements use CSS property "${p.property}" which forces expensive GPU layer painting.`,
+            callStacks: [],
+            recommendation: `Reduce "${p.property}" usage to fewer than 10 elements. Apply will-change:transform sparingly — only on elements that animate continuously.`,
+            observed: { property: p.property, elementCount: p.elementCount },
+        });
+    }
+
+    // Slow FCP
+    const fcpDiag = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .find(e => e.payload?.paintTiming === true && e.payload?.metric === 'first-contentful-paint' && e.payload?.valueMs > 3000)
+        : null;
+    if (fcpDiag) {
+        issues.push({
+            id: 'paint-fcp-slow',
+            component: '(page load)',
+            filePath: '',
+            issueType: 'paint-timing',
+            severity: 'high',
+            details: `First Contentful Paint is ${fcpDiag.payload.valueMs}ms (good threshold: <1800ms).`,
+            callStacks: [],
+            recommendation: 'Defer non-critical CSS, eliminate render-blocking resources, and reduce server response time.',
+            observed: { metric: 'first-contentful-paint', valueMs: fcpDiag.payload.valueMs },
+        });
+    }
+
+    // Worker Offload Candidates
+    const workerDiags = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .filter(e => e.payload?.workerOpportunity === true)
+        : [];
+    if (workerDiags.length > 0) {
+        const worst = workerDiags.sort((a, b) => b.payload.durationMs - a.payload.durationMs)[0];
+        const p = worst.payload;
+        const urlShort = p.scriptUrl?.split('/')?.slice(-2)?.join('/') ?? '(anonymous)';
+        issues.push({
+            id: `worker-${urlShort}`,
+            component: '(main thread)',
+            filePath: p.scriptUrl || '',
+            issueType: 'worker-opportunity',
+            severity: 'medium',
+            details: `Main thread blocked for ${p.durationMs}ms by ${urlShort}${p.trigger === 'large-network-response' ? ` after ${p.networkResponseKB}KB network response` : ''}.`,
+            callStacks: [],
+            recommendation: `Move the processing in ${urlShort} to a Web Worker: new Worker(url) + postMessage for data transfer.`,
+            observed: { durationMs: p.durationMs, trigger: p.trigger, scriptUrl: p.scriptUrl },
+        });
+    }
+
+    // Idle Scheduling Candidates
+    const idleDiags = (typeof window !== 'undefined' && window.__LDS_EVIDENCE_STORE__)
+        ? (window.__LDS_EVIDENCE_STORE__.snapshot({ type: 'diagnostic' }) ?? [])
+            .filter(e => e.payload?.idleOpportunity === true)
+        : [];
+    if (idleDiags.length > 0) {
+        const worst = idleDiags.sort((a, b) => b.payload.durationMs - a.payload.durationMs)[0];
+        const p = worst.payload;
+        issues.push({
+            id: `idle-${p.ownerTag}`,
+            component: p.ownerTag || 'unknown',
+            filePath: _tagToFilePath(p.ownerTag || ''),
+            issueType: 'idle-scheduling-opportunity',
+            severity: 'medium',
+            details: `<${p.ownerTag}> runs a ${p.durationMs}ms update with no preceding user interaction (${p.trigger}).`,
+            callStacks: [],
+            recommendation: `Wrap the update trigger in requestIdleCallback(fn, {timeout:2000}) or scheduler.postTask(fn, {priority:'background'}).`,
+            observed: { durationMs: p.durationMs, trigger: p.trigger },
+        });
+    }
+
     const order = { critical: 0, high: 1, medium: 2, low: 3 };
     return issues.sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
 }
@@ -456,36 +580,36 @@ function _buildDiff(aReport = {}, bReport = {}) {
 function _computeFindings(report) {
     const findings = [];
     const errorCount = (report.errors || []).length;
-    if (errorCount > 0) findings.push({ severity: 'critical', icon: '🔴', text: `${errorCount} crash${errorCount > 1 ? 'es' : ''} caught by ErrorBoundary` });
+    if (errorCount > 0) findings.push({ severity: 'critical', icon: '🔴', text: `${errorCount} crash${errorCount > 1 ? 'es' : ''} caught by ErrorBoundary`, nav: { tab: 'errors' } });
     const failedNet = (report.network || []).filter(n => n.isError).length;
-    if (failedNet > 0) findings.push({ severity: 'critical', icon: '🔴', text: `${failedNet} failed network request${failedNet > 1 ? 's' : ''}` });
+    if (failedNet > 0) findings.push({ severity: 'critical', icon: '🔴', text: `${failedNet} failed network request${failedNet > 1 ? 's' : ''}`, nav: { tab: 'network', networkFilter: 'error' } });
     const storms = report.storms || [];
-    if (storms.length > 0) { const worst = storms.reduce((a, b) => a.count > b.count ? a : b); findings.push({ severity: 'high', icon: '🔁', text: `Render storm: <${worst.tag}> mounted ${worst.count}×` }); }
+    if (storms.length > 0) { const worst = storms.reduce((a, b) => a.count > b.count ? a : b); findings.push({ severity: 'high', icon: '🔁', text: `Render storm: <${worst.tag}> mounted ${worst.count}×`, nav: { tab: 'pinpoint', pinpointType: 'render-storm' } }); }
     const slowApis = report.slowApi || [];
-    if (slowApis.length > 0) { const maxMs = Math.max(...slowApis.map(e => e.durationMs || e.duration || e.ms || 0)); findings.push({ severity: 'high', icon: '🟠', text: `${slowApis.length} API call${slowApis.length > 1 ? 's' : ''} over threshold (max ${maxMs}ms)` }); }
+    if (slowApis.length > 0) { const maxMs = Math.max(...slowApis.map(e => e.durationMs || e.duration || e.ms || 0)); findings.push({ severity: 'high', icon: '🟠', text: `${slowApis.length} API call${slowApis.length > 1 ? 's' : ''} over threshold (max ${maxMs}ms)`, nav: { tab: 'slowapi' } }); }
     const v = report.vitals;
-    if (v?.lcp?.valueMs > 4000) findings.push({ severity: 'high', icon: '🟠', text: `LCP ${v.lcp.valueMs}ms (poor — threshold 2500ms)` });
-    else if (v?.lcp?.valueMs > 2500) findings.push({ severity: 'medium', icon: '🟡', text: `LCP ${v.lcp.valueMs}ms (needs improvement)` });
-    if (v?.inp?.valueMs > 500) findings.push({ severity: 'high', icon: '🟠', text: `INP ${v.inp.valueMs}ms (poor — threshold 200ms)` });
-    if (v?.cls?.value > 0.1) findings.push({ severity: 'medium', icon: '🟡', text: `CLS ${v.cls.value.toFixed(3)} (threshold 0.1)` });
+    if (v?.lcp?.valueMs > 4000) findings.push({ severity: 'high', icon: '🟠', text: `LCP ${v.lcp.valueMs}ms (poor — threshold 2500ms)`, nav: { tab: 'vitals' } });
+    else if (v?.lcp?.valueMs > 2500) findings.push({ severity: 'medium', icon: '🟡', text: `LCP ${v.lcp.valueMs}ms (needs improvement)`, nav: { tab: 'vitals' } });
+    if (v?.inp?.valueMs > 500) findings.push({ severity: 'high', icon: '🟠', text: `INP ${v.inp.valueMs}ms (poor — threshold 200ms)`, nav: { tab: 'vitals' } });
+    if (v?.cls?.value > 0.1) findings.push({ severity: 'medium', icon: '🟡', text: `CLS ${v.cls.value.toFixed(3)} (threshold 0.1)`, nav: { tab: 'vitals' } });
     const ltCount = (v?.longTasks || []).length;
-    if (ltCount > 5) findings.push({ severity: 'medium', icon: '🟡', text: `${ltCount} long task${ltCount > 1 ? 's' : ''} (>50ms main thread blocks)` });
+    if (ltCount > 5) findings.push({ severity: 'medium', icon: '🟡', text: `${ltCount} long task${ltCount > 1 ? 's' : ''} (>50ms main thread blocks)`, nav: { tab: 'vitals' } });
     const slowTags = Object.entries(report.perf || {}).filter(([, d]) => d.count > 0 && d.totalMs / d.count > 500).sort((a, b) => b[1].totalMs / b[1].count - a[1].totalMs / a[1].count);
-    if (slowTags.length > 0) { const [tag, d] = slowTags[0]; findings.push({ severity: 'medium', icon: '🟡', text: `<${tag}> avg render ${Math.round(d.totalMs / d.count)}ms${slowTags.length > 1 ? ` +${slowTags.length - 1} more` : ''}` }); }
+    if (slowTags.length > 0) { const [tag, d] = slowTags[0]; findings.push({ severity: 'medium', icon: '🟡', text: `<${tag}> avg render ${Math.round(d.totalMs / d.count)}ms${slowTags.length > 1 ? ` +${slowTags.length - 1} more` : ''}`, nav: { tab: 'pinpoint', pinpointType: 'high-avg-tti' } }); }
     const conErrors = (report.console || []).filter(e => e.level === 'error').length;
-    if (conErrors > 0) findings.push({ severity: 'medium', icon: '⚠️', text: `${conErrors} console error${conErrors > 1 ? 's' : ''}` });
+    if (conErrors > 0) findings.push({ severity: 'medium', icon: '⚠️', text: `${conErrors} console error${conErrors > 1 ? 's' : ''}`, nav: { tab: 'console' } });
     const thrash = report.thrash || [];
     if (thrash.length > 0) {
         const tags = [...new Set(thrash.map(t => t.tag))];
-        findings.push({ severity: 'high', icon: '🔄', text: `Property thrash: ${thrash.length} incident${thrash.length > 1 ? 's' : ''} on ${tags.slice(0, 2).map(t => `<${t}>`).join(', ')}${tags.length > 2 ? ` +${tags.length - 2} more` : ''}` });
+        findings.push({ severity: 'high', icon: '🔄', text: `Property thrash: ${thrash.length} incident${thrash.length > 1 ? 's' : ''} on ${tags.slice(0, 2).map(t => `<${t}>`).join(', ')}${tags.length > 2 ? ` +${tags.length - 2} more` : ''}`, nav: { tab: 'pinpoint', pinpointType: 'property-thrash' } });
     }
     const cycles = report.cycles || [];
     if (cycles.length > 0) {
-        findings.push({ severity: 'critical', icon: '🔁', text: `${cycles.length} circular update chain${cycles.length > 1 ? 's' : ''} detected` });
+        findings.push({ severity: 'critical', icon: '🔁', text: `${cycles.length} circular update chain${cycles.length > 1 ? 's' : ''} detected`, nav: { tab: 'pinpoint', pinpointType: 'circular-update' } });
     }
     const domNodes = report.domStats?.totalNodes || 0;
-    if (domNodes > 5000) findings.push({ severity: 'high', icon: '🌳', text: `DOM is very large: ${domNodes.toLocaleString()} nodes (threshold 1500)` });
-    else if (domNodes > 1500) findings.push({ severity: 'medium', icon: '🌳', text: `DOM has ${domNodes.toLocaleString()} nodes — consider virtualising long lists` });
+    if (domNodes > 5000) findings.push({ severity: 'high', icon: '🌳', text: `DOM is very large: ${domNodes.toLocaleString()} nodes (threshold 1500)`, nav: { tab: 'pinpoint', pinpointType: 'dom-duplication' } });
+    else if (domNodes > 1500) findings.push({ severity: 'medium', icon: '🌳', text: `DOM has ${domNodes.toLocaleString()} nodes — consider virtualising long lists`, nav: { tab: 'pinpoint', pinpointType: 'virtualization-opportunity' } });
     if (findings.length === 0) findings.push({ severity: 'ok', icon: '✅', text: 'No anomalies detected' });
     return findings;
 }
@@ -728,6 +852,10 @@ class LdsDebugPanel extends LitElement {
             .stat-chip { background:#181825; border:1px solid #313244; border-radius:6px; padding:6px 12px; text-align:center; }
             .stat-chip .num { font-size:20px; color:#89b4fa; font-weight:bold; }
             .stat-chip .lbl { color:#6c7086; font-size:10px; }
+            .stat-chip.clickable { cursor:pointer; }
+            .stat-chip.clickable:hover { border-color:#89b4fa; background:#1e1e35; }
+            .finding.clickable { cursor:pointer; }
+            .finding.clickable:hover { background:#1e1e35; }
 
             .health-grade { display:inline-block; font-size:36px; font-weight:bold; line-height:1; }
             .health-block { background:#181825; border:1px solid #313244; border-radius:8px; padding:10px 16px; display:inline-flex; align-items:center; gap:10px; margin-bottom:14px; }
@@ -823,11 +951,12 @@ class LdsDebugPanel extends LitElement {
             _expandedNetIdx:  { state: true },
             _diffSelected:    { state: true },
             _diffView:        { state: true },
-            _falcorViewMode:    { state: true },
-            _falcorDiFilter:    { state: true },
-            _falcorPathSearch:  { state: true },
-            _falcorExpandedGrp: { state: true },
-            _falcorExpandedCall:{ state: true },
+            _falcorViewMode:     { state: true },
+            _falcorDiFilter:     { state: true },
+            _falcorPathSearch:   { state: true },
+            _falcorExpandedGrp:  { state: true },
+            _falcorExpandedCall: { state: true },
+            _pinpointTypeFilter: { state: true },
         };
     }
 
@@ -854,11 +983,12 @@ class LdsDebugPanel extends LitElement {
         this._verifiedIssues    = {};     // { issueId: { comparison, verifiedAt } }
         this._workflowBaseline  = null;   // { url, capturedAt, renders, mounts, networkCount, networkFailures }
         this._baselineOpen      = true;   // collapsible state for Workflow Baseline section
-        this._falcorViewMode    = 'grouped';  // 'grouped' | 'dataindex' | 'search'
-        this._falcorDiFilter    = 'all';      // dataIndex filter
-        this._falcorPathSearch  = '';         // free-text filter
-        this._falcorExpandedGrp = null;       // expanded burst group index
-        this._falcorExpandedCall= null;       // expanded call key within a group
+        this._falcorViewMode     = 'grouped';  // 'grouped' | 'dataindex' | 'search'
+        this._falcorDiFilter     = 'all';      // dataIndex filter
+        this._falcorPathSearch   = '';         // free-text filter
+        this._falcorExpandedGrp  = null;       // expanded burst group index
+        this._falcorExpandedCall = null;       // expanded call key within a group
+        this._pinpointTypeFilter = null;       // filter pinpoint tab to one issueType
         this._loadBaseline();
         this._loadWorkflowBaseline();
     }
@@ -876,6 +1006,24 @@ class LdsDebugPanel extends LitElement {
 
     _backToLive() { this._activeReport = null; this._tab = 'summary'; }
     _setTab(key)  { this._tab = key; }
+
+    _navToPinpoint(type) {
+        this._tab = 'pinpoint';
+        this._pinpointTypeFilter = type || null;
+    }
+
+    _navToNetworkErrors() {
+        this._tab = 'network';
+        this._networkFilter = { ...this._networkFilter, status: 'error' };
+    }
+
+    _navigateFinding(nav) {
+        if (!nav) return;
+        this._tab = nav.tab;
+        if (nav.pinpointType) this._pinpointTypeFilter = nav.pinpointType;
+        else if (nav.tab === 'pinpoint') this._pinpointTypeFilter = null;
+        if (nav.networkFilter === 'error') this._networkFilter = { ...this._networkFilter, status: 'error' };
+    }
 
     _applyStack(stack) {
         return this._stackFilterOn ? _filterAppStack(stack) : (stack || '');
@@ -1388,18 +1536,24 @@ class LdsDebugPanel extends LitElement {
             </div>
 
             <div class="stats-row">
-                <div class="stat-chip"><div class="num">${(r.errors||[]).length}</div><div class="lbl">Crashes</div></div>
-                <div class="stat-chip"><div class="num">${(r.storms||[]).length}</div><div class="lbl">Storms</div></div>
-                <div class="stat-chip"><div class="num">${(r.slowApi||[]).length}</div><div class="lbl">Slow APIs</div></div>
-                <div class="stat-chip"><div class="num">${(r.network||[]).filter(n=>n.isError).length}</div><div class="lbl">Net Errors</div></div>
-                <div class="stat-chip"><div class="num">${Object.keys(r.perf||{}).length}</div><div class="lbl">Components</div></div>
-                ${(r.thrash||[]).length > 0 ? html`<div class="stat-chip"><div class="num" style="color:#fab387">${(r.thrash||[]).length}</div><div class="lbl">Prop Thrash</div></div>` : ''}
-                ${(r.cycles||[]).length > 0 ? html`<div class="stat-chip"><div class="num" style="color:#f38ba8">${(r.cycles||[]).length}</div><div class="lbl">Cycles</div></div>` : ''}
-                ${r.domStats ? html`<div class="stat-chip"><div class="num" style="color:${r.domStats.totalNodes>1500?'#f9e2af':'#89b4fa'}">${r.domStats.totalNodes.toLocaleString()}</div><div class="lbl">DOM Nodes</div></div>` : ''}
+                <div class="stat-chip clickable" title="View crashes" @click=${() => this._setTab('errors')}><div class="num">${(r.errors||[]).length}</div><div class="lbl">Crashes</div></div>
+                <div class="stat-chip clickable" title="View render storms in Pinpoint" @click=${() => this._navToPinpoint('render-storm')}><div class="num">${(r.storms||[]).length}</div><div class="lbl">Storms</div></div>
+                <div class="stat-chip clickable" title="View slow API calls" @click=${() => this._setTab('slowapi')}><div class="num">${(r.slowApi||[]).length}</div><div class="lbl">Slow APIs</div></div>
+                <div class="stat-chip clickable" title="View network errors" @click=${() => this._navToNetworkErrors()}><div class="num">${(r.network||[]).filter(n=>n.isError).length}</div><div class="lbl">Net Errors</div></div>
+                <div class="stat-chip clickable" title="View component performance" @click=${() => this._setTab('perf')}><div class="num">${Object.keys(r.perf||{}).length}</div><div class="lbl">Components</div></div>
+                ${(r.thrash||[]).length > 0 ? html`<div class="stat-chip clickable" title="View property thrash in Pinpoint" @click=${() => this._navToPinpoint('property-thrash')}><div class="num" style="color:#fab387">${(r.thrash||[]).length}</div><div class="lbl">Prop Thrash</div></div>` : ''}
+                ${(r.cycles||[]).length > 0 ? html`<div class="stat-chip clickable" title="View circular updates in Pinpoint" @click=${() => this._navToPinpoint('circular-update')}><div class="num" style="color:#f38ba8">${(r.cycles||[]).length}</div><div class="lbl">Cycles</div></div>` : ''}
+                ${r.domStats ? html`<div class="stat-chip clickable" title="View DOM duplication in Pinpoint" @click=${() => this._navToPinpoint('dom-duplication')}><div class="num" style="color:${r.domStats.totalNodes>1500?'#f9e2af':'#89b4fa'}">${r.domStats.totalNodes.toLocaleString()}</div><div class="lbl">DOM Nodes</div></div>` : ''}
             </div>
 
-            <div class="section-title">Findings</div>
-            ${findings.map(f => html`<div class="finding ${f.severity}"><span>${f.icon}</span><span>${f.text}</span></div>`)}
+            <div class="section-title">Findings <span style="color:#45475a;font-size:10px;font-weight:normal;margin-left:6px">click any finding to jump to details</span></div>
+            ${findings.map(f => html`
+                <div class="finding ${f.severity}${f.nav ? ' clickable' : ''}"
+                     @click=${f.nav ? () => this._navigateFinding(f.nav) : null}>
+                    <span>${f.icon}</span>
+                    <span style="flex:1">${f.text}</span>
+                    ${f.nav ? html`<span style="color:#45475a;font-size:10px;margin-left:8px;flex-shrink:0">→ ${f.nav.tab}</span>` : ''}
+                </div>`)}
 
             ${env ? html`
                 <div class="section-title">Environment</div>
@@ -1417,8 +1571,10 @@ class LdsDebugPanel extends LitElement {
     _renderPinpoint() {
         const r = this._getActiveReport();
         if (!r) return html`<p class="empty">No data</p>`;
-        const issues = _buildPinpointIssues(r);
-        if (!issues.length) return html`<p class="empty">✅ No pinpointable issues.<br>Ensure perf, memory, errorBoundary, network tools are enabled.</p>`;
+        const allIssues = _buildPinpointIssues(r);
+        const typeFilter = this._pinpointTypeFilter;
+        const issues = typeFilter ? allIssues.filter(i => i.issueType === typeFilter) : allIssues;
+        if (!allIssues.length) return html`<p class="empty">✅ No pinpointable issues.<br>Ensure perf, memory, errorBoundary, network tools are enabled.</p>`;
         const baselineLabel = this._baseline
             ? new Date(this._baseline.capturedAt).toLocaleTimeString()
             : null;
@@ -1431,9 +1587,16 @@ class LdsDebugPanel extends LitElement {
                     ${baselineLabel
                         ? html`<span class="baseline-badge">📸 Baseline: ${baselineLabel}<button class="baseline-clear" @click=${this._clearBaseline} title="Clear baseline">✕</button></span>`
                         : html`<button class="header-btn" @click=${this._captureBaseline} title="Snapshot current metrics as baseline for post-fix comparison">📸 Capture Baseline</button>`}
-                    <button class="header-btn accent" @click=${this._exportFixTable}>📋 Export Fix Table (${issues.length})</button>
+                    <button class="header-btn accent" @click=${this._exportFixTable}>📋 Export Fix Table (${allIssues.length})</button>
                 </div>
             </div>
+            ${typeFilter ? html`
+                <div style="background:#1e2a3a;border:1px solid #89b4fa;border-radius:5px;padding:6px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;font-size:11px">
+                    <span style="color:#89b4fa">🔍 Filtered: <strong>${typeFilter}</strong> — ${issues.length} of ${allIssues.length} issue${allIssues.length !== 1 ? 's' : ''}</span>
+                    <button class="header-btn" @click=${() => { this._pinpointTypeFilter = null; }}>✕ Show all</button>
+                </div>
+            ` : ''}
+            ${!issues.length ? html`<p class="empty">No issues of type <strong>${typeFilter}</strong> detected.</p>` : ''}
             ${this._renderReplayBanner()}
             ${issues.map(i => this._renderIssueCard(i))}`;
     }
@@ -1458,6 +1621,7 @@ class LdsDebugPanel extends LitElement {
                         ${issue.filePath ? html`<div class="issue-filepath" title="${issue.filePath}">
                             ${issue.filePath}${lineNum ? html`<span style="color:#6c7086"> :${lineNum}</span>` : ''}
                         </div>` : ''}
+                        ${!expanded ? html`<div style="color:#9399b2;font-size:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${issue.details}">${issue.details.split('\n')[0]}</div>` : ''}
                     </div>
                     <span style="color:#6c7086;font-size:14px">${expanded?'▲':'▼'}</span>
                 </div>
@@ -1876,6 +2040,45 @@ class LdsDebugPanel extends LitElement {
                     </div>` : ''}
                 </div>`;
             });
+        } else if (this._falcorViewMode === 'originator') {
+            const graph = window.__LDS_FALCOR_CALL_GRAPH__;
+            if (!graph) {
+                content = html`<p class="empty">Originator data not available. Enable: <code>window.__LDS_FALCOR_VIEW__ = true</code> and reload.</p>`;
+            } else {
+                const bursts = graph.getBursts().slice().reverse();
+                if (!bursts.length) {
+                    content = html`<p class="empty">No bursts captured yet. Make Falcor calls to see originator analysis.</p>`;
+                } else {
+                    content = bursts.map((b, bi) => {
+                        const isOpen = this._falcorExpandedGrp === `orig-${bi}`;
+                        const fileShort = b.originatorFile ? b.originatorFile.split('/').pop() : '';
+                        const fnLabel = b.originatorFn && b.originatorFn !== 'unknown'
+                            ? b.originatorFn
+                            : '(unknown caller)';
+                        const msColor = b.totalMs > 2000 ? '#f38ba8' : b.totalMs > 800 ? '#f9e2af' : '#a6e3a1';
+                        return html`
+                        <div style="border:1px solid #313244;border-radius:6px;margin-bottom:6px;border-left:3px solid #cba6f7">
+                            <div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap"
+                                @click=${() => { this._falcorExpandedGrp = isOpen ? null : `orig-${bi}`; }}>
+                                <span style="color:#cba6f7;font-weight:700">${fnLabel}</span>
+                                ${fileShort ? html`<span style="color:#585b70;font-size:11px">[${fileShort}:${b.originatorLine}]</span>` : ''}
+                                <span style="color:${msColor};font-size:11px;font-weight:bold">${b.callCount} calls · ${b.totalMs}ms</span>
+                                <span style="color:#6c7086;font-size:11px;margin-left:auto">${isOpen ? '▲' : '▼'}</span>
+                            </div>
+                            ${isOpen ? html`
+                            <div style="padding:0 12px 10px">
+                                <ul style="margin:4px 0;padding-left:16px;font-size:11px;color:#cdd6f4">
+                                    ${b.paths.map(p => html`<li style="margin:2px 0;word-break:break-all">${p || '(path unavailable)'}</li>`)}
+                                </ul>
+                                <div style="font-size:10px;color:#585b70;margin-top:4px">
+                                    Full originator: <code style="color:#cba6f7">${b.originatorFile || '?'}:${b.originatorLine}</code>
+                                    · inspect <code style="color:#cba6f7">window.__LDS_FALCOR_CALL_GRAPH__.getBursts()</code>
+                                </div>
+                            </div>` : ''}
+                        </div>`;
+                    });
+                }
+            }
         } else {
             const sessions = getSearchSessions(filtered);
             if (!sessions.length) {
@@ -1912,6 +2115,7 @@ class LdsDebugPanel extends LitElement {
                     ${viewBtn('grouped','Grouped')}
                     ${viewBtn('dataindex','By DataIndex')}
                     ${viewBtn('search','Search Sessions')}
+                    ${viewBtn('originator','Originator Tree')}
                 </div>
                 <span style="color:#6c7086;font-size:11px;margin-left:8px">${falcorAll.length} calls · ${totalPaths} paths · ${diList.length} dataIndex${diList.length===1?'':'es'}${dupePaths?html` · <span style="color:#fab387">${dupePaths} dup path${dupePaths===1?'':'s'}</span>`:''}
                 </span>
@@ -1943,7 +2147,44 @@ class LdsDebugPanel extends LitElement {
                     <span style="color:#fab387;font-size:10px">⚠ ${dupePaths} duplicate path${dupePaths===1?'':'s'} detected — same data requested in multiple separate calls. Consider batching these.</span>
                 </div>` : html`
                 <div style="color:#a6e3a1;font-size:10px">No duplicate paths — all requests are unique.</div>`}
-            </div>`;
+            </div>
+            ${this._renderFalcorSequentialSection()}`;
+    }
+
+    _renderFalcorSequentialSection() {
+        const detector = typeof window !== 'undefined' ? window.__LDS_SEQUENTIAL_API_DETECTOR__ : null;
+        if (!detector) return html``;
+        const opps = detector.getOpportunities();
+        if (!opps.length) return html``;
+
+        return html`
+        <div style="border-top:1px solid #313244;padding:12px;margin-top:8px">
+            <div style="font-weight:700;color:#f9e2af;margin-bottom:8px;font-size:12px">
+                ⚡ Promise.all Opportunities — ${opps.length} pattern${opps.length > 1 ? 's' : ''} detected
+            </div>
+            ${opps.slice().reverse().map(o => {
+                const fileShort = o.callerFile ? o.callerFile.split('/').pop() : '';
+                const fnLabel   = o.callerFn && o.callerFn !== 'unknown' ? o.callerFn : '(unknown caller)';
+                return html`
+                <details style="margin:6px 0;border-left:3px solid #f9e2af;padding:6px 10px;background:#1e1e2e;border-radius:4px">
+                    <summary style="cursor:pointer;font-weight:600;font-size:11px">
+                        <span style="color:#f9e2af">${fnLabel}</span>
+                        ${fileShort ? html`<span style="color:#585b70"> [${fileShort}:${o.callerLine}]</span>` : ''}
+                        <span style="color:#a6e3a1;margin-left:8px">${o.callCount} sequential calls</span>
+                        <span style="color:#f38ba8;margin-left:6px">~${Math.round(o.estimatedSavingsMs)}ms wasted</span>
+                    </summary>
+                    <div style="font-size:11px;margin:6px 0;color:#cdd6f4">
+                        URLs (${o.urls.length}):
+                        ${o.urls.slice(0, 3).map(u => html`<code style="margin-right:6px;font-size:10px;color:#89b4fa">${u}</code>`)}
+                        ${o.urls.length > 3 ? html`<span style="color:#585b70">+${o.urls.length - 3} more</span>` : ''}
+                    </div>
+                    <div style="font-size:10px;color:#585b70">
+                        Each call ~${Math.round(o.avgDurationMs)}ms avg · total ${Math.round(o.totalMs)}ms ·
+                        <strong style="color:#f9e2af">Refactor: wrap in Promise.all or a single batch request</strong>
+                    </div>
+                </details>`;
+            })}
+        </div>`;
     }
 
     // ── Performance ────────────────────────────────────────────────────────

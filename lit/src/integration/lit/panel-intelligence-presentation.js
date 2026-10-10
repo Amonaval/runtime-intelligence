@@ -94,6 +94,7 @@ function _renderBudgetViolationSection(target) {
         ?.filter?.(e => e.payload?.budgetViolation === true) ?? [];
     if (violations.length === 0) return '';
 
+    // Deduplicate by tag — keep worst (highest updateCount)
     const byTag = new Map();
     for (const v of violations) {
         const tag = v.payload.tag;
@@ -130,6 +131,8 @@ function _renderNetworkCorrelationSection(target) {
         ?.filter?.(e => e.payload?.networkCorrelation === true) ?? [];
     if (links.length === 0) return '';
 
+    // Group by networkPath+method — accumulate count and keep the most-recent tracedMs.
+    // This shows total state-change pressure per path across the whole session (no "replacing").
     const byPath = new Map();
     for (const d of links) {
         const { networkPath, networkMethod, tracedMs } = d.payload;
@@ -170,6 +173,7 @@ function _renderOrphanSection(target) {
         ?.filter?.(e => e.payload?.orphanSuspect === true) ?? [];
     if (orphanDiagnostics.length === 0) return '';
 
+    // Deduplicate by ownerId — keep highest survivedNavigationCount
     const byOwner = new Map();
     for (const d of orphanDiagnostics) {
         const id = d.payload.ownerId;
@@ -203,6 +207,7 @@ function _renderBackgroundHistorySection(target) {
     const history = pipeline.backgroundHistory?.() ?? [];
     if (!history.length) return '';
 
+    // Consolidated summary: count by issue type + top components + page coverage
     const titleFreq = new Map();
     const rootFreq  = new Map();
     let netTotal = 0, budgetTotal = 0, cascadeTotal = 0;
@@ -422,6 +427,9 @@ function _patchPanelClass(target) {
         return originalRenderContent?.apply(this, args);
     };
 
+    // Verification feedback is now handled via the lds-replay-complete CustomEvent
+    // dispatched from LdsDebugPanel._completeReplay() — no private method patching needed.
+
     Object.defineProperty(proto, '__ldsIntelligencePresentationPatched', {
         value: true,
         configurable: false,
@@ -433,6 +441,10 @@ function _patchPanelClass(target) {
     return true;
 }
 
+/**
+ * Adds Runtime Intelligence as a dedicated tab in the mature LDS panel.
+ * Existing tabs remain unchanged. No global/banner UI is injected into them.
+ */
 function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null } = {}) {
     if (!target?.customElements) return false;
 
@@ -441,6 +453,7 @@ function installLitIntelligencePanelPresentation({ target = typeof window !== 'u
         target.addEventListener?.('lds-intelligence-updated', () => {
             const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
             for (const panel of panels) {
+                // Update Intelligence tab AND Falcor tab (hosts Sequential Opportunities section)
                 if (panel._tab === INTELLIGENCE_TAB_KEY || panel._tab === 'falcor') {
                     panel.requestUpdate?.();
                 }

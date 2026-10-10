@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { EvidenceStore } from '../../src/core/evidence-store.js';
 import { EvidenceGraph, EdgeRelation } from '../../src/core/evidence-graph.js';
-import { AttributionQuality, EvidenceLevel, RuntimeEventType } from '../../src/core/evidence-protocol.js';
+import { RuntimeEventType } from '../../src/core/evidence-protocol.js';
 import { LitAdapter } from '../../src/adapter/lit/LitAdapter.js';
 import { recordLegacyNetworkEntry } from '../../src/integration/lit/network-evidence-bridge.js';
 import { NetworkStateCorrelator } from '../../src/integration/lit/network-state-correlator.js';
@@ -24,7 +24,7 @@ function fireUpdate(adapter, el, property = 'v') {
     adapter.recordUpdateCompleted(el);
 }
 
-test('network/state correlation preserves canonical v2 causal-link metadata without overstating evidence quality', () => {
+test('temporal network/state correlation creates trace context but no causal network edge', () => {
     const store = new EvidenceStore({ maxEntries: 100, privacyPolicy: false });
     const adapter = new LitAdapter({ store });
     const correlator = new NetworkStateCorrelator({ store, correlationWindowMs: 500 }).start();
@@ -37,18 +37,17 @@ test('network/state correlation preserves canonical v2 causal-link metadata with
     const diagnostic = store.snapshot({ type: RuntimeEventType.DIAGNOSTIC })
         .find(event => event.payload?.networkCorrelation === true);
     assert.ok(diagnostic);
-    assert.equal(diagnostic.correlation.causedByEventId, network.id);
-    assert.equal(diagnostic.correlation.traceId, `net-trace-${network.id}`);
-    assert.equal(diagnostic.evidence.level, EvidenceLevel.CORRELATION);
-    assert.equal(diagnostic.evidence.attribution, AttributionQuality.TEMPORAL_INFERENCE);
-    assert.equal(diagnostic.evidence.confidence, 0.6);
+    assert.ok(network.correlation.traceId?.startsWith('net-trace-'));
+    assert.equal(diagnostic.correlation.traceId, network.correlation.traceId);
+    assert.equal(diagnostic.correlation.causedByEventId, null);
 
     const graph = new EvidenceGraph(store.snapshot());
-    const link = graph.outgoing(network.id)
-        .find(edge => edge.toEventId === diagnostic.id && edge.relation === EdgeRelation.CAUSES);
-    assert.ok(link, 'canonical v2 causedByEventId must remain represented in the EvidenceGraph');
-    assert.equal(link.evidence.level, EvidenceLevel.CORRELATION);
-    assert.equal(link.evidence.attribution, AttributionQuality.TEMPORAL_INFERENCE);
+    assert.ok(graph.edges().some(edge => edge.relation === EdgeRelation.TRACE_CONTEXT));
+    assert.equal(
+        graph.outgoing(network.id).some(edge => edge.relation === EdgeRelation.CAUSES),
+        false,
+        'timing proximity must never manufacture a CAUSES edge from the network event',
+    );
     correlator.stop();
 });
 

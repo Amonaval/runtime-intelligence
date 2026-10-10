@@ -13,9 +13,9 @@ const MAX_BURSTS   = 100;
 export class FalcorCallGraph {
     #network;
     #unsubscribe = null;
-    #pending     = [];
-    #pendingLast = 0;
-    #bursts      = [];
+    #pending     = [];   // raw entries collected for current burst
+    #pendingLast = 0;    // endTs of most recent pending entry
+    #bursts      = [];   // finalized BurstGroup[]
     #flushTimer  = null;
 
     constructor({ network }) {
@@ -44,6 +44,7 @@ export class FalcorCallGraph {
         const endTs   = entry.ts ? new Date(entry.ts).getTime() : Date.now();
         const startTs = endTs - (Number.isFinite(entry.durationMs) ? entry.durationMs : 0);
 
+        // Is this entry part of the current burst? (start within BURST_GAP_MS of last end)
         if (this.#pending.length > 0 && startTs - this.#pendingLast < BURST_GAP_MS) {
             this.#pending.push({ entry, startTs, endTs });
         } else {
@@ -100,6 +101,10 @@ export class FalcorCallGraph {
             .slice(0, 15);
     }
 
+    // Lowest Common Ancestor: find the most-specific frame present in ALL stacks.
+    // Scans from index 0 (most-recent / closest to the API call) toward the oldest
+    // frame. The first frame common to all stacks is the burst originator — the
+    // function that directly caused all N Falcor calls.
     #findLCA(stacks) {
         const empty = { frame: '', fn: 'unknown', file: '', line: '' };
         if (!stacks.length || !stacks[0].length) return empty;
@@ -112,6 +117,7 @@ export class FalcorCallGraph {
         return empty;
     }
 
+    // Parse "at FnName (path/to/file.js:42:8)" or "at path/to/file.js:42:8"
     #parseFrame(frame) {
         const m = frame.match(/at\s+(?:(\S+)\s+\()?([^)]+):(\d+):\d+\)?/);
         if (!m) return { frame, fn: frame, file: '', line: '' };
