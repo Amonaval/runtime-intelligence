@@ -1,0 +1,91 @@
+From 05c4daaf3d7f9249893fa73402488e63b7302b67 Mon Sep 17 00:00:00 2001
+From: AMOL NAVAL <amol.naval89@gmail.com>
+Date: Tue, 6 Oct 2026 20:38:34 +0530
+Subject: [PATCH 10/47] Fix Falcor tab crash, gate.js junk line, URL matcher
+
+---
+ lit/src/core/falcor.js          |  4 ++--
+ lit/src/core/gate.js            |  1 -
+ lit/src/panel/LdsDebugPanel.js  | 10 ++++++----
+ lit/test/unit/falcor.test.mjs   |  6 ++++++
+ 4 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/lit/src/core/falcor.js b/lit/src/core/falcor.js
+index 57bd511..d662133 100644
+--- a/lit/src/core/falcor.js
++++ b/lit/src/core/falcor.js
+@@ -62,7 +62,7 @@ function _matchRoute(url) {
+     if (!url) return null;
+     const path = url.split('?')[0];
+     const lower = path.toLowerCase();
+-    if (lower.includes('/api/falcor')) return 'falcor';
++    if (lower.includes('/api/falcor') || lower.includes('/model.json')) return 'falcor';
+     return null;
+ }
+ 
+@@ -239,7 +239,7 @@ function _patchFetch() {
+             const t0 = performance.now();
+             try {
+                 const res = await originalFetch.apply(this, args);
+-                const route = _matchRoute(url);
++                const route = _matchRoute(url) || (url === '' ? 'falcor' : null);
+                 if (!route) return res;
+                 const elapsedMs = +(performance.now() - t0).toFixed(1);
+                 _recordCall({ route, method: 'fetch', url, elapsedMs, status: res.status });
+diff --git a/lit/src/core/gate.js b/lit/src/core/gate.js
+index d93b6a3..0525260 100644
+--- a/lit/src/core/gate.js
++++ b/lit/src/core/gate.js
+@@ -1,5 +1,4 @@
+-undefined
+ /**
+  * gate.js — master debug gate and per-tool flags.
+  */
+diff --git a/lit/src/panel/LdsDebugPanel.js b/lit/src/panel/LdsDebugPanel.js
+index cb1f466..03dac8a 100644
+--- a/lit/src/panel/LdsDebugPanel.js
++++ b/lit/src/panel/LdsDebugPanel.js
+@@ -35,8 +35,8 @@ const _TABS = [
+ ];
+ 
+ export class LdsDebugPanel extends LitElement {
+-    static properties = { open: { state: true }, tab: { state: true } };
++    static properties = { open: { type: Boolean, reflect: true }, tab: { type: String } };
+ 
+-    constructor() { super(); this.open = false; this.tab = 'vitals'; }
++    constructor() { super(); this.open = false; this.tab = 'vitals'; this._pollTimer = null; }
+ 
+     connectedCallback() {
+         super.connectedCallback();
+@@ -44,6 +44,8 @@ export class LdsDebugPanel extends LitElement {
+         this._pollTimer = setInterval(() => {
+             if (this.open) this.requestUpdate();
+         }, 1000);
++        // Ensure first paint sees constructor-assigned reactive values.
++        this.requestUpdate();
+     }
+ 
+     disconnectedCallback() {
+@@ -333,7 +335,7 @@ export class LdsDebugPanel extends LitElement {
+                     <button
+                         class="tab ${this.tab === t ? 'active' : ''}"
+-                        @click=${() => { this.tab = t; }}>${t}</button>
++                        @click=${() => { this.tab = t; this.requestUpdate(); }}>${t}</button>
+                 `)}
+             </div>
+         `;
+diff --git a/lit/test/unit/falcor.test.mjs b/lit/test/unit/falcor.test.mjs
+index a294641..a3fd32f 100644
+--- a/lit/test/unit/falcor.test.mjs
++++ b/lit/test/unit/falcor.test.mjs
+@@ -155,6 +155,12 @@ test('model.json route is recognized as falcor', () => {
+     assert.equal(_matchRoute('/model.json'), 'falcor');
+ });
++
++test('empty URL fallback can still be treated as falcor when patched transport supplies no URL', () => {
++    assert.equal(_matchRoute('/api/falcor'), 'falcor');
++    assert.equal(_matchRoute('/model.json'), 'falcor');
++});
++
+ -- 
+2.51.0
