@@ -14,12 +14,13 @@ const DEFAULT_BUDGET = Object.freeze({ countPerWindow: 5, windowMs: 100 });
 class UpdateBudgetMonitor {
     #store;
     #defaultBudget;
-    #tagBudgets = new Map();            // tagName → { countPerWindow, windowMs }
-    #windows = new Map();               // ownerId → [{ timestamp }]
-    #ownerMeta = new Map();             // ownerId → { tag }
+    #tagBudgets = new Map();
+    #windows = new Map();
+    #ownerMeta = new Map();
     #unsubscribe = null;
     #active = false;
     #violationCount = 0;
+    #violatingOwners = new Set();
 
     constructor({ store, budget = DEFAULT_BUDGET, onViolation } = {}) {
         if (!store || typeof store.emit !== 'function' || typeof store.subscribe !== 'function') {
@@ -27,7 +28,6 @@ class UpdateBudgetMonitor {
         }
         this.#store = store;
         this.#defaultBudget = _parseBudget(budget) ?? { ...DEFAULT_BUDGET };
-        // onViolation callback is optional; kept for external callers
         if (typeof onViolation === 'function') this._onViolation = onViolation;
     }
 
@@ -43,6 +43,7 @@ class UpdateBudgetMonitor {
         this.#active = false;
         if (this.#unsubscribe) { this.#unsubscribe(); this.#unsubscribe = null; }
         this.#windows.clear();
+        this.#violatingOwners.clear();
         return this;
     }
 
@@ -75,43 +76,48 @@ class UpdateBudgetMonitor {
         const now = event.timestamp ?? Date.now();
         const windowStart = now - budget.windowMs;
 
-        // Maintain rolling window for this owner
         if (!this.#windows.has(ownerId)) this.#windows.set(ownerId, []);
         const entries = this.#windows.get(ownerId);
         entries.push({ timestamp: now });
 
-        // Prune entries outside the window
         const pruned = entries.filter(e => e.timestamp > windowStart);
         this.#windows.set(ownerId, pruned);
 
-        if (pruned.length > budget.countPerWindow) {
-            this.#violationCount += 1;
-            const totalMs = pruned.length > 0
-                ? Math.round((pruned[pruned.length - 1].timestamp - pruned[0].timestamp) * 10) / 10
-                : 0;
-            this._onViolation?.({ ownerId, tag, updateCount: pruned.length, budget, totalMs });
-            try {
-                this.#store.emit({
-                    type: RuntimeEventType.DIAGNOSTIC,
-                    owner: event.owner,
-                    correlation: { causedByEventId: event.id },
-                    evidence: {
-                        level: EvidenceLevel.CORRELATION,
-                        attribution: AttributionQuality.TEMPORAL_INFERENCE,
-                        confidence: 0.7,
-                    },
-                    payload: {
-                        budgetViolation: true,
-                        ownerId,
-                        tag,
-                        updateCount: pruned.length,
-                        windowMs: budget.windowMs,
-                        countPerWindow: budget.countPerWindow,
-                        totalMs,
-                    },
-                });
-            } catch { /* never break the app */ }
+        if (pruned.length <= budget.countPerWindow) {
+            this.#violatingOwners.delete(ownerId);
+            return;
         }
+
+        if (this.#violatingOwners.has(ownerId)) return;
+        this.#violatingOwners.add(ownerId);
+
+        this.#violationCount += 1;
+        const totalMs = pruned.length > 0
+            ? Math.round((pruned[pruned.length - 1].timestamp - pruned[0].timestamp) * 10) / 10
+            : 0;
+        this._onViolation?.({ ownerId, tag, updateCount: pruned.length, budget, totalMs });
+        try {
+            this.#store.emit({
+                type: RuntimeEventType.DIAGNOSTIC,
+                owner: event.owner,
+                correlation: { causedByEventId: event.id },
+                evidence: {
+                    level: EvidenceLevel.CORRELATION,
+                    attribution: AttributionQuality.TEMPORAL_INFERENCE,
+                    confidence: 0.7,
+                },
+                payload: {
+                    budgetViolation: true,
+                    ownerId,
+                    tag,
+                    updateCount: pruned.length,
+                    windowMs: budget.windowMs,
+                    countPerWindow: budget.countPerWindow,
+                    totalMs,
+                    episodeStart: true,
+                },
+            });
+        } catch { /* never break the app */ }
     }
 }
 
