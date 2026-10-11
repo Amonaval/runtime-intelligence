@@ -13,6 +13,7 @@ Current `main` includes validated React R5.7.4 plus accepted product hardening/p
 - R6.2 Production Safety & Conditional Loading: complete
 - R6.3 Developer Onboarding & Reproducible Installation: complete
 - R6.4 Public API Stability & Extension Contract: complete
+- R6.5 Distribution / License / IP Strategy: complete
 - TrustWeave remains intentionally pinned to the R5.7.4 baseline while R6 productization proceeds independently.
 
 ## Current product state
@@ -36,60 +37,57 @@ The governing rule remains evidence honesty: observation, correlation, attributi
 
 ## React validation — CLOSED
 
-Completed sequence: R5.2 through R5.7.4. Further React work is defect-driven only; do not add parity missions merely to increase coverage.
+Completed sequence: R5.2 through R5.7.4. Further React work is defect-driven only.
 
-Evidence safeguards remain unchanged: React does not invent `UPDATE_CAUSE` or `REACTIVE_DEPENDENCY`; temporal proximity remains correlation; owner hierarchy is structural; Profiler timing is framework-reported observation; lifetime violations require explicit ownership evidence; synthetic Fault Lab evidence must not leak into consumer dogfood.
-
-## R6 productization
+## R6 productization — COMPLETE
 
 ### R6.1 — Package Contract & Publish Safety — COMPLETE
 
-- one package with explicit public subpaths;
-- package remains `private: true` pending explicit distribution/license decision;
-- generic packed artifact excludes Syndigo-specific `lit/custom`;
-- `npm run package:validate` checks export/pack contract.
+One package with explicit public subpaths, generic pack allowlist and package-contract validation.
 
 ### R6.2 — Production Safety & Conditional Loading — COMPLETE
 
-- default-off `runtime-intelligence/loader`;
-- disabled React and Lit paths avoid runtime instrumentation;
-- browser network/console/vitals instrumentation is reversible;
-- no surprise network request is initiated by collector startup;
-- host-owned diagnostic flags are restored on teardown.
+Default-off `/loader`, disabled-path near-zero instrumentation, reversible browser hooks and no collector-initiated network request.
 
-Focused local R6.2 production-safety tests: **8 passed, 0 failed**. Full repository validation remains a release checkpoint in a normal checked-out environment.
+Focused local production-safety tests: **8 passed, 0 failed**.
 
 ### R6.3 — Developer Onboarding & Reproducible Installation — COMPLETE
 
-- root README with 5-minute React/Lit quick starts;
-- local tarball is the recommended pre-registry install path;
-- `npm run onboarding:validate` tests the packed artifact in an isolated consumer;
-- `npm run validate:release` aggregates release checks;
-- troubleshooting and report/export workflow are documented.
+Root quick start, tarball consumer validation, safe enablement recipes and aggregate release validation.
 
 ### R6.4 — Public API Stability & Extension Contract — COMPLETE
 
-R6.4 freezes the R6 public contract and provides a supported alternative to deep imports/browser-global integration.
+Exact public API baseline, governed `runtime-intelligence/extension`, compatibility rules and guarded causal claims.
 
-- new `runtime-intelligence/extension` public surface;
-- explicit API version `0.1`;
-- `npm run api:validate` checks exact public subpaths and named exports against a committed baseline;
-- compatibility policy: pre-1.0 breaking changes require a new minor line; UREP/extension compatibility is same-major;
-- deep imports and `window.__LDS_*` are explicitly internal/unsupported for consumers;
-- extensions require an explicit EvidenceStore-compatible store and automatically namespace diagnostic names;
-- extension evidence is tagged with extension/API/UREP manifest metadata;
-- confirmed causal claims are blocked by default and require explicit opt-in plus `causality-confirmed` + `causedByEventId`;
-- onboarding validation now exercises the extension surface from the packed artifact;
-- package validation now checks TypeScript declaration targets as well as runtime targets.
+Focused extension tests: **5 passed, 0 failed**. Public API baseline validation passed in the isolated harness.
 
-Focused R6.4 extension tests: **5 passed, 0 failed**. The public API baseline validator also passed in the local isolated validation harness.
+### R6.5 — Distribution / License / IP Strategy — COMPLETE
 
-### Next: R6.5 — Distribution / License / IP Strategy
+R6.5 closes the product/distribution boundary:
 
-This is primarily an owner decision: public vs private registry, final package naming, license/IP position, and any commercial/service boundary.
+- package remains `runtime-intelligence` and `private: true`;
+- package license changes from the earlier MIT metadata to the current proprietary `UNLICENSED` baseline;
+- `LICENSE.md` carries an all-rights-reserved proprietary notice;
+- approved delivery is authorized private Git SHA or authorized tarball;
+- no public registry or registry URL is configured;
+- `npm run distribution:validate` machine-checks the distribution posture and packed license notice;
+- `npm run validate:release` now includes distribution-policy validation;
+- browser obfuscation is explicitly treated only as friction, not IP protection;
+- local collectors/adapters/UREP/panel remain in the browser package;
+- truly secret/premium intelligence may later move behind an opt-in service boundary consuming sanitized report/evidence contracts;
+- R6.5 adds no telemetry, background upload or surprise network calls;
+- historical rights are not claimed to be revoked by this policy change.
 
-Recommended effort: LOW-MEDIUM implementation effort + OWNER DECISION.
+## R6 closure
 
-## Framework expansion
+R6.1–R6.5 establish a complete productization baseline: package contract, production safety, onboarding, stable API/extensions and proprietary distribution policy.
 
-Vue/Angular work remains deferred until the R6 package/product contract is stable. Future adapters must reuse UREP, shared intelligence, Opportunities, the extension contract and the canonical panel rather than forking product logic.
+Full repository `npm run validate:release` remains a release checkpoint in a normal checked-out environment.
+
+## Next: R7 — Vue Adapter + Vue Fault Lab
+
+Vue is the next framework expansion now that the R6 contract is stable.
+
+Recommended effort: **MEDIUM-HIGH**.
+
+R7 must reuse UREP, shared intelligence, Opportunities, extension contract and canonical panel rather than creating a Vue-specific product fork.

@@ -34,7 +34,7 @@ function importTarget(value) {
 
 if (pkg.name !== 'runtime-intelligence') failures.push('Unexpected package name.');
 if (pkg.type !== 'module') failures.push('Package must remain ESM.');
-if (pkg.private !== true) failures.push('Package must remain private until distribution/license strategy is explicitly approved.');
+if (pkg.private !== true) failures.push('Package must remain private under the R6.5 distribution policy.');
 
 for (const subpath of requiredExports) {
   const value = pkg.exports?.[subpath];
@@ -95,4 +95,4 @@ if (failures.length) {
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
 console.log('Public surfaces: runtime-intelligence/loader, /core, /extension, /react, /lit, /panel, /panel/lit.');
 console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports.');
-console.log('Publish safety: package remains private; app-specific lit/custom is excluded.');
+console.log('Publish safety: package remains private under R6.5; app-specific lit/custom is excluded.');

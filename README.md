@@ -2,7 +2,7 @@
 
 Framework-neutral runtime diagnostics for React and Lit, backed by one Universal Runtime Evidence Protocol (UREP), shared intelligence pipeline, and one canonical developer panel.
 
-> Current distribution status: **private productization baseline**. The package contract is stable enough for local/Git/tarball evaluation, but public registry publishing and final licensing/distribution strategy are intentionally deferred to R6.5.
+> Current distribution status: **private/proprietary**. The package is intentionally `private: true` and `UNLICENSED`. Authorized evaluation/distribution is through private Git access or explicitly shared tarballs. Public registry publication is not part of the R6 baseline.
 
 ## 5-minute start
 
@@ -13,10 +13,12 @@ For development from this repository:
 ```bash
 npm install
 npm run package:validate
+npm run api:validate
+npm run distribution:validate
 npm run onboarding:validate
 ```
 
-For a consumer app, the reproducible pre-registry path is a local tarball:
+For an authorized consumer app, the reproducible pre-registry path is a tarball:
 
 ```bash
 # in runtime-intelligence
@@ -26,7 +28,7 @@ npm pack --ignore-scripts
 npm install /absolute/path/to/runtime-intelligence-0.1.0.tgz
 ```
 
-Git-SHA installation remains supported for existing dogfood consumers, but tarball installation is the recommended R6.3 reproduction path because it validates the exact packed artifact rather than repository internals.
+Git-SHA installation remains supported for controlled dogfood consumers. Neither repository access nor possession of a tarball grants redistribution rights; see `LICENSE.md`.
 
 ### 2. Production-safe React bootstrap
 
@@ -110,22 +112,36 @@ The R6 public API baseline is version `0.1`. `npm run api:validate` freezes the 
 - UREP and extension compatibility are same-major;
 - deep imports and `window.__LDS_*` globals are unsupported.
 
+## Distribution and IP boundary
+
+R6.5 adopts a private/proprietary browser-package model.
+
+- **Package name:** keep `runtime-intelligence` as the stable internal package-contract name. Do not rename merely to choose a registry scope.
+- **Registry:** none is configured. If a private registry is adopted later, choose its namespace/registry deliberately without changing product architecture.
+- **License:** proprietary / `UNLICENSED`; see `LICENSE.md`.
+- **Current delivery:** authorized private Git SHA or authorized tarball.
+- **Obfuscation:** optional friction only; never treated as IP protection.
+- **Service boundary:** intelligence that genuinely must remain secret (for example proprietary ranking, organization-wide aggregation, commercial policy/rules, or hosted analysis) belongs behind an opt-in backend/service. The browser package must remain useful locally and must not start making surprise network calls.
+
+Historical distributions or separate agreements may have different rights; R6.5 does not rewrite history or attempt to revoke rights already granted.
+
 ## Validation
 
 ```bash
 npm run package:validate
 npm run api:validate
+npm run distribution:validate
 npm run production:validate
 npm run onboarding:validate
 npm test
 ```
 
-`onboarding:validate` validates the packed artifact consumers actually receive, including `/extension`.
+`npm run validate:release` aggregates all release checks. `distribution:validate` enforces the private/proprietary posture and checks that the packed artifact carries the license notice.
 
 ## Reports
 
-The canonical panel supports local JSON and HTML export using `runtime-intelligence-report/1`; export remains user-triggered/local unless the consuming application adds transport.
+The canonical panel supports local JSON and HTML export using `runtime-intelligence-report/1`; export remains user-triggered/local unless the consuming application explicitly adds transport.
 
 ## More detail
 
-See [`docs/R6.3-DEVELOPER-ONBOARDING.md`](docs/R6.3-DEVELOPER-ONBOARDING.md) for onboarding and [`docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md`](docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md) for API/extension rules. Current product status is tracked in [`docs/STATUS.md`](docs/STATUS.md).
+See [`docs/R6.3-DEVELOPER-ONBOARDING.md`](docs/R6.3-DEVELOPER-ONBOARDING.md), [`docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md`](docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md), and [`docs/R6.5-DISTRIBUTION-LICENSE-IP.md`](docs/R6.5-DISTRIBUTION-LICENSE-IP.md). Current product status is tracked in [`docs/STATUS.md`](docs/STATUS.md).

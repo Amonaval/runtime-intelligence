@@ -10,7 +10,7 @@ R5.2 through R5.7.4 unified React with the canonical mature panel, shared browse
 
 Do not restart React parity work unless real dogfood exposes a concrete defect.
 
-## R6 — Productization & distribution
+## R6 — Productization & distribution — COMPLETE
 
 ### R6.1 — DONE — MEDIUM
 Package Contract & Publish Safety.
@@ -24,27 +24,29 @@ Developer Onboarding & Reproducible Installation.
 ### R6.4 — DONE — MEDIUM-HIGH
 Public API Stability & Extension Contract.
 
-- exact public subpath/named-export baseline;
-- `runtime-intelligence/extension` governed UREP extension surface;
-- explicit `0.1` API compatibility contract;
-- same-major UREP/extension compatibility;
-- deep imports and `window.__LDS_*` classified internal;
-- confirmed causality guarded by explicit extension opt-in;
-- public API validation added to the release gate.
-
-### R6.5 — NEXT — LOW-MEDIUM + OWNER DECISION
+### R6.5 — DONE — LOW-MEDIUM
 Distribution / License / IP Strategy.
 
-Choose:
+- package remains `runtime-intelligence` and `private: true`;
+- proprietary `UNLICENSED` baseline + `LICENSE.md`;
+- authorized private Git/tarball distribution only;
+- no public registry and no hard-coded registry;
+- distribution posture enforced by `npm run distribution:validate`;
+- release validation includes distribution policy;
+- obfuscation is not treated as an IP boundary;
+- secret/premium intelligence may later live behind an opt-in service boundary;
+- historical rights are not claimed to be revoked.
 
-- final package name/scope;
-- public vs private registry;
-- intended license/IP position;
-- whether any proprietary intelligence moves behind a service boundary;
-- release/versioning mechanics for the chosen distribution model.
+## R7 — NEXT — MEDIUM-HIGH
 
-Browser JavaScript cannot be made truly uncopyable; obfuscation is only friction, not protection.
+Vue Adapter + Vue Fault Lab.
 
-## After R6 baseline
+- add Vue adapter without duplicating intelligence logic;
+- reuse UREP, shared browser surface, shared advisers and canonical panel;
+- define evidence-capability honesty for Vue before implementing collectors;
+- build a focused synthetic Fault Lab;
+- validate package/onboarding/API contracts remain unchanged or are deliberately versioned.
 
-Vue adapter + Vue Fault Lab, then Angular adapter + Angular Fault Lab, reusing the same UREP/report/Opportunities/Intelligence/extension/panel stack.
+## After R7
+
+Angular Adapter + Angular Fault Lab, then broader dogfood/adoption work as justified by real consumers.
