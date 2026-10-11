@@ -20,19 +20,22 @@ Package Contract & Publish Safety.
 - accidental-publish guard;
 - `npm pack` contract validation.
 
-### R6.2 — NEXT — MEDIUM-HIGH
+### R6.2 — DONE — MEDIUM-HIGH
 Production Safety & Conditional Loading.
 
-- dev-only activation;
-- near-zero disabled overhead;
-- conditional loading/tree-shaking boundaries;
-- no surprise production network calls.
+- default-off `/loader` dynamic-import boundary;
+- disabled React path avoids runtime construction;
+- disabled Lit path avoids adapter/collector activation;
+- reversible network/console/vitals instrumentation;
+- teardown restores host globals/listeners;
+- focused proof that collector initialization does not initiate network requests.
 
-### R6.3 — MEDIUM
+### R6.3 — NEXT — MEDIUM
 Developer Onboarding & Reproducible Installation.
 
 - 5-minute React/Lit quick starts;
 - local tarball/install validation;
+- dev/debug enablement recipes;
 - troubleshooting and export workflow;
 - replace temporary Git-SHA install UX with a deliberate distribution path once approved.
 

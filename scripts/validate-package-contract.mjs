@@ -8,6 +8,7 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
+  './loader',
   './core',
   './react',
   './lit',
@@ -48,6 +49,17 @@ for (const subpath of requiredExports) {
   if (target !== './package.json') {
     const absolute = path.join(root, target.replace(/^\.\//, ''));
     if (!existsSync(absolute)) failures.push(`Export ${subpath} points to missing file ${target}.`);
+  }
+}
+
+const loaderTarget = exportTarget(pkg.exports?.['./loader']);
+if (loaderTarget) {
+  const loaderSource = readFileSync(path.join(root, loaderTarget.replace(/^\.\//, '')), 'utf8');
+  if (/^\s*import\s.+from\s/m.test(loaderSource) || /^\s*import\s*['"]/m.test(loaderSource)) {
+    failures.push('The /loader entry must not statically import Runtime Intelligence modules.');
+  }
+  if (!loaderSource.includes('import(')) {
+    failures.push('The /loader entry must preserve an explicit dynamic-import boundary.');
   }
 }
 
@@ -92,5 +104,6 @@ if (failures.length) {
 }
 
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
-console.log('Public surfaces: runtime-intelligence/core, /react, /lit, /panel, /panel/lit.');
+console.log('Public surfaces: runtime-intelligence/loader, /core, /react, /lit, /panel, /panel/lit.');
+console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports.');
 console.log('Publish safety: package remains private; app-specific lit/custom is excluded.');

@@ -7,23 +7,26 @@
  *   window.__LDS_DEBUG__ = true                    // all tools
  *   window.__LDS_DEBUG__ = { perf: true, network: true }  // selective
  *   window.__LDS_APP_CONFIG__ = { debugEnabled: true }    // app-level config
- *
- * Per-tool standalone flags (work without master flag):
- *   window.__LDS_PERF_ENABLED__    = true
- *   window.__LDS_PROP_DEBUG__      = '*'   // all components
- *   window.__LDS_INSPECTOR__       = true
- *   window.__LDS_EVENTS_TRACE__    = true
- *   window.__LDS_SLOW_API__        = true
- *   window.__LDS_CONSOLE_ENABLED__ = true
- *   window.__LDS_VITALS_ENABLED__  = true
- *   window.__LDS_NETWORK_ENABLED__ = true
- *   window.__LDS_INTELLIGENCE_ENABLED__ = true
- *   window.__LDS_CYCLE_DETECT__        = true
- *   window.__LDS_RESOURCE_TRACKER__   = true   // Phase 9 resource lifetime model
- *   window.__LDS_WORKFLOW_BASELINE__  = true   // Phase 10 workflow baseline tracking
- *   window.__LDS_FALCOR_VIEW__        = true   // Phase 11 Falcor network toolkit tab
- *   window.__LDS_MONITOR_BACKGROUND__ = true   // Mission 11C background session persistence
  */
+
+const RUNTIME_TOOL_KEYS = Object.freeze([
+    'intelligence',
+    'memory',
+    'errorBoundary',
+    'perf',
+    'propAudit',
+    'inspector',
+    'eventTracer',
+    'slowApi',
+    'console',
+    'vitals',
+    'network',
+    'cycleDetector',
+    'resourceTracker',
+    'workflowBaseline',
+    'falcorView',
+    'monitorBackground',
+]);
 
 function _getDebugFlag() {
     if (typeof window === 'undefined') return false;
@@ -59,4 +62,9 @@ function _toolEnabled(toolKey) {
     return false;
 }
 
-export { _getDebugFlag, _toolEnabled };
+function _runtimeEnabled() {
+    if (typeof window === 'undefined') return false;
+    return RUNTIME_TOOL_KEYS.some(toolKey => _toolEnabled(toolKey));
+}
+
+export { RUNTIME_TOOL_KEYS, _getDebugFlag, _runtimeEnabled, _toolEnabled };

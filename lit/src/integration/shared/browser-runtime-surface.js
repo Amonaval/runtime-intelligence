@@ -49,6 +49,11 @@ class BrowserRuntimeSurface {
   #onError = null;
   #onUnhandledRejection = null;
   #interactionHandlers = [];
+  #networkAttached = false;
+  #vitalsAttached = false;
+  #consoleAttached = false;
+  #hadIntelligenceFlag = false;
+  #previousIntelligenceFlag;
 
   constructor({
     store,
@@ -81,11 +86,28 @@ class BrowserRuntimeSurface {
     if (this.#started || !this.#windowTarget) return this;
     this.#started = true;
     const win = this.#windowTarget;
+    this.#hadIntelligenceFlag = Object.prototype.hasOwnProperty.call(win, '__LDS_INTELLIGENCE_ENABLED__');
+    this.#previousIntelligenceFlag = win.__LDS_INTELLIGENCE_ENABLED__;
     win.__LDS_INTELLIGENCE_ENABLED__ = true;
 
-    try { this.#network?.init?.(); } catch {}
-    try { this.#vitals?.init?.(); } catch {}
-    try { this.#consoleCapture?.attach?.(win); } catch {}
+    try {
+      if (typeof this.#network?.init === 'function') {
+        const attached = this.#network.init();
+        this.#networkAttached = attached !== false;
+      }
+    } catch {}
+    try {
+      if (typeof this.#vitals?.init === 'function') {
+        const attached = this.#vitals.init();
+        this.#vitalsAttached = attached !== false;
+      }
+    } catch {}
+    try {
+      if (typeof this.#consoleCapture?.attach === 'function') {
+        const attached = this.#consoleCapture.attach(win);
+        this.#consoleAttached = attached !== false;
+      }
+    } catch {}
 
     if (typeof this.#network?.subscribe === 'function') {
       this.#networkUnsubscribe = this.#network.subscribe(entry => this.#recordNetwork(entry));
@@ -156,6 +178,28 @@ class BrowserRuntimeSurface {
       try { this.#documentTarget?.removeEventListener?.(type, handler, true); } catch {}
     }
     this.#interactionHandlers = [];
+
+    if (this.#consoleAttached) {
+      try { this.#consoleCapture?.detach?.(win); } catch {}
+      this.#consoleAttached = false;
+    }
+    if (this.#vitalsAttached) {
+      try { this.#vitals?.detach?.(); } catch {}
+      this.#vitalsAttached = false;
+    }
+    if (this.#networkAttached) {
+      try { this.#network?.detach?.(); } catch {}
+      this.#networkAttached = false;
+    }
+
+    if (win?.__LDS_INTELLIGENCE_ENABLED__ === true) {
+      if (this.#hadIntelligenceFlag) win.__LDS_INTELLIGENCE_ENABLED__ = this.#previousIntelligenceFlag;
+      else {
+        try { delete win.__LDS_INTELLIGENCE_ENABLED__; } catch { win.__LDS_INTELLIGENCE_ENABLED__ = undefined; }
+      }
+    }
+    this.#hadIntelligenceFlag = false;
+    this.#previousIntelligenceFlag = undefined;
     return this;
   }
 

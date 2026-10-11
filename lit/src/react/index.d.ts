@@ -96,6 +96,13 @@ export interface RuntimeOwnerContextValue {
   source: RuntimeSource;
 }
 
+export interface RuntimeIntelligenceContextValue {
+  runtime: ReactIntelligenceRuntime | null;
+  adapter: ReactAdapter | null;
+  store: RuntimeEvidenceStore;
+  enabled: boolean;
+}
+
 export function RuntimeIntelligenceProvider(
   props: RuntimeIntelligenceProviderProps,
 ): ReactNode;
@@ -112,12 +119,7 @@ export function withRuntimeIntelligence<P>(
   options?: { name?: string; source?: RuntimeSource; enabled?: boolean },
 ): ComponentType<P>;
 
-export function useRuntimeIntelligence(): {
-  runtime: ReactIntelligenceRuntime;
-  adapter: ReactAdapter;
-  store: RuntimeEvidenceStore;
-  enabled: boolean;
-} | null;
+export function useRuntimeIntelligence(): RuntimeIntelligenceContextValue | null;
 
 export function useRuntimeOwner(): RuntimeOwnerContextValue | null;
 

@@ -44,19 +44,24 @@ function RuntimeIntelligenceProvider({
   store = evidenceStore,
 }) {
   const ownsRuntime = externalRuntime == null;
-  const runtimeRef = useRef(null);
-  if (!runtimeRef.current) {
-    runtimeRef.current = externalRuntime || new ReactIntelligenceRuntime({
+  const runtimeRef = useRef(externalRuntime || null);
+
+  // Production-safe disabled path: do not construct the runtime merely because
+  // the provider component exists. Creation is explicit and lazy on enable.
+  if (enabled && !runtimeRef.current) {
+    runtimeRef.current = new ReactIntelligenceRuntime({
       store,
       profilingEnabled,
     });
   }
+
   const runtime = runtimeRef.current;
+  const activeRuntime = enabled ? runtime : null;
   const tokenRef = useRef({});
   const token = tokenRef.current;
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!enabled || !runtime) return undefined;
     runtime.start();
     if (!runtime.adapter.isManaged(token)) {
       runtime.adapter.connect(token, { name, source });
@@ -68,37 +73,41 @@ function RuntimeIntelligenceProvider({
   }, [enabled, name, source, ownsRuntime, runtime, token]);
 
   const onRender = useMemo(
-    () => _profilerCallback(runtime.adapter, token, name, source),
-    [runtime, token, name, source],
+    () => activeRuntime
+      ? _profilerCallback(activeRuntime.adapter, token, name, source)
+      : null,
+    [activeRuntime, token, name, source],
   );
   const value = useMemo(
     () => Object.freeze({
-      runtime,
-      adapter: runtime.adapter,
-      store: runtime.store,
-      enabled,
+      runtime: activeRuntime,
+      adapter: activeRuntime?.adapter || null,
+      store: activeRuntime?.store || store,
+      enabled: !!activeRuntime,
     }),
-    [runtime, enabled],
+    [activeRuntime, store],
   );
   const ownerValue = useMemo(
-    () => Object.freeze({
-      runtime,
-      adapter: runtime.adapter,
-      token,
-      name,
-      source,
-    }),
-    [runtime, token, name, source],
+    () => activeRuntime
+      ? Object.freeze({
+        runtime: activeRuntime,
+        adapter: activeRuntime.adapter,
+        token,
+        name,
+        source,
+      })
+      : null,
+    [activeRuntime, token, name, source],
   );
 
-  const ownedChildren = profileRoot
+  const ownedChildren = activeRuntime && profileRoot && onRender
     ? createElement(Profiler, { id: name, onRender }, children)
     : children;
 
   return createElement(
     RuntimeIntelligenceContext.Provider,
     { value },
-    enabled
+    activeRuntime
       ? createElement(
         RuntimeIntelligenceOwnerContext.Provider,
         { value: ownerValue },

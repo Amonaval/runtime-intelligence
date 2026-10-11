@@ -5,20 +5,24 @@
 
 ## Canonical baseline
 
-Current `main` includes validated React R5.7.4 plus one accepted post-R5.7.4 source-resolver hardening commit.
+Current `main` includes validated React R5.7.4 plus accepted product hardening/productization work.
 
 - Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
-- TrustWeave remains intentionally pinned to the R5.7.4 baseline and was not repinned for the source-resolver hardening review.
+- R6.1 Package Contract & Publish Safety: complete
+- R6.2 Production Safety & Conditional Loading: complete
+- TrustWeave remains intentionally pinned to the R5.7.4 baseline while R6 productization proceeds independently.
 
-The hardening is accepted because it conservatively keeps `file://`, `webpack-internal://` and Vite `/@fs/` runtime locations on the generated/provider path, redacts embedded `data:` payloads, and does not upgrade evidence certainty.
+The source-resolver hardening is accepted because it conservatively keeps `file://`, `webpack-internal://` and Vite `/@fs/` runtime locations on the generated/provider path, redacts embedded `data:` payloads, and does not upgrade evidence certainty.
 
 ## Current product state
 
 Runtime Intelligence is one mature developer product with framework adapters, not separate Lit and React products.
 
 ```text
-LitAdapter / ReactAdapter / browser collectors
+explicit production/debug gate
+        -> runtime-intelligence/loader (default off, dynamic imports only)
+        -> LitAdapter / ReactAdapter / browser collectors
         -> Universal Runtime Evidence Protocol (UREP)
         -> shared evidence store
         -> incident recorder + EvidenceGraph + RootCauseGrouper
@@ -32,50 +36,45 @@ The governing rule remains evidence honesty: observation, correlation, attributi
 
 ## React validation — CLOSED
 
-Completed sequence:
+Completed sequence: R5.2 through R5.7.4. Further React work is defect-driven only; do not add parity missions merely to increase coverage.
 
-- R5.2 — Canonical Panel Unification
-- R5.3 — Shared Runtime Surface Parity
-- R5.4 — React Component & Ownership Intelligence
-- R5.5 — React Correlation + Intelligence
-- R5.6 — TrustWeave React Parity Closure
-- R5.7 — React Fault Lab
-- R5.7.1 — Presentation/export hardening
-- R5.7.2 — Expanded one-pass Fault Lab
-- R5.7.3 — Validation-gap closure
-- R5.7.4 — First-class Opportunities
-
-Further React work is defect-driven only. Do not add parity missions merely to increase coverage.
-
-## Evidence safeguards retained
-
-- React `UPDATE_CAUSE` remains unsupported unless explicit stronger evidence exists.
-- React `REACTIVE_DEPENDENCY` remains unsupported generically.
-- Interaction proximity and Network→state proximity are correlation only.
-- Nested owner hierarchy is structural, not causal.
-- Profiler timing is framework-reported observation.
-- Resource lifetime violations require explicitly tracked ownership.
-- Synthetic Fault Lab evidence is explicitly labeled and must not leak into consumer dogfood.
+Evidence safeguards remain unchanged: React does not invent `UPDATE_CAUSE` or `REACTIVE_DEPENDENCY`; temporal proximity remains correlation; owner hierarchy is structural; Profiler timing is framework-reported observation; lifetime violations require explicit ownership evidence; synthetic Fault Lab evidence must not leak into consumer dogfood.
 
 ## R6 productization
 
 ### R6.1 — Package Contract & Publish Safety — COMPLETE
 
-The R6 baseline keeps one package with explicit `/core`, `/react`, `/lit`, `/panel` and `/panel/lit` exports. The package is now guarded with `private: true` until distribution/license strategy is explicitly approved. The generic package allowlist contains `lit/src` only; Syndigo-specific `lit/custom` is no longer part of the packed artifact.
+- one package with explicit `/core`, `/react`, `/lit`, `/panel` and `/panel/lit` surfaces;
+- package remains `private: true` pending explicit distribution/license decision;
+- generic packed artifact excludes Syndigo-specific `lit/custom`;
+- `npm run package:validate` checks export/pack contract.
 
-`npm run package:validate` validates the export contract and `npm pack --dry-run` contents.
+### R6.2 — Production Safety & Conditional Loading — COMPLETE
 
-### Next: R6.2 — Production Safety & Conditional Loading
+New `runtime-intelligence/loader` is the default-off production boundary. It has no static imports from Runtime Intelligence and loads only the explicitly selected framework plus optional panel after `enabled: true`.
 
-Prove and harden:
+Additional hardening:
 
-- dev-only enablement;
-- near-zero disabled overhead;
-- safe conditional loading/tree-shaking boundaries;
-- no surprise production network calls;
-- privacy-safe defaults remain intact when enabled.
+- disabled React providers no longer instantiate `ReactIntelligenceRuntime`;
+- disabled Lit mixins do not connect adapters or baseline collectors;
+- BrowserRuntimeSurface stop releases network/console/vitals instrumentation and listeners;
+- `fetch`/XHR and console patches are reversible and reference-counted;
+- PerformanceObservers disconnect when the final diagnostics consumer stops;
+- console module import no longer mutates browser globals;
+- network initialization observes traffic without initiating its own request;
+- host-owned `__LDS_INTELLIGENCE_ENABLED__` state is restored on stop.
 
-Recommended effort: MEDIUM-HIGH.
+Focused local R6.2 production-safety tests: **8 passed, 0 failed**. Full repository validation remains a release checkpoint in a normal checked-out environment.
+
+### Next: R6.3 — Developer Onboarding & Reproducible Installation
+
+- 5-minute React/Lit setup;
+- tarball/package install verification;
+- safe dev/debug enablement recipes;
+- troubleshooting and report/export workflow;
+- prepare deliberate distribution UX without changing the current private-package decision.
+
+Recommended effort: MEDIUM.
 
 ## Framework expansion
 

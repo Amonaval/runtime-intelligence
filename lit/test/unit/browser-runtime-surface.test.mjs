@@ -4,7 +4,7 @@ import { EvidenceStore } from '../../src/core/evidence-store.js';
 import { RuntimeEventType } from '../../src/core/evidence-protocol.js';
 import { BrowserRuntimeSurface } from '../../src/integration/shared/browser-runtime-surface.js';
 
-test('shared browser surface emits network, errors and interactions into UREP', () => {
+test('shared browser surface emits evidence and fully releases owned browser instrumentation', () => {
   const store = new EvidenceStore({ privacyPolicy: false });
   const listeners = new Map();
   const docListeners = new Map();
@@ -17,12 +17,20 @@ test('shared browser surface emits network, errors and interactions into UREP', 
     removeEventListener(type){ listeners.delete(type); },
   };
   let networkSubscriber = null;
+  const lifecycle = { networkInit: 0, networkDetach: 0, vitalsInit: 0, vitalsDetach: 0, consoleAttach: 0, consoleDetach: 0 };
   const network = {
-    init(){},
+    init(){ lifecycle.networkInit += 1; },
+    detach(){ lifecycle.networkDetach += 1; },
     subscribe(fn){ networkSubscriber = fn; return () => { networkSubscriber = null; }; },
   };
-  const vitals = { init(){} };
-  const consoleCapture = { attach(){} };
+  const vitals = {
+    init(){ lifecycle.vitalsInit += 1; },
+    detach(){ lifecycle.vitalsDetach += 1; },
+  };
+  const consoleCapture = {
+    attach(){ lifecycle.consoleAttach += 1; },
+    detach(){ lifecycle.consoleDetach += 1; },
+  };
   const detector = { start(){}, stop(){} };
   const surface = new BrowserRuntimeSurface({
     store,
@@ -34,6 +42,7 @@ test('shared browser surface emits network, errors and interactions into UREP', 
     sequentialDetectorFactory: () => detector,
   }).start();
 
+  assert.equal(fakeWindow.__LDS_INTELLIGENCE_ENABLED__, true);
   networkSubscriber({ url: '/api/items?token=secret', method: 'GET', status: 200, durationMs: 42, type: 'fetch' });
   listeners.get('error')({ message: 'boom', filename: '/src/App.tsx', lineno: 9, colno: 4 });
   docListeners.get('click')({ target: { tagName: 'BUTTON', getAttribute: () => 'button' } });
@@ -48,4 +57,37 @@ test('shared browser surface emits network, errors and interactions into UREP', 
   assert.equal(surface.started, false);
   assert.equal(networkSubscriber, null);
   assert.equal(docListeners.size, 0);
+  assert.equal(listeners.size, 0);
+  assert.equal('__LDS_INTELLIGENCE_ENABLED__' in fakeWindow, false);
+  assert.deepEqual(lifecycle, {
+    networkInit: 1,
+    networkDetach: 1,
+    vitalsInit: 1,
+    vitalsDetach: 1,
+    consoleAttach: 1,
+    consoleDetach: 1,
+  });
+});
+
+test('shared browser surface restores a pre-existing intelligence flag', () => {
+  const store = new EvidenceStore({ privacyPolicy: false });
+  const fakeWindow = {
+    __LDS_INTELLIGENCE_ENABLED__: 'host-owned',
+    document: { addEventListener(){}, removeEventListener(){} },
+    addEventListener(){},
+    removeEventListener(){},
+  };
+  const inert = { init(){}, detach(){}, subscribe(){ return () => {}; } };
+  const surface = new BrowserRuntimeSurface({
+    store,
+    windowTarget: fakeWindow,
+    documentTarget: fakeWindow.document,
+    network: inert,
+    vitals: { init(){}, detach(){} },
+    consoleCapture: { attach(){}, detach(){} },
+    sequentialDetectorFactory: () => ({ start(){}, stop(){} }),
+  }).start();
+
+  surface.stop();
+  assert.equal(fakeWindow.__LDS_INTELLIGENCE_ENABLED__, 'host-owned');
 });

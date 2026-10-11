@@ -1,22 +1,12 @@
 /**
  * LitDebugMixin — drop-in debug mixin for any LitElement base class.
  *
- * Usage:
- *   import { LitDebugMixin } from 'lit-debug-suite';
- *   class MyElement extends LitDebugMixin(LitElement) { ... }
- *
- * Or wrap your own base class:
- *   class RufElement extends LitDebugMixin(LitElement) { ... }
- *
- * Activation:
- *   window.__LDS_DEBUG__ = true                         // all tools
- *   window.__LDS_DEBUG__ = { perf: true, network: true } // selective
- *
- * Syndigo-specific plugins (Falcor, ACI, DataObjectManager):
- *   import 'lit-debug-suite/custom/ui-platform';
+ * The mixin is production-safe when diagnostics are disabled: it does not
+ * connect the UREP adapter or attach collectors until an explicit Runtime
+ * Intelligence flag is active before the element connects.
  */
 
-import { _toolEnabled }      from './core/gate.js';
+import { _runtimeEnabled, _toolEnabled } from './core/gate.js';
 import { LdsMemory }         from './core/memory.js';
 import { LdsPerfMonitor }    from './core/perf.js';
 import { LdsErrorBoundary }  from './core/error-boundary.js';
@@ -32,8 +22,9 @@ import { litAdapter }        from './adapter/lit/LitAdapter.js';
 import { getLitIntelligencePipeline } from './integration/lit/LitIntelligencePipeline.js';
 import { installLegacyNetworkEvidenceBridge } from './integration/lit/network-evidence-bridge.js';
 
-// Page-level tools are initialized once per page load
+// Page-level tools are initialized once per enabled page session.
 let _pageToolsInited = false;
+const _runtimeActive = Symbol('runtime-intelligence-active');
 
 function _initPageTools() {
     if (_pageToolsInited) return;
@@ -50,15 +41,18 @@ const LitDebugMixin = superclass => class extends superclass {
     connectedCallback() {
         super.connectedCallback?.();
 
+        this[_runtimeActive] = _runtimeEnabled();
+        if (!this[_runtimeActive]) return;
+
         // Start opt-in intelligence recording before the first UREP owner event.
         _initPageTools();
         litAdapter.connect(this);
 
-        // Always-on tools (zero overhead when data is not used)
+        // Baseline diagnostics used by the mature panel while runtime is enabled.
         LdsMemory.attach(this);
         LdsErrorBoundary.attach(this);
 
-        // Selectively enabled tools
+        // Selectively enabled tools.
         if (_toolEnabled('perf'))          LdsPerfMonitor.attach(this);
         if (_toolEnabled('propAudit'))     LdsPropAudit.attach(this);
         if (_toolEnabled('inspector'))     LdsInspector.attach(this);
@@ -70,6 +64,7 @@ const LitDebugMixin = superclass => class extends superclass {
 
     disconnectedCallback() {
         super.disconnectedCallback?.();
+        if (!this[_runtimeActive]) return;
 
         // Detach in reverse attach order so diagnostic-owned resources are
         // cleaned up before the memory/resource lifetime check runs.
@@ -85,14 +80,17 @@ const LitDebugMixin = superclass => class extends superclass {
 
         // The UREP owner is considered dead only after diagnostic cleanup.
         litAdapter.disconnect(this);
+        this[_runtimeActive] = false;
     }
 
     requestUpdate(name, oldValue, options) {
-        litAdapter.recordUpdateRequested(this, name, oldValue);
+        if (this[_runtimeActive]) litAdapter.recordUpdateRequested(this, name, oldValue);
         return super.requestUpdate?.(name, oldValue, options);
     }
 
     performUpdate(...args) {
+        if (!this[_runtimeActive]) return super.performUpdate?.(...args);
+
         litAdapter.recordUpdateStarted(this);
         try {
             const result = super.performUpdate?.(...args);
