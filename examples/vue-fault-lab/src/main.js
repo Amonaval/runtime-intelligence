@@ -156,27 +156,35 @@ const App = {
   `,
 };
 
-const loaded = await loadVueRuntimeIntelligence({
-  enabled: true,
-  panel: true,
-});
+async function bootstrap() {
+  const loaded = await loadVueRuntimeIntelligence({
+    enabled: true,
+    panel: true,
+  });
 
-const app = createApp(App);
-diagnosticsController = loaded.frameworkModule.installVueRuntimeIntelligence(app, {
-  enabled: true,
-  version: '3.x',
-  slowRenderThresholdMs: 100,
-});
+  const app = createApp(App);
+  diagnosticsController = loaded.frameworkModule.installVueRuntimeIntelligence(app, {
+    enabled: true,
+    version: '3.x',
+    slowRenderThresholdMs: 100,
+  });
 
-const panel = loaded.panelModule.mountRuntimeIntelligencePanel({
-  store: diagnosticsController.store,
-});
+  const panel = loaded.panelModule.mountRuntimeIntelligencePanel({
+    store: diagnosticsController.store,
+  });
 
-app.mount('#app');
+  app.mount('#app');
 
-window.__RUNTIME_INTELLIGENCE_VUE_FAULT_LAB__ = Object.freeze({
-  synthetic: true,
-  runtime: diagnosticsController.runtime,
-  controller: diagnosticsController,
-  panel,
+  window.__RUNTIME_INTELLIGENCE_VUE_FAULT_LAB__ = Object.freeze({
+    synthetic: true,
+    runtime: diagnosticsController.runtime,
+    controller: diagnosticsController,
+    panel,
+  });
+}
+
+bootstrap().catch((error) => {
+  console.error('Vue Fault Lab failed to start.', error);
+  const root = document.querySelector('#app');
+  if (root) root.textContent = `Vue Fault Lab failed to start: ${error?.message || error}`;
 });
