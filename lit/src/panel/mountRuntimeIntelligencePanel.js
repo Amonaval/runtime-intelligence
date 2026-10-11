@@ -8,11 +8,24 @@ import {
   enhanceRuntimeIssueForFramework,
 } from './runtime-panel-presentation.js';
 
+function _frameworkFromStore(store) {
+  try {
+    const event = store.snapshot().find(item => {
+      const name = item?.framework?.name;
+      return name && !['browser', 'runtime', 'unknown', 'fault-lab-injected'].includes(name);
+    });
+    return event?.framework?.name || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Mount the canonical mature Runtime Intelligence panel.
  *
- * The panel remains a LitElement internally, but consumers (including React)
- * interact only with this framework-neutral mount contract and UREP store.
+ * The panel remains a LitElement internally, but consumers (including React,
+ * Vue and future adapters) interact only with this framework-neutral mount
+ * contract and UREP store.
  */
 function mountRuntimeIntelligencePanel({
   store,
@@ -61,13 +74,15 @@ function mountRuntimeIntelligencePanel({
     documentTarget,
   });
 
-  const framework = windowTarget.__LDS_RUNTIME_FRAMEWORK__ || 'unknown';
+  const resolveFramework = () => windowTarget.__LDS_RUNTIME_FRAMEWORK__
+    || _frameworkFromStore(store)
+    || 'unknown';
   const originalRenderIssueCard = typeof element._renderIssueCard === 'function'
     ? element._renderIssueCard.bind(element)
     : null;
   if (originalRenderIssueCard) {
     element._renderIssueCard = issue => originalRenderIssueCard(
-      enhanceRuntimeIssueForFramework(issue, { framework }),
+      enhanceRuntimeIssueForFramework(issue, { framework: resolveFramework() }),
     );
   }
 
@@ -77,7 +92,7 @@ function mountRuntimeIntelligencePanel({
       baseReport: element._getActiveReport?.() || {},
       store,
       windowTarget,
-      framework,
+      framework: resolveFramework(),
       note: note || element._reportNote || '',
     });
   };
@@ -97,8 +112,6 @@ function mountRuntimeIntelligencePanel({
     documentTarget,
   });
 
-  // Keep the mature header buttons, but route their exports through the
-  // normalized report contract so React diagnostics/opportunities are not lost.
   element._download = downloadJson;
   element._downloadHtml = downloadHtml;
 

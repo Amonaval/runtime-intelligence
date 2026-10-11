@@ -16,6 +16,11 @@ function _ownerKey(event) {
 function _sourceFile(event) {
   return event?.source?.file || null;
 }
+function _frameworkNameFromEvent(event) {
+  const name = event?.framework?.name;
+  if (!name || ['browser', 'runtime', 'unknown', 'fault-lab-injected'].includes(name)) return null;
+  return name;
+}
 function _ensureObject(target, key) {
   if (!target[key] || typeof target[key] !== 'object' || Array.isArray(target[key])) {
     target[key] = {};
@@ -86,7 +91,6 @@ class RuntimePanelEvidenceBridge {
 
     win.__LDS_EVIDENCE_STORE__ = this.#store;
     win.__LDS_EVIDENCE__ = () => this.#store.snapshot();
-    win.__LDS_RUNTIME_FRAMEWORK__ = 'react';
 
     this.#previousTagResolver = typeof win.__LDS_TAG_TO_FILE__ === 'function'
       ? win.__LDS_TAG_TO_FILE__
@@ -180,10 +184,13 @@ class RuntimePanelEvidenceBridge {
     if (!resources?.size) return;
 
     const outstanding = [...resources.values()];
+    const frameworkName = _frameworkNameFromEvent(event)
+      || this.#windowTarget?.__LDS_RUNTIME_FRAMEWORK__
+      || 'unknown';
     _boundedPush(_ensureArray(this.#windowTarget, '__LDS_RESOURCE_VIOLATIONS__'), {
       ownerTag: ownerName,
       ownerId: event.owner?.id || null,
-      framework: 'react',
+      framework: frameworkName,
       resources: outstanding,
       ts: new Date(event.timestamp).toISOString(),
       evidenceLevel: 'lifetime-violation',
@@ -193,7 +200,7 @@ class RuntimePanelEvidenceBridge {
     try {
       this.#store.emit({
         type: RuntimeEventType.DIAGNOSTIC,
-        framework: { name: 'react', adapterVersion: 'panel-evidence-bridge-1' },
+        framework: { name: frameworkName, adapterVersion: 'panel-evidence-bridge-1' },
         owner: event.owner,
         source: event.source,
         correlation: event.correlation,
@@ -205,7 +212,7 @@ class RuntimePanelEvidenceBridge {
           confidence: 1,
         },
         payload: {
-          diagnostic: 'react.resource-lifetime-violation',
+          diagnostic: `${frameworkName}.resource-lifetime-violation`,
           resourceLifetimeViolation: true,
           resourceCount: outstanding.length,
           resourceTypes: [...new Set(outstanding.map(item => item.eventType))],
@@ -219,6 +226,11 @@ class RuntimePanelEvidenceBridge {
     this.#processed.add(event.id);
 
     const win = this.#windowTarget;
+    const frameworkName = _frameworkNameFromEvent(event);
+    if (!win.__LDS_RUNTIME_FRAMEWORK__ && frameworkName) {
+      win.__LDS_RUNTIME_FRAMEWORK__ = frameworkName;
+    }
+
     const ownerName = _ownerName(event);
     const source = _sourceFile(event);
     if (source && ownerName) this.#sourceByOwner.set(ownerName, source);
