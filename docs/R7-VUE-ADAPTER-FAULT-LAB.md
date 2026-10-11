@@ -40,9 +40,11 @@ Vue app
 - `createVueIntelligenceRuntime`
 - `installVueRuntimeIntelligence`
 
-`installVueRuntimeIntelligence(app, { enabled })` is default-safe: only literal `true` installs hooks or constructs a runtime. Install it before `app.mount()`.
+`installVueRuntimeIntelligence(app, { enabled })` defaults to disabled. Only literal `enabled: true` installs hooks or constructs a runtime. Install it before `app.mount()`.
 
-The installer uses one application-wide mixin for component lifecycle evidence and wraps `app.config.errorHandler` while preserving/restoring any prior handler. Vue mixins cannot be physically removed after registration, so `stop()` makes the installed callbacks inert and stops the runtime.
+The installer uses one application-wide mixin for component lifecycle evidence. Its `errorCaptured` hook records error observation while returning `undefined`, so normal Vue error propagation is preserved. If the host already has `app.config.errorHandler`, Runtime Intelligence temporarily wraps, delegates to, and restores that handler; when the host has no custom handler, Runtime Intelligence leaves Vue's default error behavior intact instead of replacing it.
+
+`stop()` disconnects any still-managed component owners. A runtime created by the installer is stopped with the controller; an externally supplied runtime remains caller-owned. On Vue versions exposing `app.onUnmount`, cleanup is scheduled after component unmount hooks so `owner.destroyed` evidence is not suppressed by premature teardown. Vue mixins cannot be physically removed after registration, so stopped callbacks remain installed but inert.
 
 ## Evidence honesty
 
@@ -84,6 +86,7 @@ R7 is an additive pre-1.0 package change:
 
 - current `main` and R6 docs/source inspected before implementation;
 - new Vue JavaScript files syntax-checked;
-- isolated behavioral harness: **11 passed, 0 failed**.
+- original R7 isolated behavioral harness: **11 passed, 0 failed**;
+- follow-up installer hardening harness: **5 passed, 0 failed**, covering default-off activation, host error semantics, external-runtime ownership, delayed app-unmount cleanup, and fail-closed component filtering.
 
 The implementation session did **not** claim full `npm run validate:release`, packed-tarball onboarding, browser Fault Lab execution, or real consumer Vue dogfood. Run those from a normal checkout before treating R7 as release-validated.

@@ -50,7 +50,7 @@ function _disabledController() {
  * Call before app.mount(). Diagnostics are installed only for literal true.
  */
 function installVueRuntimeIntelligence(app, {
-  enabled = true,
+  enabled = false,
   runtime: externalRuntime = null,
   store = evidenceStore,
   version = null,
@@ -65,6 +65,7 @@ function installVueRuntimeIntelligence(app, {
     throw new TypeError('installVueRuntimeIntelligence requires a Vue app created by createApp().');
   }
 
+  const ownsRuntime = externalRuntime == null;
   const runtime = externalRuntime || new VueIntelligenceRuntime({
     store,
     version,
@@ -78,8 +79,36 @@ function installVueRuntimeIntelligence(app, {
   const adapter = runtime.adapter;
   let active = true;
   const previousErrorHandler = app.config.errorHandler;
+  const managedTargets = new Set();
+  const observedObjectErrors = new WeakSet();
+  const observedPrimitiveErrors = new Set();
 
   const sourceFor = proxy => _safeResolveSource(proxy, sourceResolver);
+
+  function recordErrorOnce(error, instance, info, phase) {
+    if (!active || (instance && !_included(instance, componentFilter))) return;
+
+    const isObjectError = (typeof error === 'object' && error !== null) || typeof error === 'function';
+    if (isObjectError) {
+      if (observedObjectErrors.has(error)) return;
+      observedObjectErrors.add(error);
+      Promise.resolve().then(() => observedObjectErrors.delete(error));
+    } else {
+      const key = `${typeof error}:${String(error)}:${String(info || '')}`;
+      if (observedPrimitiveErrors.has(key)) return;
+      observedPrimitiveErrors.add(key);
+      Promise.resolve().then(() => observedPrimitiveErrors.delete(key));
+    }
+
+    try {
+      adapter.recordError?.(instance, error, {
+        source: sourceFor(instance),
+        phase,
+        info,
+      });
+    } catch {}
+  }
+
   const mixin = {
     beforeMount() {
       if (!active || !_included(this, componentFilter)) return;
@@ -91,6 +120,7 @@ function installVueRuntimeIntelligence(app, {
           source: sourceFor(this),
           parentId: parentOwner?.connected ? parentOwner.id : null,
         });
+        if (adapter.isManaged?.(this)) managedTargets.add(this);
       } catch {}
     },
 
@@ -112,35 +142,60 @@ function installVueRuntimeIntelligence(app, {
       try { adapter.recordUpdateCompleted?.(this, { source: sourceFor(this) }); } catch {}
     },
 
+    errorCaptured(error, instance, info) {
+      recordErrorOnce(error, instance, info, 'vue-error-captured');
+      return undefined;
+    },
+
     unmounted() {
-      if (!active || !adapter.isManaged?.(this)) return;
-      try { adapter.disconnect?.(this, { source: sourceFor(this), reason: 'unmounted' }); } catch {}
+      if (!adapter.isManaged?.(this)) {
+        managedTargets.delete(this);
+        return;
+      }
+      if (active) {
+        try { adapter.disconnect?.(this, { source: sourceFor(this), reason: 'unmounted' }); } catch {}
+      }
+      managedTargets.delete(this);
     },
   };
 
-  const runtimeErrorHandler = function runtimeIntelligenceVueErrorHandler(error, instance, info) {
-    if (active) {
-      try {
-        adapter.recordError?.(instance, error, {
-          source: sourceFor(instance),
-          phase: 'vue-error-handler',
-          info,
-        });
-      } catch {}
-    }
-
-    if (typeof previousErrorHandler === 'function') {
+  const runtimeErrorHandler = typeof previousErrorHandler === 'function'
+    ? function runtimeIntelligenceVueErrorHandler(error, instance, info) {
+      recordErrorOnce(error, instance, info, 'vue-error-handler');
       return previousErrorHandler.call(app.config, error, instance, info);
     }
-    return undefined;
-  };
+    : null;
+
+  function stop() {
+    if (!active) return false;
+    for (const target of managedTargets) {
+      if (!adapter.isManaged?.(target)) continue;
+      try { adapter.disconnect?.(target, { source: sourceFor(target), reason: 'runtime-stop' }); } catch {}
+    }
+    managedTargets.clear();
+    active = false;
+    if (runtimeErrorHandler && app.config.errorHandler === runtimeErrorHandler) {
+      app.config.errorHandler = previousErrorHandler;
+    }
+    if (ownsRuntime) {
+      try { runtime.stop(); } catch {}
+    }
+    return true;
+  }
 
   try {
     runtime.start();
     app.mixin(mixin);
-    app.config.errorHandler = runtimeErrorHandler;
+    if (runtimeErrorHandler) app.config.errorHandler = runtimeErrorHandler;
+    if (typeof app.onUnmount === 'function') {
+      app.onUnmount(() => {
+        Promise.resolve().then(() => stop());
+      });
+    }
   } catch (error) {
-    try { runtime.stop(); } catch {}
+    if (ownsRuntime) {
+      try { runtime.stop(); } catch {}
+    }
     throw error;
   }
 
@@ -149,15 +204,7 @@ function installVueRuntimeIntelligence(app, {
     runtime,
     adapter,
     store: runtime.store,
-    stop() {
-      if (!active) return false;
-      active = false;
-      if (app.config.errorHandler === runtimeErrorHandler) {
-        app.config.errorHandler = previousErrorHandler;
-      }
-      try { runtime.stop(); } catch {}
-      return true;
-    },
+    stop,
   });
 }
 

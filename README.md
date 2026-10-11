@@ -88,6 +88,7 @@ let panel = null;
 
 if (diagnostics.enabled) {
   runtimeIntelligence = diagnostics.frameworkModule.installVueRuntimeIntelligence(app, {
+    enabled: true,
     version: '3.x',
   });
   panel = diagnostics.panelModule.mountRuntimeIntelligencePanel({
@@ -100,6 +101,8 @@ app.mount('#app');
 ```
 
 Vue `beforeUpdate` → `updated` timing is recorded as an observed lifecycle window. Runtime Intelligence does not claim that Vue exposed the reactive dependency or update cause unless stronger evidence is added in the future.
+
+The direct Vue installer is also default-off. Pass literal `enabled: true` only inside an application-owned authorization/debug gate, or after `/loader` has already returned `enabled: true`.
 
 Use `/loader` when production bundle isolation matters.
 

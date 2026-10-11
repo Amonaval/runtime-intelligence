@@ -44,7 +44,7 @@ const ErrorProbe = {
     }
     return h('section', { class: 'card' }, [
       h('h2', 'Controlled component error'),
-      h('p', 'The Vue app errorHandler reports this as observed error evidence.'),
+      h('p', 'The Vue integration records this as observed error evidence without replacing Vue default error behavior.'),
       h('button', { onClick: () => { this.fail = true; } }, 'Trigger component error'),
     ]);
   },
