@@ -1,89 +1,85 @@
 # Runtime Intelligence
 
-Framework-neutral runtime diagnostics for React, Lit and Vue, backed by one Universal Runtime Evidence Protocol (UREP), shared intelligence pipeline, and one canonical developer panel.
+Framework-neutral runtime diagnostics for **React, Lit and Vue**, backed by one Universal Runtime Evidence Protocol (UREP), shared intelligence pipeline, source provenance, Opportunities, normalized reports and one canonical developer panel.
 
-> Current distribution status: **private/proprietary**. The package is intentionally `private: true` and `UNLICENSED`. Authorized evaluation/distribution is through private Git access or explicitly shared tarballs. Public registry publication is not part of the current baseline.
+> Distribution status: **private / proprietary**. The package is intentionally `private: true` and `UNLICENSED`. Authorized evaluation is through private Git access or explicitly shared tarballs. Public registry publication is not part of the current baseline.
+
+## What makes the product useful
+
+Runtime Intelligence is designed to reduce the time from:
+
+```text
+"something is slow / leaking / failing"
+```
+
+to:
+
+```text
+relevant application evidence
+→ source file : line : column when provable
+→ provenance meaning
+→ evidence chain / opportunity
+→ action
+```
+
+Source precision is governed by evidence honesty. An invocation location, component boundary, registration point, correlation and confirmed causal origin are **not interchangeable**.
 
 ## Start here
 
-For a completely new React, Lit or Vue project, use [`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md). It explains the Level 0 → Level 1 → Level 2 adoption model, source/evidence expectations, privacy/production gating and framework-specific setup.
+For a complete blank-project / existing-project guide, including React, Lit, Vue, zero-touch adoption and the evidence-quality ladder, read:
 
-For the hardest React adoption case, use [`examples/react-uninstrumented-lab`](examples/react-uninstrumented-lab): its business components are deliberately forbidden from importing or calling Runtime Intelligence.
+[`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md)
 
-## 5-minute start
-
-### 1. Install
-
-For development from this repository:
+### Install an authorized tarball
 
 ```bash
-npm install
-npm run package:validate
-npm run api:validate
-npm run distribution:validate
-npm run onboarding:validate
-```
-
-For an authorized consumer app, the reproducible pre-registry path is a tarball:
-
-```bash
-# in runtime-intelligence
+# runtime-intelligence repo
 npm pack --ignore-scripts
 
-# in the consumer app
-npm install /absolute/path/to/runtime-intelligence-0.1.2.tgz
+# consumer app
+npm install /absolute/path/to/runtime-intelligence-0.1.3.tgz
 ```
 
-Git-SHA installation remains supported for controlled dogfood consumers. Neither repository access nor possession of a tarball grants redistribution rights; see `LICENSE.md`.
+A controlled Git-SHA install remains supported for dogfood consumers.
 
-### 2. Production-safe React bootstrap
+## React — zero-touch application code
 
-```js
+Only the application shell needs Runtime Intelligence. Application components can remain ordinary React.
+
+```jsx
 import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
 
-const diagnostics = await loadRuntimeIntelligence({
+const loaded = await loadRuntimeIntelligence({
   enabled: import.meta.env.DEV && localStorage.getItem('runtime-intelligence') === 'on',
   framework: 'react',
   panel: true,
 });
+
+if (loaded.enabled) {
+  const {
+    createReactIntelligenceRuntime,
+    RuntimeIntelligenceProvider,
+  } = loaded.frameworkModule;
+  const { mountRuntimeIntelligencePanel } = loaded.panelModule;
+
+  const runtime = createReactIntelligenceRuntime({ profilingEnabled: true });
+  const panel = mountRuntimeIntelligencePanel({ store: runtime.store });
+
+  root.render(
+    <RuntimeIntelligenceProvider runtime={runtime} name="AppRoot" profileRoot={true}>
+      <App />
+    </RuntimeIntelligenceProvider>,
+  );
+
+  // panel.destroy(); runtime.stop(); // HMR/tests
+}
 ```
 
-Only literal `true` activates loading. When enabled:
+At this level, network/error provenance can often resolve automatically to application code. Exact internal component source for an otherwise completely uninstrumented React render is **not invented** when React does not expose trustworthy source metadata.
 
-```js
-const { createReactIntelligenceRuntime, RuntimeIntelligenceProvider } = diagnostics.frameworkModule;
-const { mountRuntimeIntelligencePanel } = diagnostics.panelModule;
-const runtime = createReactIntelligenceRuntime({ profilingEnabled: true });
-const panel = mountRuntimeIntelligencePanel({ store: runtime.store });
-root.render(
-  <RuntimeIntelligenceProvider runtime={runtime} profileRoot={true}>
-    <App />
-  </RuntimeIntelligenceProvider>,
-);
-// panel.destroy(); runtime.stop(); // HMR/tests
-```
+## Vue 3 — application-level install
 
-At this Level 0 boundary, business components can remain completely unaware of Runtime Intelligence. Browser/network/error evidence and root-tree render timing are still available; exact child render source is not guaranteed without stronger evidence.
-
-### 3. Lit bootstrap
-
-```js
-import { LitElement } from 'lit';
-import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
-
-const diagnostics = await loadRuntimeIntelligence({
-  enabled: import.meta.env.DEV && localStorage.getItem('runtime-intelligence') === 'on',
-  framework: 'lit',
-});
-const RuntimeBase = diagnostics.enabled ? diagnostics.frameworkModule.LitDebugMixin(LitElement) : LitElement;
-customElements.define('my-app', class extends RuntimeBase {});
-```
-
-For strict Lit conditional loading, make the diagnostics decision before defining the instrumented custom element. See the new-project guide for the canonical panel/store wiring and shared-base-class adoption pattern.
-
-### 4. Vue bootstrap
-
-Install the Vue integration before `app.mount()` so lifecycle ownership is observable from the first mount:
+Install before `app.mount()`:
 
 ```js
 import { createApp } from 'vue';
@@ -91,53 +87,106 @@ import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
 import App from './App.vue';
 
 const app = createApp(App);
-const diagnostics = await loadRuntimeIntelligence({
+const loaded = await loadRuntimeIntelligence({
   enabled: import.meta.env.DEV && localStorage.getItem('runtime-intelligence') === 'on',
   framework: 'vue',
   panel: true,
 });
 
-let runtimeIntelligence = null;
-let panel = null;
-
-if (diagnostics.enabled) {
-  runtimeIntelligence = diagnostics.frameworkModule.installVueRuntimeIntelligence(app, {
+if (loaded.enabled) {
+  const diagnostics = loaded.frameworkModule.installVueRuntimeIntelligence(app, {
     enabled: true,
-    version: app.version,
+    version: '3.x',
   });
-  panel = diagnostics.panelModule.mountRuntimeIntelligencePanel({
-    store: runtimeIntelligence.store,
-  });
+  loaded.panelModule.mountRuntimeIntelligencePanel({ store: diagnostics.store });
 }
 
 app.mount('#app');
-// panel?.destroy(); runtimeIntelligence?.stop(); // HMR/tests
 ```
 
-Vue `beforeUpdate` → `updated` timing is recorded as an observed lifecycle window. Runtime Intelligence does not claim that Vue exposed the reactive dependency or update cause unless stronger evidence is added in the future.
+Vue lifecycle ownership/timing remains observation. Component file metadata can provide source attribution where Vue exposes it.
 
-The direct Vue installer is also default-off. Pass literal `enabled: true` only inside an application-owned authorization/debug gate, or after `/loader` has already returned `enabled: true`.
+## Lit — supported programmatic activation
 
-Use `/loader` when production bundle isolation matters.
+For new projects, prefer a shared application base class:
 
-## Enablement rules
+```js
+import { LitElement } from 'lit';
+import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
 
-Diagnostics should be **off by default** and require both an application-owned development/authorization condition and explicit opt-in. Runtime Intelligence does not upload telemetry or initiate network requests on startup; its network collector observes host traffic only.
+const loaded = await loadRuntimeIntelligence({
+  enabled: import.meta.env.DEV && localStorage.getItem('runtime-intelligence') === 'on',
+  framework: 'lit',
+  panel: true,
+});
+
+let AppElement = LitElement;
+
+if (loaded.enabled) {
+  loaded.frameworkModule.configureLitRuntimeIntelligence({ enabled: true });
+  AppElement = loaded.frameworkModule.LitDebugMixin(LitElement);
+
+  const { evidenceStore } = await import('runtime-intelligence/core');
+  loaded.panelModule.mountRuntimeIntelligencePanel({ store: evidenceStore });
+}
+
+export { AppElement };
+```
+
+`configureLitRuntimeIntelligence(...)` is the supported new-project activation path. `window.__LDS_*` remains a compatibility mechanism for older integrations and should not be the foundation of new code.
 
 ## Public package surfaces
 
 ```text
 runtime-intelligence/loader    production-safe conditional loader
-runtime-intelligence/core      UREP/shared core
-runtime-intelligence/extension governed custom UREP evidence producers
-runtime-intelligence/react     React adapter/provider/runtime
-runtime-intelligence/lit       Lit adapter/mixin/runtime integration
-runtime-intelligence/vue       Vue adapter/runtime/app integration
-runtime-intelligence/panel     canonical panel mount/report APIs
-runtime-intelligence/panel/lit direct mature Lit panel element
+runtime-intelligence/core      UREP/shared intelligence core
+runtime-intelligence/extension governed custom UREP producers
+runtime-intelligence/react     React runtime/provider/hooks
+runtime-intelligence/lit       Lit mixin + programmatic activation
+runtime-intelligence/vue       Vue app/runtime integration
+runtime-intelligence/panel     canonical panel + report APIs
+runtime-intelligence/panel/lit direct panel element
 ```
 
-Do not import deep paths such as `runtime-intelligence/lit/src/...`. Do not build consumer integrations around `window.__LDS_*`; those globals are internal compatibility bridges, not supported public APIs.
+Do not deep-import repository paths such as `runtime-intelligence/lit/src/...`.
+
+## Source provenance
+
+Pinpoint should tell you what a location means:
+
+- **Invocation** — observed operation was invoked here.
+- **Registration** — resource/effect/listener was registered here.
+- **Error origin** — captured error stack resolves here.
+- **Component boundary** — framework/instrumentation identifies this boundary here.
+- **Correlated / related** — useful context, not causal proof.
+- **Unknown** — exact source was not deterministically available.
+
+A source line without provenance semantics is incomplete.
+
+## Validation labs
+
+```bash
+# deterministic / instrumented React coverage
+npm run lab:react:install
+npm run lab:react
+
+# P0.3 hostile zero-touch React project
+npm run lab:react:hostile:install
+npm run lab:react:hostile:validate
+npm run lab:react:hostile
+
+# Vue coverage
+npm run lab:vue:install
+npm run lab:vue
+```
+
+`examples/react-uninstrumented-lab` is deliberately different from the React Fault Lab: application components contain no Runtime Intelligence imports, source annotations, HOCs, runtime hooks, or synthetic UREP injection. It exists to expose what the product can and cannot discover automatically.
+
+## Safe enablement
+
+Diagnostics should remain off by default and require an application-owned development/authorization gate plus explicit opt-in. The loader activates only for literal `true`.
+
+Runtime Intelligence does not add telemetry, upload endpoints, beacons, or surprise startup network calls. Report export remains local/user-triggered unless a consumer explicitly adds transport.
 
 ## Custom extensions
 
@@ -150,34 +199,13 @@ const extension = createRuntimeExtension({
   store: runtime.store,
   framework: 'react',
 });
+
 extension.diagnostic('cache-miss', { route: '/orders' });
 ```
 
-Diagnostics are automatically namespaced (`acme.router.cache-miss`) and tagged with extension/API/UREP version metadata. Confirmed causality is blocked by default and requires an explicit stronger contract.
+Confirmed causality is blocked by default and requires the stronger extension/evidence contract.
 
-## API stability
-
-The public API contract remains version `0.1`. R7 deliberately adds the compatible `runtime-intelligence/vue` subpath and updates the checked API baseline. `npm run api:validate` freezes the supported package subpaths and named exports.
-
-- pre-1.0 breaking supported-API changes require a new minor line;
-- after 1.0, breaking changes require a major version;
-- UREP and extension compatibility are same-major;
-- deep imports and `window.__LDS_*` globals are unsupported.
-
-## Distribution and IP boundary
-
-R6.5 adopts a private/proprietary browser-package model.
-
-- **Package name:** keep `runtime-intelligence` as the stable internal package-contract name. Do not rename merely to choose a registry scope.
-- **Registry:** none is configured. If a private registry is adopted later, choose its namespace/registry deliberately without changing product architecture.
-- **License:** proprietary / `UNLICENSED`; see `LICENSE.md`.
-- **Current delivery:** authorized private Git SHA or authorized tarball.
-- **Obfuscation:** optional friction only; never treated as IP protection.
-- **Service boundary:** intelligence that genuinely must remain secret belongs behind an opt-in backend/service. The browser package must remain useful locally and must not start making surprise network calls.
-
-Historical distributions or separate agreements may have different rights; R6.5 does not rewrite history or attempt to revoke rights already granted.
-
-## Validation
+## Release validation
 
 ```bash
 npm run package:validate
@@ -188,24 +216,16 @@ npm run onboarding:validate
 npm test
 ```
 
-`npm run validate:release` aggregates all release checks. `distribution:validate` enforces the private/proprietary posture and checks that the packed artifact carries the license notice.
+`npm run validate:release` aggregates the release checks.
 
-Focused framework validation is also represented by the unit tests under `lit/test/unit/`. Synthetic browser surfaces live under `examples/react-fault-lab` and `examples/vue-fault-lab`.
-
-For the P0.3 zero-touch React benchmark:
+The P0.3 zero-touch contract has an additional static gate:
 
 ```bash
-npm run lab:react:hostile:install
 npm run lab:react:hostile:validate
-npm run lab:react:hostile
 ```
 
-The hostile-lab guard intentionally fails if business code starts importing Runtime Intelligence, adding Runtime Intelligence hooks/HOCs/profilers, adding React `Profiler`, or supplying provenance manually.
+## Product status
 
-## Reports
+Current work prioritizes **developer value and source precision over adding more framework adapters**. Angular and broader framework expansion remain blocked until the P0 source-pinpoint value proposition is mature.
 
-The canonical panel supports local JSON and HTML export using `runtime-intelligence-report/1`; export remains user-triggered/local unless the consuming application explicitly adds transport.
-
-## More detail
-
-Start with [`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md) and [`docs/P0-SOURCE-PINPOINT-PROVENANCE.md`](docs/P0-SOURCE-PINPOINT-PROVENANCE.md). Historical/productization detail is in [`docs/R7-VUE-ADAPTER-FAULT-LAB.md`](docs/R7-VUE-ADAPTER-FAULT-LAB.md), [`docs/R6.3-DEVELOPER-ONBOARDING.md`](docs/R6.3-DEVELOPER-ONBOARDING.md), [`docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md`](docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md), and [`docs/R6.5-DISTRIBUTION-LICENSE-IP.md`](docs/R6.5-DISTRIBUTION-LICENSE-IP.md). Current product status is tracked in [`docs/STATUS.md`](docs/STATUS.md).
+See [`docs/STATUS.md`](docs/STATUS.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and [`docs/P0-SOURCE-PINPOINT-PROVENANCE.md`](docs/P0-SOURCE-PINPOINT-PROVENANCE.md).

@@ -3,10 +3,9 @@
  *
  * No framework deps, no Syndigo deps. Works in any LitElement project.
  *
- * Activation:
- *   window.__LDS_DEBUG__ = true                    // all tools
- *   window.__LDS_DEBUG__ = { perf: true, network: true }  // selective
- *   window.__LDS_APP_CONFIG__ = { debugEnabled: true }    // app-level config
+ * Preferred new-project activation is programmatic through
+ * configureLitRuntimeIntelligence(). Legacy window.__LDS_* flags remain as a
+ * compatibility bridge for existing consumers.
  */
 
 const RUNTIME_TOOL_KEYS = Object.freeze([
@@ -28,6 +27,9 @@ const RUNTIME_TOOL_KEYS = Object.freeze([
     'monitorBackground',
 ]);
 
+let _programmaticDebugFlag;
+let _programmaticOwner = null;
+
 function _hasOwn(object, key) {
     return object != null && Object.prototype.hasOwnProperty.call(object, key);
 }
@@ -36,7 +38,20 @@ function _ownTruthy(object, key) {
     return _hasOwn(object, key) && !!object[key];
 }
 
+function _setProgrammaticDebugFlag(flag, owner) {
+    _programmaticDebugFlag = flag;
+    _programmaticOwner = owner || null;
+}
+
+function _clearProgrammaticDebugFlag(owner) {
+    if (_programmaticOwner !== (owner || null)) return false;
+    _programmaticDebugFlag = undefined;
+    _programmaticOwner = null;
+    return true;
+}
+
 function _getDebugFlag() {
+    if (_programmaticDebugFlag !== undefined) return _programmaticDebugFlag;
     if (typeof window === 'undefined') return false;
     if (_hasOwn(window, '__LDS_DEBUG__')) return window.__LDS_DEBUG__;
 
@@ -47,11 +62,21 @@ function _getDebugFlag() {
 }
 
 function _toolEnabled(toolKey) {
+    const flag = _getDebugFlag();
+
+    // A programmatic configuration is authoritative. This prevents old
+    // compatibility globals from silently expanding a selective new-project
+    // configuration.
+    if (_programmaticDebugFlag !== undefined) {
+        if (flag === true) return true;
+        return typeof flag === 'object' && flag !== null && _ownTruthy(flag, toolKey);
+    }
+
     if (typeof window === 'undefined') return false;
 
-    // Per-tool standalone flags — work without master flag. Only own window
-    // properties are accepted so inherited/prototype-polluted values cannot
-    // accidentally activate runtime instrumentation.
+    // Legacy per-tool standalone flags — kept for compatibility only. Only own
+    // window properties are accepted so inherited/prototype-polluted values
+    // cannot accidentally activate runtime instrumentation.
     if (toolKey === 'perf'              && _ownTruthy(window, '__LDS_PERF_ENABLED__'))         return true;
     if (toolKey === 'propAudit'         && _ownTruthy(window, '__LDS_PROP_DEBUG__'))            return true;
     if (toolKey === 'inspector'         && _ownTruthy(window, '__LDS_INSPECTOR__'))             return true;
@@ -67,7 +92,6 @@ function _toolEnabled(toolKey) {
     if (toolKey === 'falcorView'        && _ownTruthy(window, '__LDS_FALCOR_VIEW__'))           return true;
     if (toolKey === 'monitorBackground' && _ownTruthy(window, '__LDS_MONITOR_BACKGROUND__'))   return true;
 
-    const flag = _getDebugFlag();
     if (!flag) return false;
     if (flag === true) return true;
     if (typeof flag === 'object' && flag !== null) return _ownTruthy(flag, toolKey);
@@ -75,8 +99,14 @@ function _toolEnabled(toolKey) {
 }
 
 function _runtimeEnabled() {
-    if (typeof window === 'undefined') return false;
     return RUNTIME_TOOL_KEYS.some(toolKey => _toolEnabled(toolKey));
 }
 
-export { RUNTIME_TOOL_KEYS, _getDebugFlag, _runtimeEnabled, _toolEnabled };
+export {
+    RUNTIME_TOOL_KEYS,
+    _clearProgrammaticDebugFlag,
+    _getDebugFlag,
+    _runtimeEnabled,
+    _setProgrammaticDebugFlag,
+    _toolEnabled,
+};

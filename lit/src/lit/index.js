@@ -4,3 +4,4 @@ export { LitIntelligencePipeline, getLitIntelligencePipeline } from '../integrat
 export { PropertyWatchManager } from '../integration/lit/property-watch-manager.js';
 export { NavigationBridge } from '../integration/lit/navigation-bridge.js';
 export { NetworkStateCorrelator } from '../integration/lit/network-state-correlator.js';
+export { configureLitRuntimeIntelligence } from './configureLitRuntimeIntelligence.js';

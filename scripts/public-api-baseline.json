@@ -1,5 +1,5 @@
 {
-  "contractVersion": "r7/2",
+  "contractVersion": "p0.3/1",
   "apiVersion": "0.1",
   "surfaces": {
     "./loader": [
@@ -99,7 +99,8 @@
       "getLitIntelligencePipeline",
       "PropertyWatchManager",
       "NavigationBridge",
-      "NetworkStateCorrelator"
+      "NetworkStateCorrelator",
+      "configureLitRuntimeIntelligence"
     ],
     "./vue": [
       "VueAdapter",

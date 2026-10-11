@@ -39,6 +39,7 @@ if (typeof core.getRuntimeIntelligenceApiContract !== 'function') throw new Erro
 if (typeof createRuntimeExtension !== 'function') throw new Error('extension export missing createRuntimeExtension');
 if (typeof react.createReactIntelligenceRuntime !== 'function') throw new Error('react runtime export missing');
 if (typeof lit.LitDebugMixin !== 'function') throw new Error('lit mixin export missing');
+if (typeof lit.configureLitRuntimeIntelligence !== 'function') throw new Error('lit programmatic activation export missing');
 if (typeof vue.createVueIntelligenceRuntime !== 'function') throw new Error('vue runtime export missing');
 if (typeof vue.installVueRuntimeIntelligence !== 'function') throw new Error('vue install export missing');
 
@@ -55,6 +56,7 @@ const reactLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'r
 if (!reactLoaded.enabled || typeof reactLoaded.frameworkModule?.createReactIntelligenceRuntime !== 'function') throw new Error('React dynamic loader path failed');
 const litLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'lit' });
 if (!litLoaded.enabled || typeof litLoaded.frameworkModule?.LitDebugMixin !== 'function') throw new Error('Lit dynamic loader path failed');
+if (typeof litLoaded.frameworkModule?.configureLitRuntimeIntelligence !== 'function') throw new Error('Lit programmatic activation loader path failed');
 const vueLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'vue' });
 if (!vueLoaded.enabled || typeof vueLoaded.frameworkModule?.createVueIntelligenceRuntime !== 'function') throw new Error('Vue dynamic loader path failed');
 
@@ -71,7 +73,7 @@ console.log('consumer smoke passed');
 
   console.log(`Runtime Intelligence onboarding validation passed using ${filename}.`);
   console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit, /vue.');
-  console.log('Verified extension contract plus default-off loader and React/Lit/Vue dynamic loading from the packed artifact.');
+  console.log('Verified extension contract plus default-off loader, React/Lit/Vue dynamic loading, and public Lit programmatic activation from the packed artifact.');
 } catch (error) {
   const stderr = error?.stderr?.toString?.().trim();
   console.error(`Runtime Intelligence onboarding validation failed: ${stderr || error.message}`);
