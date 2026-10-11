@@ -2,17 +2,9 @@
  * LdsNetwork — intercepts window.fetch and XMLHttpRequest.
  * Page-level tool: call LdsNetwork.init() once.
  *
- * window.__LDS_NETWORK_LOG__ = [
- *   { url, method, status, durationMs, responseSizeKB, ts, isError, isSlow, isLarge, type, decoded?, error? }
- * ]
- * Capped at 200 entries.
- *
- * Protocol decoder plugin:
- *   LdsNetwork.registerDecoder(fn)
- *   fn(rawUrl: string, body: string|null) → decodedObject | null
- *
- * Syndigo registers FalcorDecoder via custom/ui-platform/index.js.
- * The decoded object is stored in the log entry's `decoded` field.
+ * Network entries expose explicit startedAt/endedAt wall-clock timestamps so
+ * higher-level analyzers never have to reconstruct request timing from a
+ * completion timestamp plus duration.
  */
 
 const SLOW_MS     = 2000;
@@ -62,21 +54,20 @@ function init() {
     _initialized = true;
     window.__LDS_NETWORK_LOG__ = _log;
 
-    // ── Patch fetch ──────────────────────────────────────────────────────────
     const _origFetch = window.fetch;
     window.fetch = function (...args) {
         const rawUrl = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
         const method = (args[1]?.method || 'GET').toUpperCase();
         const body   = typeof args[1]?.body === 'string' ? args[1].body : null;
         const t0     = performance.now();
-        // Capture call stack synchronously at fetch() call site (before async).
-        // Any active LDS debug flag enables capture — not just __LDS_FALCOR_VIEW__.
+        const startedAt = Date.now();
         const callStack = (window.__LDS_DEBUG__ || window.__LDS_FALCOR_VIEW__ || window.__LDS_INTELLIGENCE_ENABLED__)
             ? new Error().stack : undefined;
 
         return _origFetch.apply(this, args).then(
             response => {
                 const ms = Math.round(performance.now() - t0);
+                const endedAt = Date.now();
                 const kb = Math.round(parseInt(response.headers.get('content-length') || '0', 10) / 1024);
                 _push({
                     url:            _shortUrl(rawUrl),
@@ -85,7 +76,9 @@ function init() {
                     status:         response.status,
                     durationMs:     ms,
                     responseSizeKB: kb || null,
-                    ts:             new Date().toISOString(),
+                    startedAt,
+                    endedAt,
+                    ts:             new Date(endedAt).toISOString(),
                     isError:        response.status >= 400,
                     isSlow:         ms > SLOW_MS,
                     isLarge:        kb > LARGE_KB,
@@ -96,6 +89,7 @@ function init() {
                 return response;
             },
             err => {
+                const endedAt = Date.now();
                 _push({
                     url:            _shortUrl(rawUrl),
                     fullUrl:        String(rawUrl),
@@ -103,7 +97,9 @@ function init() {
                     status:         0,
                     durationMs:     Math.round(performance.now() - t0),
                     responseSizeKB: null,
-                    ts:             new Date().toISOString(),
+                    startedAt,
+                    endedAt,
+                    ts:             new Date(endedAt).toISOString(),
                     isError:        true,
                     isSlow:         false,
                     isLarge:        false,
@@ -117,7 +113,6 @@ function init() {
         );
     };
 
-    // ── Patch XHR ────────────────────────────────────────────────────────────
     const _origOpen = XMLHttpRequest.prototype.open;
     const _origSend = XMLHttpRequest.prototype.send;
 
@@ -130,11 +125,13 @@ function init() {
     XMLHttpRequest.prototype.send = function (...args) {
         this.__lds_body = typeof args[0] === 'string' ? args[0] : null;
         const t0 = performance.now();
+        const startedAt = Date.now();
+        const callStack = (window.__LDS_DEBUG__ || window.__LDS_FALCOR_VIEW__ || window.__LDS_INTELLIGENCE_ENABLED__)
+            ? new Error().stack : undefined;
         this.addEventListener('loadend', () => {
             const ms = Math.round(performance.now() - t0);
-            const kb = Math.round(
-                parseInt(this.getResponseHeader?.('content-length') || '0', 10) / 1024
-            );
+            const endedAt = Date.now();
+            const kb = Math.round(parseInt(this.getResponseHeader?.('content-length') || '0', 10) / 1024);
             _push({
                 url:            _shortUrl(this.__lds_url || ''),
                 fullUrl:        String(this.__lds_url || ''),
@@ -142,19 +139,22 @@ function init() {
                 status:         this.status,
                 durationMs:     ms,
                 responseSizeKB: kb || null,
-                ts:             new Date().toISOString(),
+                startedAt,
+                endedAt,
+                ts:             new Date(endedAt).toISOString(),
                 isError:        this.status === 0 || this.status >= 400,
                 isSlow:         ms > SLOW_MS,
                 isLarge:        kb > LARGE_KB,
                 type:           'xhr',
                 decoded:        _resolveDecoded(this.__lds_url || '', this.__lds_body),
+                callStack,
             });
         });
         return _origSend.apply(this, args);
     };
 }
 
-function detach() {} // page-level, no per-element cleanup
+function detach() {}
 
 const LdsNetwork = { init, detach, registerDecoder, subscribe };
 export { LdsNetwork };

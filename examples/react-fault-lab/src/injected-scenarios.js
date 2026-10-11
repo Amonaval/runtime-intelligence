@@ -12,7 +12,7 @@ function owner(name, id = `fault-lab-${name.toLowerCase().replaceAll(/[^a-z0-9]+
 
 function emit(store, input) {
   return store.emit({
-    framework: { name: 'fault-lab-injected', adapterVersion: '2' },
+    framework: { name: 'fault-lab-injected', adapterVersion: '3' },
     source: SOURCE,
     evidence: {
       level: EvidenceLevel.OBSERVATION,
@@ -115,6 +115,7 @@ export function injectFullCoveragePack(store) {
     { diagnostic: 'lab.paint-timing', paintTiming: true, metric: 'first-contentful-paint', valueMs: 3400, synthetic: true },
     { diagnostic: 'lab.network-correlation', networkCorrelation: true, ownerId: syntheticOwner.id, traceId: 'fault-lab-injected-net', synthetic: true },
     { diagnostic: 'lab.orphan-suspect', orphanSuspect: true, ownerId: syntheticOwner.id, synthetic: true },
+    { diagnostic: 'lab.resource-lifetime', resourceLifetimeViolation: true, resourceCount: 1, resourceTypes: ['interval'], synthetic: true },
   ];
 
   for (const payload of diagnosticPayloads) {
@@ -122,9 +123,9 @@ export function injectFullCoveragePack(store) {
       type: RuntimeEventType.DIAGNOSTIC,
       owner: syntheticOwner,
       evidence: {
-        level: EvidenceLevel.CORRELATION,
-        attribution: AttributionQuality.HEURISTIC,
-        confidence: 0.75,
+        level: payload.resourceLifetimeViolation ? EvidenceLevel.LIFETIME_VIOLATION : EvidenceLevel.CORRELATION,
+        attribution: payload.resourceLifetimeViolation ? AttributionQuality.SOURCE_ATTRIBUTED : AttributionQuality.HEURISTIC,
+        confidence: payload.resourceLifetimeViolation ? 1 : 0.75,
       },
       payload,
     });
@@ -146,15 +147,13 @@ export function injectFullCoveragePack(store) {
     },
   });
 
-  emit(store, {
-    type: RuntimeEventType.RESOURCE_ACQUIRED,
-    owner: syntheticOwner,
-    payload: { resourceId: 'fault-lab-resource', resourceType: 'interval', synthetic: true },
-  });
+  // Synthetic resource-lifetime coverage is emitted directly above. Do not use
+  // acquire/destroy here because a derived diagnostic could lose synthetic
+  // provenance and masquerade as a behaviorally observed leak.
   emit(store, {
     type: RuntimeEventType.OWNER_DESTROYED,
     owner: syntheticOwner,
-    payload: { scenario: 'injected-resource-lifetime', synthetic: true },
+    payload: { scenario: 'injected-owner-destroyed', synthetic: true },
   });
 
   for (let i = 0; i < 6; i += 1) {
@@ -176,7 +175,7 @@ export function injectFullCoveragePack(store) {
       'update-budget finding',
       'paint timing + network correlation diagnostics',
       'runtime error',
-      'resource lifetime violation',
+      'synthetic resource lifetime diagnostic with provenance preserved',
       'retained owner/mount spike',
       'Intelligence finding + evidence capsule',
     ],

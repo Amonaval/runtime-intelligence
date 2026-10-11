@@ -104,6 +104,7 @@ function _opportunityFromDiagnostic(event, framework) {
     correlation: event.correlation || null,
     recommendation: _recommendation(kind, framework),
     payload,
+    synthetic: payload.synthetic === true,
   });
 }
 
@@ -119,6 +120,7 @@ function _normalizedFinding(event, framework) {
       message: event.payload?.message || 'Runtime error',
       recommendation: _recommendation('runtime-error', framework),
       payload: event.payload || {},
+      synthetic: event.payload?.synthetic === true,
     });
   }
   if (event.type === 'component.update.completed') {
@@ -133,6 +135,7 @@ function _normalizedFinding(event, framework) {
         message: `${event.owner?.name || 'React boundary'} rendered in ${Math.round(durationMs)}ms`,
         recommendation: _recommendation('slow-render', framework),
         payload: event.payload || {},
+        synthetic: event.payload?.synthetic === true,
       });
     }
   }
@@ -141,6 +144,56 @@ function _normalizedFinding(event, framework) {
     if (opportunity) return opportunity;
   }
   return null;
+}
+
+function _semanticKey(item) {
+  const payload = item?.payload || {};
+  const owner = item?.owner?.name || item?.owner?.id || payload.tag || payload.ownerTag || 'runtime';
+  const source = item?.source?.file || '';
+  const synthetic = item?.synthetic === true || payload.synthetic === true ? 'synthetic' : 'observed';
+  const discriminator = [
+    payload.diagnostic,
+    payload.property,
+    payload.duplicateTag,
+    payload.commonAncestorTag,
+    payload.childTag,
+    payload.parentTag,
+    payload.scriptUrl,
+    payload.path,
+    payload.networkPath,
+    payload.metric,
+    item?.message,
+  ].filter(Boolean).join('|');
+  return `${item?.kind || item?.flag || 'finding'}::${owner}::${source}::${synthetic}::${discriminator}`;
+}
+
+function _dedupeSemantic(items = []) {
+  const byKey = new Map();
+  for (const item of items) {
+    const key = _semanticKey(item);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, {
+        ...item,
+        occurrenceCount: 1,
+        eventIds: [item.id].filter(Boolean),
+      });
+      continue;
+    }
+    existing.occurrenceCount += 1;
+    if (item.id) existing.eventIds.push(item.id);
+    const currentConfidence = Number(existing.evidence?.confidence) || 0;
+    const nextConfidence = Number(item.evidence?.confidence) || 0;
+    if (nextConfidence > currentConfidence) {
+      const count = existing.occurrenceCount;
+      const eventIds = existing.eventIds;
+      Object.assign(existing, item, { occurrenceCount: count, eventIds });
+    }
+  }
+  return [...byKey.values()].map(item => Object.freeze({
+    ...item,
+    eventIds: Object.freeze([...new Set(item.eventIds)]),
+  }));
 }
 
 function createRuntimeReport({
@@ -153,12 +206,10 @@ function createRuntimeReport({
   const fw = framework || _frameworkName(windowTarget, 'unknown');
   const evidence = store?.snapshot?.() || [];
   const diagnostics = evidence.filter(event => event.type === 'diagnostic');
-  const opportunities = diagnostics
-    .map(event => _opportunityFromDiagnostic(event, fw))
-    .filter(Boolean);
-  const normalizedFindings = evidence
-    .map(event => _normalizedFinding(event, fw))
-    .filter(Boolean);
+  const rawOpportunities = diagnostics.map(event => _opportunityFromDiagnostic(event, fw)).filter(Boolean);
+  const rawFindings = evidence.map(event => _normalizedFinding(event, fw)).filter(Boolean);
+  const opportunities = _dedupeSemantic(rawOpportunities);
+  const normalizedFindings = _dedupeSemantic(rawFindings);
   const byType = {};
   for (const event of evidence) byType[event.type] = (byType[event.type] || 0) + 1;
 
@@ -175,7 +226,9 @@ function createRuntimeReport({
       evidenceCount: evidence.length,
       diagnosticCount: diagnostics.length,
       opportunityCount: opportunities.length,
+      rawOpportunityCount: rawOpportunities.length,
       normalizedFindingCount: normalizedFindings.length,
+      rawNormalizedFindingCount: rawFindings.length,
       evidenceByType: Object.freeze(byType),
     }),
     normalizedFindings: Object.freeze(normalizedFindings),
@@ -189,29 +242,27 @@ function createRuntimeReport({
 }
 
 function _escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
+function _originBadge(item) {
+  return item?.synthetic === true || item?.payload?.synthetic === true ? 'synthetic' : 'observed';
 }
 
 function buildRuntimeReportHtml(report) {
   const findingRows = (report.normalizedFindings || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${item.occurrenceCount || 1}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
   const opportunityRows = (report.opportunities || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${item.occurrenceCount || 1}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Runtime Intelligence Report</title>
-<style>
-*{box-sizing:border-box}body{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;margin:0;padding:24px;background:#111827;color:#e5e7eb}h1,h2{color:#93c5fd}h1{margin:0 0 6px}.meta{color:#9ca3af;margin-bottom:18px}.cards{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.card{background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 14px}.num{font-size:22px;font-weight:700}table{width:100%;border-collapse:collapse;margin:10px 0 22px}th,td{border-bottom:1px solid #374151;padding:7px;text-align:left;vertical-align:top}th{color:#9ca3af;background:#1f2937;position:sticky;top:0}pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;padding:8px;border-radius:6px;max-height:380px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;color:#93c5fd}.empty{color:#9ca3af}
-</style></head><body>
+<style>*{box-sizing:border-box}body{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;margin:0;padding:24px;background:#111827;color:#e5e7eb}h1,h2{color:#93c5fd}h1{margin:0 0 6px}.meta{color:#9ca3af;margin-bottom:18px}.cards{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.card{background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 14px}.num{font-size:22px;font-weight:700}table{width:100%;border-collapse:collapse;margin:10px 0 22px}th,td{border-bottom:1px solid #374151;padding:7px;text-align:left;vertical-align:top}th{color:#9ca3af;background:#1f2937;position:sticky;top:0}pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;padding:8px;border-radius:6px;max-height:380px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;color:#93c5fd}.empty{color:#9ca3af}</style></head><body>
 <h1>Runtime Intelligence Report</h1>
 <div class="meta">${_escapeHtml(report.framework)} · ${_escapeHtml(report.reportTime)} · session ${_escapeHtml(report.sessionId || 'n/a')}</div>
-<div class="cards"><div class="card"><div class="num">${report.summary?.evidenceCount || 0}</div>evidence</div><div class="card"><div class="num">${report.summary?.diagnosticCount || 0}</div>diagnostics</div><div class="card"><div class="num">${report.summary?.opportunityCount || 0}</div>opportunities</div><div class="card"><div class="num">${report.summary?.normalizedFindingCount || 0}</div>normalized findings</div></div>
-<h2>Normalized findings</h2>${findingRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Observed</th><th>Recommendation</th></tr></thead><tbody>${findingRows}</tbody></table>` : '<div class="empty">No normalized findings.</div>'}
-<h2>Optimization / reliability opportunities</h2>${opportunityRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Payload</th><th>Recommendation</th></tr></thead><tbody>${opportunityRows}</tbody></table>` : '<div class="empty">No opportunities.</div>'}
+<div class="cards"><div class="card"><div class="num">${report.summary?.evidenceCount || 0}</div>evidence</div><div class="card"><div class="num">${report.summary?.diagnosticCount || 0}</div>diagnostics</div><div class="card"><div class="num">${report.summary?.opportunityCount || 0}</div>unique opportunities</div><div class="card"><div class="num">${report.summary?.normalizedFindingCount || 0}</div>unique findings</div></div>
+<h2>Normalized findings</h2>${findingRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Origin</th><th>Occurrences</th><th>Observed</th><th>Recommendation</th></tr></thead><tbody>${findingRows}</tbody></table>` : '<div class="empty">No normalized findings.</div>'}
+<h2>Optimization / reliability opportunities</h2>${opportunityRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Origin</th><th>Occurrences</th><th>Payload</th><th>Recommendation</th></tr></thead><tbody>${opportunityRows}</tbody></table>` : '<div class="empty">No opportunities.</div>'}
 <h2>Intelligence</h2><pre>${_escapeHtml(JSON.stringify(report.intelligence, null, 2))}</pre>
 <h2>Evidence capsule</h2><pre>${_escapeHtml(JSON.stringify(report.evidenceCapsule, null, 2))}</pre>
 <details><summary>Evidence by type</summary><pre>${_escapeHtml(JSON.stringify(report.summary?.evidenceByType || {}, null, 2))}</pre></details>
@@ -238,9 +289,7 @@ function _download({ documentTarget, content, mimeType, fileName }) {
 function downloadRuntimeReport({ report, format = 'json', documentTarget = typeof document !== 'undefined' ? document : null, prefix = 'runtime-intelligence-report' } = {}) {
   if (!report) return null;
   const stamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
-  if (format === 'html') {
-    return _download({ documentTarget, content: buildRuntimeReportHtml(report), mimeType: 'text/html;charset=utf-8', fileName: `${prefix}-${stamp}.html` });
-  }
+  if (format === 'html') return _download({ documentTarget, content: buildRuntimeReportHtml(report), mimeType: 'text/html;charset=utf-8', fileName: `${prefix}-${stamp}.html` });
   return _download({ documentTarget, content: JSON.stringify(report, null, 2), mimeType: 'application/json;charset=utf-8', fileName: `${prefix}-${stamp}.json` });
 }
 
@@ -251,11 +300,4 @@ function downloadRuntimeReports({ report, documentTarget = typeof document !== '
   });
 }
 
-export {
-  OPPORTUNITY_FLAGS,
-  enhanceRuntimeIssueForFramework,
-  createRuntimeReport,
-  buildRuntimeReportHtml,
-  downloadRuntimeReport,
-  downloadRuntimeReports,
-};
+export { OPPORTUNITY_FLAGS, enhanceRuntimeIssueForFramework, createRuntimeReport, buildRuntimeReportHtml, downloadRuntimeReport, downloadRuntimeReports };

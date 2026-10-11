@@ -36,9 +36,7 @@ function _strengthText(rootCause) {
 
 function _eventCounts(events = []) {
   const counts = {};
-  for (const event of events) {
-    counts[event?.type] = (counts[event?.type] || 0) + 1;
-  }
+  for (const event of events) counts[event?.type] = (counts[event?.type] || 0) + 1;
   return counts;
 }
 
@@ -56,55 +54,41 @@ function _impactItems(events, triggerEvent) {
 
 function _diagnosticFinding(event) {
   const payload = event?.payload || {};
-  if (payload.sequentialApiOpportunity) {
-    return {
-      headline: 'Sequential API opportunity detected',
-      problem: `${payload.callCount || 'Multiple'} API calls appear sequential${Number.isFinite(payload.estimatedSavingsMs) ? ` with about ${Math.round(payload.estimatedSavingsMs)} ms potential overlap` : ''}.`,
-      nextAction: 'Inspect the attributed call site and verify whether independent requests can be parallelized.',
-    };
-  }
-  if (payload.resourceLifetimeViolation) {
-    return {
-      headline: 'Resource lifetime violation detected',
-      problem: `A React owner was destroyed while ${payload.resourceCount || 1} tracked resource${payload.resourceCount === 1 ? '' : 's'} remained acquired.`,
-      nextAction: 'Inspect the owner cleanup path and release each tracked listener, timer, subscription or observer.',
-    };
-  }
-  if (payload.budgetViolation) {
-    return {
-      headline: 'Update budget exceeded',
-      problem: `${payload.tag || event.owner?.name || 'A component'} exceeded its configured update budget.`,
-      nextAction: 'Inspect recent tracked state changes and parent updates before increasing the budget.',
-    };
-  }
-  if (payload.domDuplication) {
-    return {
-      headline: 'DOM duplication opportunity',
-      problem: `Repeated DOM for ${payload.duplicateTag || 'a component'} was observed.`,
-      nextAction: 'Inspect the shared ancestor and verify whether repeated instances can be hoisted or reused.',
-    };
-  }
-  if (payload.virtualizationOpportunity) {
-    return {
-      headline: 'Virtualization opportunity',
-      problem: `A large rendered list was observed${payload.childCount ? ` (${payload.childCount} children)` : ''}.`,
-      nextAction: 'Inspect the list container and consider windowing if most rows are off-screen.',
-    };
-  }
-  if (payload.expensivePaint) {
-    return {
-      headline: 'Expensive paint pattern observed',
-      problem: `An expensive CSS paint pattern was observed${payload.property ? ` for ${payload.property}` : ''}.`,
-      nextAction: 'Inspect the affected elements and verify paint cost in browser performance tooling.',
-    };
-  }
-  if (payload.workerOpportunity) {
-    return {
-      headline: 'Main-thread worker opportunity',
-      problem: `A long main-thread task was observed${Number.isFinite(payload.durationMs) ? ` (${Math.round(payload.durationMs)} ms)` : ''}.`,
-      nextAction: 'Inspect the attributed processing path and verify whether CPU-heavy work can move off the main thread.',
-    };
-  }
+  if (payload.sequentialApiOpportunity) return {
+    headline: 'Sequential API opportunity detected',
+    problem: `${payload.callCount || 'Multiple'} API calls appear sequential${Number.isFinite(payload.estimatedSavingsMs) ? ` with about ${Math.round(payload.estimatedSavingsMs)} ms potential overlap` : ''}.`,
+    nextAction: 'Inspect the attributed call site and verify whether independent requests can be parallelized.',
+  };
+  if (payload.resourceLifetimeViolation) return {
+    headline: 'Resource lifetime violation detected',
+    problem: `A React owner was destroyed while ${payload.resourceCount || 1} tracked resource${payload.resourceCount === 1 ? '' : 's'} remained acquired.`,
+    nextAction: 'Inspect the owner cleanup path and release each tracked listener, timer, subscription or observer.',
+  };
+  if (payload.budgetViolation) return {
+    headline: 'Update budget exceeded',
+    problem: `${payload.tag || event.owner?.name || 'A component'} exceeded its configured update budget.`,
+    nextAction: 'Inspect recent tracked state changes and parent updates before increasing the budget.',
+  };
+  if (payload.domDuplication) return {
+    headline: 'DOM duplication opportunity',
+    problem: `Repeated DOM for ${payload.duplicateTag || 'a component'} was observed.`,
+    nextAction: 'Inspect the shared ancestor and verify whether repeated instances can be hoisted or reused.',
+  };
+  if (payload.virtualizationOpportunity) return {
+    headline: 'Virtualization opportunity',
+    problem: `A large rendered list was observed${payload.childCount ? ` (${payload.childCount} children)` : ''}.`,
+    nextAction: 'Inspect the list container and consider windowing if most rows are off-screen.',
+  };
+  if (payload.expensivePaint) return {
+    headline: 'Expensive paint pattern observed',
+    problem: `An expensive CSS paint pattern was observed${payload.property ? ` for ${payload.property}` : ''}.`,
+    nextAction: 'Inspect the affected elements and verify paint cost in browser performance tooling.',
+  };
+  if (payload.workerOpportunity) return {
+    headline: 'Main-thread worker opportunity',
+    problem: `A long main-thread task was observed${Number.isFinite(payload.durationMs) ? ` (${Math.round(payload.durationMs)} ms)` : ''}.`,
+    nextAction: 'Inspect the attributed processing path and verify whether CPU-heavy work can move off the main thread.',
+  };
   return null;
 }
 
@@ -115,6 +99,7 @@ function createReadyDeveloperSummary() {
     explanation: 'Use the application normally. The same mature product correlates framework, browser, network and ownership evidence when a meaningful finding occurs.',
     problem: null,
     likelyCause: null,
+    relationshipLabel: null,
     confidence: null,
     source: null,
     impact: Object.freeze([]),
@@ -124,13 +109,7 @@ function createReadyDeveloperSummary() {
   });
 }
 
-function createDeveloperIntelligenceSummary({
-  triggerEvent,
-  incident,
-  rootCause,
-  rootEvent,
-  verification = null,
-} = {}) {
+function createDeveloperIntelligenceSummary({ triggerEvent, incident, rootCause, rootEvent, verification = null } = {}) {
   if (!triggerEvent || !incident) return createReadyDeveloperSummary();
 
   const diagnostic = triggerEvent.type === 'diagnostic' ? _diagnosticFinding(triggerEvent) : null;
@@ -146,13 +125,23 @@ function createDeveloperIntelligenceSummary({
     ? `${ownerName} hit a runtime error${triggerEvent.payload?.message ? `: ${triggerEvent.payload.message}` : ''}`
     : `${ownerName} had a slow render observation${Number.isFinite(durationMs) ? ` (${Math.round(durationMs)} ms)` : ''}`);
 
-  const likelyCause = rootLabel
-    ? strength === 'confirmed'
-      ? `${rootLabel} caused this problem — causality confirmed.`
-      : strength === 'attributed'
-        ? `${rootLabel} is a likely contributor — strong evidence links it to this finding.`
-        : `${rootLabel} was the strongest related signal. This is correlation, not a confirmed cause.`
-    : 'The finding was captured, but there is not enough evidence to identify a contributor.';
+  let relationshipLabel = null;
+  let likelyCause = 'The finding was captured, but there is not enough evidence to identify a contributor.';
+  if (rootLabel) {
+    if (strength === 'confirmed' || strength === 'causality-confirmed') {
+      relationshipLabel = 'Confirmed cause';
+      likelyCause = `${rootLabel} caused this problem — causality confirmed.`;
+    } else if (strength === 'attributed') {
+      relationshipLabel = 'Likely contributor';
+      likelyCause = `${rootLabel} is a likely contributor — strong attribution evidence links it to this finding.`;
+    } else if (strength === 'lifetime-violation' || strength === 'retainer-confirmed') {
+      relationshipLabel = 'Strong evidence';
+      likelyCause = `${rootLabel} is directly implicated by ownership/lifetime evidence.`;
+    } else {
+      relationshipLabel = 'Related signal';
+      likelyCause = `${rootLabel} appeared in the same evidence window. This is temporal co-occurrence only; it should not be treated as a cause or contributor without stronger evidence.`;
+    }
+  }
 
   const nextAction = diagnostic?.nextAction || (source
     ? `Start at ${source}${rootLabel ? ` and inspect ${rootLabel}` : ''}.`
@@ -166,6 +155,7 @@ function createDeveloperIntelligenceSummary({
     explanation: 'This finding combines related runtime signals while preserving their evidence strength. Temporal relationships are shown as correlations, not causes.',
     problem,
     likelyCause,
+    relationshipLabel,
     confidence: _strengthText(rootCause),
     source,
     impact: Object.freeze(impact),

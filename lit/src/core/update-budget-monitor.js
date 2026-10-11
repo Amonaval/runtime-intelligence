@@ -1,12 +1,3 @@
-/**
- * UpdateBudgetMonitor — framework-neutral.
- *
- * Watches the evidence store for UPDATE_COMPLETED events. Per owner it tracks
- * how many updates fire within a rolling window. When the count exceeds the
- * budget it emits a DIAGNOSTIC{budgetViolation:true} with details.
- *
- * Zero imports from any framework adapter.
- */
 import { EvidenceLevel, AttributionQuality, RuntimeEventType } from './evidence-protocol.js';
 
 const DEFAULT_BUDGET = Object.freeze({ countPerWindow: 5, windowMs: 100 });
@@ -14,10 +5,10 @@ const DEFAULT_BUDGET = Object.freeze({ countPerWindow: 5, windowMs: 100 });
 class UpdateBudgetMonitor {
     #store;
     #defaultBudget;
-    #tagBudgets = new Map();            // tagName → { countPerWindow, windowMs }
-    #windows = new Map();               // ownerId → [{ timestamp }]
-    #ownerMeta = new Map();             // ownerId → { tag }
-    #violating = new Set();             // ownerIds currently in a violation episode
+    #tagBudgets = new Map();
+    #windows = new Map();
+    #ownerMeta = new Map();
+    #violating = new Set();
     #unsubscribe = null;
     #active = false;
     #violationCount = 0;
@@ -28,7 +19,6 @@ class UpdateBudgetMonitor {
         }
         this.#store = store;
         this.#defaultBudget = _parseBudget(budget) ?? { ...DEFAULT_BUDGET };
-        // onViolation callback is optional; kept for external callers
         if (typeof onViolation === 'function') this._onViolation = onViolation;
     }
 
@@ -77,17 +67,14 @@ class UpdateBudgetMonitor {
         const now = event.timestamp ?? Date.now();
         const windowStart = now - budget.windowMs;
 
-        // Maintain rolling window for this owner
         if (!this.#windows.has(ownerId)) this.#windows.set(ownerId, []);
         const entries = this.#windows.get(ownerId);
         entries.push({ timestamp: now });
 
-        // Prune entries outside the window
         const pruned = entries.filter(e => e.timestamp > windowStart);
         this.#windows.set(ownerId, pruned);
 
         if (pruned.length > budget.countPerWindow) {
-            // Emit once per continuous violation episode — skip if already in violation
             if (!this.#violating.has(ownerId)) {
                 this.#violating.add(ownerId);
                 this.#violationCount += 1;
@@ -98,8 +85,13 @@ class UpdateBudgetMonitor {
                 try {
                     this.#store.emit({
                         type: RuntimeEventType.DIAGNOSTIC,
+                        framework: event.framework,
                         owner: event.owner,
-                        correlation: { causedByEventId: null },
+                        source: event.source,
+                        correlation: {
+                            ...(event.correlation || {}),
+                            causedByEventId: null,
+                        },
                         evidence: {
                             level: EvidenceLevel.CORRELATION,
                             attribution: AttributionQuality.TEMPORAL_INFERENCE,
@@ -113,12 +105,12 @@ class UpdateBudgetMonitor {
                             windowMs: budget.windowMs,
                             countPerWindow: budget.countPerWindow,
                             totalMs,
+                            ...(event.payload?.synthetic === true ? { synthetic: true } : {}),
                         },
                     });
-                } catch { /* never break the app */ }
+                } catch {}
             }
         } else {
-            // Recovered from violation — re-arm for next episode
             this.#violating.delete(ownerId);
         }
     }
