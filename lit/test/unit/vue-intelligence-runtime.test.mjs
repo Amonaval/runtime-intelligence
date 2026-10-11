@@ -17,7 +17,8 @@ test('Vue runtime reuses shared services and stays browser-optional', () => {
   assert.equal(runtime.started, true);
   assert.equal(description.framework, 'vue');
   assert.equal(description.adapter.framework, 'vue');
-  assert.deepEqual(description.services, ['IdleSchedulingAdvisor']);
+  assert.ok(description.services.includes('UpdateBudgetMonitor'));
+  assert.ok(description.services.includes('IdleSchedulingAdvisor'));
   runtime.stop();
   assert.equal(runtime.started, false);
 });

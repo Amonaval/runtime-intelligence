@@ -1,14 +1,7 @@
 import { VueAdapter } from '../adapter/vue/VueAdapter.js';
 import { evidenceStore } from '../core/evidence-store.js';
-import { IdleSchedulingAdvisor } from '../core/idle-scheduling-advisor.js';
-import { DomDuplicationAdvisor } from '../core/dom-duplication-advisor.js';
-import { VirtualizationAdvisor } from '../core/virtualization-advisor.js';
-import { PaintAdvisor } from '../core/paint-advisor.js';
-import { WorkerOpportunityAdvisor } from '../core/worker-opportunity-advisor.js';
-import { BackgroundSessionStore } from '../core/background-session-store.js';
-import { BrowserRuntimeSurface } from '../integration/shared/browser-runtime-surface.js';
 import { RuntimeCorrelationContext } from '../integration/shared/runtime-correlation-context.js';
-import { RuntimeIntelligencePipeline } from '../integration/shared/RuntimeIntelligencePipeline.js';
+import { createFrameworkRuntimeServices } from '../integration/shared/framework-runtime-services.js';
 
 function _defaultWindow() {
   return typeof window !== 'undefined' ? window : null;
@@ -55,39 +48,15 @@ class VueIntelligenceRuntime {
     if (this.#started) return this;
     this.#started = true;
 
-    const services = [
-      new IdleSchedulingAdvisor({ store: this.#store }),
-    ];
+    this.#services = createFrameworkRuntimeServices({
+      store: this.#store,
+      windowTarget: this.#windowTarget,
+      correlationContext: this.#correlationContext,
+      framework: 'vue',
+      slowRenderThresholdMs: this.#slowRenderThresholdMs,
+    });
 
-    if (this.#windowTarget) {
-      const backgroundStore = new BackgroundSessionStore();
-      services.unshift(
-        new BrowserRuntimeSurface({
-          store: this.#store,
-          windowTarget: this.#windowTarget,
-          documentTarget: this.#windowTarget.document || null,
-          correlationContext: this.#correlationContext,
-        }),
-        new RuntimeIntelligencePipeline({
-          store: this.#store,
-          windowTarget: this.#windowTarget,
-          framework: 'vue',
-          backgroundStore,
-          ...(Number.isFinite(this.#slowRenderThresholdMs)
-            ? { slowRenderThresholdMs: this.#slowRenderThresholdMs }
-            : {}),
-        }),
-      );
-      services.push(
-        new DomDuplicationAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
-        new VirtualizationAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
-        new PaintAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
-        new WorkerOpportunityAdvisor({ store: this.#store, windowTarget: this.#windowTarget }),
-      );
-    }
-
-    this.#services = services;
-    for (const service of services) {
+    for (const service of this.#services) {
       try { service.start?.(); } catch {}
     }
     return this;
