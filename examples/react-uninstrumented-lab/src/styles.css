@@ -1,0 +1,57 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e8ecf3;
+  background: #10141c;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #10141c; }
+button, input { font: inherit; }
+button {
+  border: 1px solid #516078;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #1d2634;
+  color: #f5f7fb;
+  cursor: pointer;
+}
+button:hover { background: #273449; }
+input {
+  width: 100%;
+  border: 1px solid #4f6078;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #0e1622;
+  color: #f5f7fb;
+}
+.app-shell { max-width: 1280px; margin: 0 auto; padding: 28px 24px 96px; }
+.hero { max-width: 900px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: #91a8c9; }
+h1 { font-size: clamp(30px, 5vw, 58px); line-height: 1.02; margin: 10px 0 16px; }
+.hero p, .scenario-card p, .contract-panel { color: #b9c5d6; line-height: 1.55; }
+.contract-panel {
+  margin: 28px 0;
+  padding: 18px 20px;
+  border: 1px solid #33425a;
+  border-radius: 12px;
+  background: #151c27;
+}
+.contract-panel h2 { margin-top: 0; color: #f3f6fb; }
+.contract-panel li { margin: 8px 0; }
+.scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; align-items: start; }
+.scenario-card {
+  min-height: 250px;
+  padding: 18px;
+  border: 1px solid #2d3b50;
+  border-radius: 12px;
+  background: #151c27;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+}
+.scenario-card h2 { margin: 10px 0 8px; font-size: 21px; }
+.scenario-card output { display: block; margin-top: 12px; color: #9eb1ca; min-height: 24px; }
+.scenario-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: #28364a; }
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-list { margin-top: 12px; max-height: 360px; overflow: auto; border-radius: 8px; }
+.result-row { padding: 6px 8px; border-bottom: 1px solid #253247; background: #111923; font-size: 13px; }
+.leak-box { margin-top: 12px; padding: 12px; border: 1px dashed #697892; border-radius: 8px; }
+footer { margin-top: 34px; color: #8291a8; font-size: 13px; }

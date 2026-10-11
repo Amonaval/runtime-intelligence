@@ -1,0 +1,20 @@
+{
+  "name": "runtime-intelligence-react-uninstrumented-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "validate:uninstrumented": "node scripts/validate-uninstrumented-boundary.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "runtime-intelligence": "file:../.."
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

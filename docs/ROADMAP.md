@@ -8,7 +8,7 @@ Missions 01–12 established FrameworkAdapter v2, UREP, EvidenceGraph/root-cause
 
 R5.2 through R5.7.4 unified React with the canonical mature panel, shared browser collectors/intelligence, ownership/profiling, Fault Lab validation, normalized JSON/HTML reports and first-class Opportunities.
 
-Parity is closed. React work is allowed when real dogfood exposes a concrete trust/value defect.
+Parity is closed. React work is allowed when real dogfood or the hostile zero-touch benchmark exposes a concrete trust/value defect.
 
 ## R6 — Productization & distribution — COMPLETE
 
@@ -33,7 +33,7 @@ Universal runtime invocation provenance:
 - Opportunities + Pinpoint file:line:column presentation;
 - no fabricated source from internal/vendor-only stacks.
 
-### P0.2 — DONE IN SOURCE — HIGH
+### P0.2 — DONE — HIGH
 
 Exact React source attribution:
 
@@ -45,22 +45,39 @@ Exact React source attribution:
 - provenance preserved through update-budget and resource-lifetime derived diagnostics;
 - issue-specific Pinpoint source selection.
 
-Focused implementation validation: **16 passed, 0 failed**. Real TrustWeave browser closure is still required.
+Focused implementation validation: **16 passed, 0 failed**. P0.2 is pinned into TrustWeave for real-world validation.
 
-### P0.3 — NEXT — HIGH
+### P0.3A — DONE IN SOURCE — MEDIUM-HIGH
 
-Real TrustWeave closure + remaining uninstrumented React/Next original-source path.
+Hostile uninstrumented React benchmark + cross-framework adoption guide.
+
+Deliverables:
+
+- a separate `examples/react-uninstrumented-lab` whose business components contain zero Runtime Intelligence imports/HOCs/hooks/profilers/manual provenance;
+- one root-only Runtime Intelligence integration boundary;
+- realistic faults covering network waterfall/failure, rejection, console noise, slow render, render storm, oversized list, resource leak, async race and main-thread report work;
+- a static guard preventing the hostile business code from becoming accidentally instrumented later;
+- explicit acceptance categories: automatically provable, detected-but-source-limited, and Level-0 unobservable;
+- `docs/NEW-PROJECT-INTEGRATION-GUIDE.md` for React, Lit and Vue with Level 0 → Level 1 → Level 2 adoption guidance.
+
+Static contract/parse validation is complete. Browser acceptance is intentionally P0.3B.
+
+### P0.3B — NEXT — MEDIUM-HIGH
+
+Hostile browser acceptance + remaining uninstrumented React original-source path.
 
 Goals:
 
-- finding → displayed application file:line:column → relevant TrustWeave code without manual repository search;
-- validate normal API-backed and React flows, never synthetic TrustWeave faults;
-- investigate React dev/fiber debug metadata and source-map/build metadata for components that do not use a source-bearing boundary/hook;
+- run every hostile scenario and record whether Pinpoint lands on the relevant application file:line:column;
+- prove browser/network/error source attribution without touching business components;
+- quantify where root Profiler evidence stops short of child-component attribution;
+- test whether React development/Fiber metadata can safely refine source for those source-limited cases;
+- use build/source-map metadata only where it produces a trustworthy original source;
 - preserve generated/related/unknown when exact original source cannot be proven;
-- avoid a mandatory build plugin unless real dogfood proves runtime/dev metadata insufficient;
+- avoid a mandatory build plugin unless hostile-app evidence proves runtime/dev metadata insufficient;
 - keep source location semantics distinct from causal/root-cause claims.
 
-### P0.4 — only if dogfood justifies it
+### P0.4 — only if dogfood/hostile validation justifies it
 
 Extend provenance to additional high-value collectors or editor/deep-link ergonomics only when it measurably reduces time-to-relevant-code.
 

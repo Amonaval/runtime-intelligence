@@ -4,6 +4,12 @@ Framework-neutral runtime diagnostics for React, Lit and Vue, backed by one Univ
 
 > Current distribution status: **private/proprietary**. The package is intentionally `private: true` and `UNLICENSED`. Authorized evaluation/distribution is through private Git access or explicitly shared tarballs. Public registry publication is not part of the current baseline.
 
+## Start here
+
+For a completely new React, Lit or Vue project, use [`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md). It explains the Level 0 → Level 1 → Level 2 adoption model, source/evidence expectations, privacy/production gating and framework-specific setup.
+
+For the hardest React adoption case, use [`examples/react-uninstrumented-lab`](examples/react-uninstrumented-lab): its business components are deliberately forbidden from importing or calling Runtime Intelligence.
+
 ## 5-minute start
 
 ### 1. Install
@@ -25,7 +31,7 @@ For an authorized consumer app, the reproducible pre-registry path is a tarball:
 npm pack --ignore-scripts
 
 # in the consumer app
-npm install /absolute/path/to/runtime-intelligence-0.1.1.tgz
+npm install /absolute/path/to/runtime-intelligence-0.1.2.tgz
 ```
 
 Git-SHA installation remains supported for controlled dogfood consumers. Neither repository access nor possession of a tarball grants redistribution rights; see `LICENSE.md`.
@@ -49,9 +55,15 @@ const { createReactIntelligenceRuntime, RuntimeIntelligenceProvider } = diagnost
 const { mountRuntimeIntelligencePanel } = diagnostics.panelModule;
 const runtime = createReactIntelligenceRuntime({ profilingEnabled: true });
 const panel = mountRuntimeIntelligencePanel({ store: runtime.store });
-root.render(<RuntimeIntelligenceProvider runtime={runtime}><App /></RuntimeIntelligenceProvider>);
+root.render(
+  <RuntimeIntelligenceProvider runtime={runtime} profileRoot={true}>
+    <App />
+  </RuntimeIntelligenceProvider>,
+);
 // panel.destroy(); runtime.stop(); // HMR/tests
 ```
+
+At this Level 0 boundary, business components can remain completely unaware of Runtime Intelligence. Browser/network/error evidence and root-tree render timing are still available; exact child render source is not guaranteed without stronger evidence.
 
 ### 3. Lit bootstrap
 
@@ -66,6 +78,8 @@ const diagnostics = await loadRuntimeIntelligence({
 const RuntimeBase = diagnostics.enabled ? diagnostics.frameworkModule.LitDebugMixin(LitElement) : LitElement;
 customElements.define('my-app', class extends RuntimeBase {});
 ```
+
+For strict Lit conditional loading, make the diagnostics decision before defining the instrumented custom element. See the new-project guide for the canonical panel/store wiring and shared-base-class adoption pattern.
 
 ### 4. Vue bootstrap
 
@@ -89,7 +103,7 @@ let panel = null;
 if (diagnostics.enabled) {
   runtimeIntelligence = diagnostics.frameworkModule.installVueRuntimeIntelligence(app, {
     enabled: true,
-    version: '3.x',
+    version: app.version,
   });
   panel = diagnostics.panelModule.mountRuntimeIntelligencePanel({
     store: runtimeIntelligence.store,
@@ -176,7 +190,17 @@ npm test
 
 `npm run validate:release` aggregates all release checks. `distribution:validate` enforces the private/proprietary posture and checks that the packed artifact carries the license notice.
 
-Focused Vue validation is also represented by the unit tests under `lit/test/unit/vue-*.test.mjs`. The synthetic browser surface lives under `examples/vue-fault-lab`.
+Focused framework validation is also represented by the unit tests under `lit/test/unit/`. Synthetic browser surfaces live under `examples/react-fault-lab` and `examples/vue-fault-lab`.
+
+For the P0.3 zero-touch React benchmark:
+
+```bash
+npm run lab:react:hostile:install
+npm run lab:react:hostile:validate
+npm run lab:react:hostile
+```
+
+The hostile-lab guard intentionally fails if business code starts importing Runtime Intelligence, adding Runtime Intelligence hooks/HOCs/profilers, adding React `Profiler`, or supplying provenance manually.
 
 ## Reports
 
@@ -184,4 +208,4 @@ The canonical panel supports local JSON and HTML export using `runtime-intellige
 
 ## More detail
 
-See [`docs/R7-VUE-ADAPTER-FAULT-LAB.md`](docs/R7-VUE-ADAPTER-FAULT-LAB.md), [`docs/R6.3-DEVELOPER-ONBOARDING.md`](docs/R6.3-DEVELOPER-ONBOARDING.md), [`docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md`](docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md), and [`docs/R6.5-DISTRIBUTION-LICENSE-IP.md`](docs/R6.5-DISTRIBUTION-LICENSE-IP.md). Current product status is tracked in [`docs/STATUS.md`](docs/STATUS.md).
+Start with [`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md) and [`docs/P0-SOURCE-PINPOINT-PROVENANCE.md`](docs/P0-SOURCE-PINPOINT-PROVENANCE.md). Historical/productization detail is in [`docs/R7-VUE-ADAPTER-FAULT-LAB.md`](docs/R7-VUE-ADAPTER-FAULT-LAB.md), [`docs/R6.3-DEVELOPER-ONBOARDING.md`](docs/R6.3-DEVELOPER-ONBOARDING.md), [`docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md`](docs/R6.4-PUBLIC-API-EXTENSION-CONTRACT.md), and [`docs/R6.5-DISTRIBUTION-LICENSE-IP.md`](docs/R6.5-DISTRIBUTION-LICENSE-IP.md). Current product status is tracked in [`docs/STATUS.md`](docs/STATUS.md).
