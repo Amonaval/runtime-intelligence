@@ -1,6 +1,6 @@
 # Runtime Intelligence — Current Status
 
-**Updated:** 2026-10-11  
+**Updated:** 2026-10-12
 **Canonical status:** this file is the single current-state summary. Historical mission/handover files are context, not competing status sources.
 
 ## Canonical baseline
@@ -13,7 +13,9 @@ Current `main` includes validated React R5.7.4, R6 productization, completed Vue
 - R7 Vue Adapter + Vue Fault Lab: complete
 - P0.1 Universal runtime invocation provenance: complete in source and pinned to TrustWeave
 - P0.2 Exact React source attribution: complete in source and pinned to TrustWeave
-- P0.3A Uninstrumented React hostile benchmark + React/Lit/Vue new-project guide: implemented in source; hostile browser acceptance pending
+- P0.3A/B Hostile benchmark + browser acceptance: complete; source limitations recorded
+- P0.4 Zero-touch console source attribution: browser/lifecycle/JSON+HTML acceptance complete
+- Overall P0 real-consumer closure: pending post-P0.4 TrustWeave normal-flow acceptance
 - Angular/framework expansion: **BLOCKED/DEFERRED until P0 value-proposition closure**
 
 ## Product direction
@@ -85,23 +87,18 @@ A second React validation project now targets the adoption case the original Rea
 
 Static hostile-lab validation passed locally: the uninstrumented boundary guard passed for 9 business source files and JS/JSX parse validation passed for 11 source files.
 
-Not claimed yet:
+### P0.3B / P0.4 — HOSTILE BROWSER GATE CLOSED
 
-- browser build/run of the new hostile lab;
-- P0.3 browser acceptance results for every hostile scenario;
-- exact child component source for completely uninstrumented React render timing;
-- full `npm run validate:release` for this P0.3A commit.
+Console warning/error source attribution, teardown/restart, recursion guard, host state restoration, bounded collection and actual JSON/HTML exports passed in Chromium with React 18.3.1. Raw console/network interception stacks are omitted from reports; UREP source/provenance is retained.
 
-See `docs/P0-SOURCE-PINPOINT-PROVENANCE.md` and `docs/NEW-PROJECT-INTEGRATION-GUIDE.md`.
+Matrix: **4 A / 4 B / 2 C**. Child-render and worker/virtualization source remain limited; unregistered resource ownership and stale state-write causality remain unobservable. Vite coordinates are generated module coordinates, not exact original JSX lines. React development `_debugSource` was null in the tested owner chain.
 
-## Next — P0.3B hostile browser acceptance / uninstrumented React source
+Full `npm run validate:release`: **PASS**, production checks 14/14 and unit suite 285/285. Hostile build/static contract/browser runner passed.
 
-Run the hostile React lab in a browser and classify every scenario into:
+See [P0.4-HOSTILE-ACCEPTANCE.md](P0.4-HOSTILE-ACCEPTANCE.md) and its machine receipt for evidence and reproduction.
 
-1. automatically provable source;
-2. detected but source-limited;
-3. unobservable at Level 0.
+## Next — P0 real-consumer acceptance, then R8 hardening
 
-Only after that evidence should Runtime Intelligence add guarded React dev/fiber/build/source-map source resolution for category 2. Private framework metadata must remain best-effort and must never be upgraded into causal truth.
+The current mission closes P0.4's hostile browser gate. It does not claim a new TrustWeave browser run or complete original JSX/child source resolution.
 
-Angular remains deferred.
+Run post-P0.4 TrustWeave normal-flow acceptance before claiming overall P0 closure (**MEDIUM**). Keep all generic code canonical. After that: **R8 multi-framework hardening (HIGH)** → **R9 adoption (MEDIUM)** → **R10 Angular (MEDIUM-HIGH/HIGH)**.

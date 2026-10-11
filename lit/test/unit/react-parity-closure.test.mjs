@@ -11,12 +11,14 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
 test('React parity path stays one product, one panel, shared intelligence', () => {
   const react = read('lit/src/react/RuntimeIntelligenceReact.js');
   const runtime = read('lit/src/react/ReactIntelligenceRuntime.js');
+  const services = read('lit/src/integration/shared/framework-runtime-services.js');
   const panel = read('lit/src/panel/index.js');
 
   assert.match(react, /withRuntimeIntelligence/);
   assert.match(react, /profileRoot/);
-  assert.match(runtime, /RuntimeIntelligencePipeline/);
-  assert.match(runtime, /BrowserRuntimeSurface/);
+  assert.match(runtime, /createFrameworkRuntimeServices/);
+  assert.match(services, /RuntimeIntelligencePipeline/);
+  assert.match(services, /BrowserRuntimeSurface/);
   assert.match(panel, /LdsDebugPanel/);
   assert.doesNotMatch(panel, /runtime-panel-model/);
 });

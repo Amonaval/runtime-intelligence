@@ -17,6 +17,9 @@ let _origWarn = null;
 let _patchedError = null;
 let _patchedWarn = null;
 let _clearFn = null;
+let _notifying = false;
+let _previousBuffer = null;
+let _previousClear = null;
 
 function _captureStack(skipFunction = _captureStack) {
     try {
@@ -31,16 +34,23 @@ function _captureStack(skipFunction = _captureStack) {
 }
 
 function _push(level, args, stack = null) {
-    const entry = Object.freeze({
-        level,
-        message: args.map(a => (typeof a === 'string' ? a : _safe(a))).join(' '),
-        ts: new Date().toISOString(),
-        callStack: stack,
-    });
-    _log.push(entry);
-    if (_log.length > _MAX) _log.shift();
-    for (const listener of [..._subscribers]) {
-        try { listener(entry); } catch (_) { /* observers must not break console */ }
+    // A subscriber may itself log. Deliver that log normally without recapturing it.
+    if (_notifying) return;
+    _notifying = true;
+    try {
+        const entry = Object.freeze({
+            level,
+            message: args.map(a => (typeof a === 'string' ? a : _safe(a))).join(' '),
+            ts: new Date().toISOString(),
+            callStack: stack,
+        });
+        _log.push(entry);
+        if (_log.length > _MAX) _log.shift();
+        for (const listener of [..._subscribers]) {
+            try { listener(entry); } catch (_) { /* observers must not break console */ }
+        }
+    } finally {
+        _notifying = false;
     }
 }
 
@@ -73,18 +83,22 @@ function attach(target = null) {
     const origLog = consoleTarget.log || (() => {});
 
     _patchedError = (...args) => {
+        const original = _origError;
         _push('error', args, _captureStack(_patchedError));
-        _origError.apply(consoleTarget, args);
+        original.apply(consoleTarget, args);
     };
     _patchedWarn = (...args) => {
+        const original = _origWarn;
         _push('warn', args, _captureStack(_patchedWarn));
-        _origWarn.apply(consoleTarget, args);
+        original.apply(consoleTarget, args);
     };
 
     consoleTarget.error = _patchedError;
     consoleTarget.warn = _patchedWarn;
 
     if (win) {
+        _previousBuffer = Object.getOwnPropertyDescriptor(win, '__LDS_CONSOLE__');
+        _previousClear = Object.getOwnPropertyDescriptor(win, '__LDS_CONSOLE_CLEAR__');
         win.__LDS_CONSOLE__ = _log;
         _clearFn = function () {
             _log.length = 0;
@@ -105,10 +119,12 @@ function detach(_target = null) {
     if (_consoleTarget?.warn === _patchedWarn && _origWarn) _consoleTarget.warn = _origWarn;
 
     if (_windowTarget?.__LDS_CONSOLE__ === _log) {
-        try { delete _windowTarget.__LDS_CONSOLE__; } catch { _windowTarget.__LDS_CONSOLE__ = undefined; }
+        if (_previousBuffer) Object.defineProperty(_windowTarget, '__LDS_CONSOLE__', _previousBuffer);
+        else try { delete _windowTarget.__LDS_CONSOLE__; } catch { _windowTarget.__LDS_CONSOLE__ = undefined; }
     }
     if (_windowTarget?.__LDS_CONSOLE_CLEAR__ === _clearFn) {
-        try { delete _windowTarget.__LDS_CONSOLE_CLEAR__; } catch { _windowTarget.__LDS_CONSOLE_CLEAR__ = undefined; }
+        if (_previousClear) Object.defineProperty(_windowTarget, '__LDS_CONSOLE_CLEAR__', _previousClear);
+        else try { delete _windowTarget.__LDS_CONSOLE_CLEAR__; } catch { _windowTarget.__LDS_CONSOLE_CLEAR__ = undefined; }
     }
 
     _patched = false;
@@ -119,6 +135,8 @@ function detach(_target = null) {
     _patchedError = null;
     _patchedWarn = null;
     _clearFn = null;
+    _previousBuffer = null;
+    _previousClear = null;
 }
 
 function subscribe(listener) {

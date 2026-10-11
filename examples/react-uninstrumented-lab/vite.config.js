@@ -55,6 +55,9 @@ function uninstrumentedLabApi() {
 }
 
 export default defineConfig({
+  // The file: product dependency is linked outside this lab's node_modules.
+  // Resolve its React peer from the consumer so hooks share one React instance.
+  resolve: { dedupe: ['react', 'react-dom'] },
   plugins: [uninstrumentedLabApi()],
   server: { port: 4181 },
   preview: { port: 4181 },

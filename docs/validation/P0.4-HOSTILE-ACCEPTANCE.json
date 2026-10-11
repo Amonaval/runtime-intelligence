@@ -1,0 +1,235 @@
+{
+  "browser": "153.0.8010.0",
+  "framework": "React 18.3.1",
+  "checkedAt": "2026-10-11T19:10:15.861Z",
+  "scenarios": [
+    {
+      "scenario": "HTTP failure",
+      "category": "A",
+      "source": {
+        "file": "src/app/services/orders-api.js",
+        "line": 27,
+        "column": 10,
+        "functionName": "hitFailingDependency"
+      }
+    },
+    {
+      "scenario": "Unhandled rejection",
+      "category": "A",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 15,
+        "column": 20,
+        "functionName": "rejectUnhandled"
+      }
+    },
+    {
+      "scenario": "Console noise",
+      "category": "A",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 20,
+        "column": 13,
+        "functionName": "emitNoise"
+      }
+    },
+    {
+      "scenario": "Sequential API waterfall",
+      "category": "A",
+      "sources": [
+        {
+          "file": "src/app/services/orders-api.js",
+          "line": 12,
+          "column": 23,
+          "functionName": "loadOrderWorkspace"
+        },
+        {
+          "file": "src/app/services/orders-api.js",
+          "line": 13,
+          "column": 26,
+          "functionName": "loadOrderWorkspace"
+        },
+        {
+          "file": "src/app/services/orders-api.js",
+          "line": 14,
+          "column": 25,
+          "functionName": "loadOrderWorkspace"
+        }
+      ]
+    },
+    {
+      "scenario": "Slow child render",
+      "category": "B",
+      "rootProfilerSource": null
+    },
+    {
+      "scenario": "Render storm",
+      "category": "B",
+      "rootProfilerSource": null
+    },
+    {
+      "scenario": "Oversized list",
+      "category": "B",
+      "source": null
+    },
+    {
+      "scenario": "Heavy main-thread report",
+      "category": "B",
+      "source": null
+    },
+    {
+      "scenario": "Resource leak ownership",
+      "category": "C",
+      "reason": "No resource registration or child ownership evidence"
+    },
+    {
+      "scenario": "Stale async business race",
+      "category": "C",
+      "reason": "Requests are observable; state-write ordering and business intent are not"
+    }
+  ],
+  "checks": {
+    "restartSingleEmission": true,
+    "subscribersRemoved": true,
+    "bufferBound": 200,
+    "recursionGuard": true,
+    "originalMethodsRestored": true,
+    "hostStateRestored": true,
+    "exportRawStacksOmitted": true,
+    "urepSourceRetained": true,
+    "exportHtmlRawStacksOmitted": true
+  },
+  "consoleSources": [
+    {
+      "level": "error",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 10,
+        "column": 15,
+        "functionName": "requestFailure"
+      },
+      "provenance": {
+        "kind": "invocation",
+        "basis": "console-call-stack",
+        "precision": "module-location",
+        "frameCount": 1,
+        "frames": [
+          {
+            "file": "src/app/components/FailureCenter.jsx",
+            "line": 10,
+            "column": 15,
+            "functionName": "requestFailure",
+            "generated": true,
+            "precision": "module-location"
+          }
+        ]
+      }
+    },
+    {
+      "level": "warn",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 18,
+        "column": 13,
+        "functionName": "emitNoise"
+      },
+      "provenance": {
+        "kind": "invocation",
+        "basis": "console-call-stack",
+        "precision": "module-location",
+        "frameCount": 1,
+        "frames": [
+          {
+            "file": "src/app/components/FailureCenter.jsx",
+            "line": 18,
+            "column": 13,
+            "functionName": "emitNoise",
+            "generated": true,
+            "precision": "module-location"
+          }
+        ]
+      }
+    },
+    {
+      "level": "warn",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 19,
+        "column": 13,
+        "functionName": "emitNoise"
+      },
+      "provenance": {
+        "kind": "invocation",
+        "basis": "console-call-stack",
+        "precision": "module-location",
+        "frameCount": 1,
+        "frames": [
+          {
+            "file": "src/app/components/FailureCenter.jsx",
+            "line": 19,
+            "column": 13,
+            "functionName": "emitNoise",
+            "generated": true,
+            "precision": "module-location"
+          }
+        ]
+      }
+    },
+    {
+      "level": "error",
+      "source": {
+        "file": "src/app/components/FailureCenter.jsx",
+        "line": 20,
+        "column": 13,
+        "functionName": "emitNoise"
+      },
+      "provenance": {
+        "kind": "invocation",
+        "basis": "console-call-stack",
+        "precision": "module-location",
+        "frameCount": 1,
+        "frames": [
+          {
+            "file": "src/app/components/FailureCenter.jsx",
+            "line": 20,
+            "column": 13,
+            "functionName": "emitNoise",
+            "generated": true,
+            "precision": "module-location"
+          }
+        ]
+      }
+    }
+  ],
+  "performance": {
+    "renderCount": 23,
+    "maxRootActualDurationMs": 151.39999999990687,
+    "opportunityKinds": [
+      "idle-scheduling-opportunity",
+      "worker-opportunity",
+      "virtualization-opportunity"
+    ]
+  },
+  "reactDevMetadata": [
+    {
+      "name": "SearchWorkbench",
+      "debugSource": null,
+      "actualDuration": 0
+    },
+    {
+      "name": "App",
+      "debugSource": null,
+      "actualDuration": 0.20000000018626451
+    },
+    {
+      "name": "RuntimeIntelligenceProvider",
+      "debugSource": null,
+      "actualDuration": 0
+    },
+    {
+      "name": "RuntimeIntelligenceRoot",
+      "debugSource": null,
+      "actualDuration": 0
+    }
+  ]
+}

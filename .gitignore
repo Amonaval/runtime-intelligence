@@ -1,3 +1,5 @@
 node_modules
 lit/node_modules
 **/**/node_modules
+examples/react-uninstrumented-lab/dist/
+**/.browser-acceptance/

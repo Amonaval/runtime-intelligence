@@ -61,6 +61,7 @@ test('network Pinpoint issue inherits latest failed request invocation without c
 
   assert.equal(next.filePath, 'lib/api-client.ts');
   assert.match(next.details, /Latest failed request invocation: lib\/api-client\.ts:44:11/);
+  assert.match(next.details, /generated runtime coordinates/);
   assert.match(next.callStacks[0], /NetworkApp\.tsx:187:7/);
   assert.equal(next.evidenceLevel, 'attribution');
   assert.equal(next.sourceProvenance.kind, 'invocation');

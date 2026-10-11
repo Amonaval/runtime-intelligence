@@ -62,27 +62,24 @@ Deliverables:
 
 Static contract/parse validation is complete. Browser acceptance is intentionally P0.3B.
 
-### P0.3B — NEXT — MEDIUM-HIGH
+### P0.3B / P0.4 — HOSTILE ACCEPTANCE COMPLETE — MEDIUM-HIGH
 
-Hostile browser acceptance + remaining uninstrumented React original-source path.
+Console invocation attribution is browser-verified without modifying business components. Lifecycle, privacy/export and evidence honesty passed; generated module coordinates are labelled. Acceptance matrix and development metadata findings: [P0.4-HOSTILE-ACCEPTANCE.md](P0.4-HOSTILE-ACCEPTANCE.md).
 
-Goals:
+Known limits: no exact uninstrumented child render source; no original JSX source-map mapping; resource ownership and stale state-write cause remain unobservable at Level 0.
 
-- run every hostile scenario and record whether Pinpoint lands on the relevant application file:line:column;
-- prove browser/network/error source attribution without touching business components;
-- quantify where root Profiler evidence stops short of child-component attribution;
-- test whether React development/Fiber metadata can safely refine source for those source-limited cases;
-- use build/source-map metadata only where it produces a trustworthy original source;
-- preserve generated/related/unknown when exact original source cannot be proven;
-- avoid a mandatory build plugin unless hostile-app evidence proves runtime/dev metadata insufficient;
-- keep source location semantics distinct from causal/root-cause claims.
+### P0 real-consumer closure — NEXT — MEDIUM
 
-### P0.4 — only if dogfood/hostile validation justifies it
+Perform the post-P0.4 TrustWeave normal-flow source/provenance acceptance required by the P0 contract. Do not introduce synthetic faults or generic runtime code in TrustWeave. The hostile gate is closed; this consumer gate has not been executed in this mission.
 
-Extend provenance to additional high-value collectors or editor/deep-link ergonomics only when it measurably reduces time-to-relevant-code.
+## R8 — Multi-framework Product Hardening — HIGH
 
-## R8 — Angular Adapter + Angular Fault Lab — BLOCKED
+After P0 consumer closure, harden React/Lit/Vue compatibility, adapter/provenance contracts, start/stop/restart, teardown stress, overhead budgets, production-disable behavior, package/loader installation and report privacy regressions. Make existing framework coverage reliably shippable.
 
-Do not start Angular until P0 source precision and the overall developer value proposition are mature and validated in real consumer use.
+## R9 — Adoption / Product Experience — MEDIUM
 
-When unblocked, Angular must remain a thin UREP evidence producer and reuse the same provenance/intelligence/panel stack.
+Improve installation, Level 0 → Level 1 → Level 2 guidance, framework recipes, troubleshooting, finding/provenance explanations, “why this source?” and “what next?” workflows, and demo integrations.
+
+## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
+
+Begin only after P0 and multi-framework hardening. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.

@@ -3,6 +3,7 @@
 **Priority:** P0 — blocks framework expansion  
 **P0.1 status:** implemented and pinned into TrustWeave dogfood  
 **P0.2 status:** implemented in source; real TrustWeave browser closure still required
+**P0.3B/P0.4 status:** hostile browser acceptance complete; overall consumer closure still required
 
 ## Product target
 
@@ -116,3 +117,11 @@ The remaining hard case is **uninstrumented React component-definition/original-
 Investigate a dev-only, evidence-honest path using React debug/fiber metadata and source-map/build metadata. If exact original source cannot be proven, preserve generated/related/unknown status rather than fabricating precision.
 
 Angular stays blocked until this real-consumer acceptance test is strong.
+
+## P0.4 acceptance update — 2026-10-12
+
+Post-P0.4 hostile browser console source/lifecycle and actual JSON/HTML export acceptance is complete. Raw console/network collector stacks are omitted from exports while bounded UREP attribution is retained. Pinpoint distinguishes generated module/runtime coordinates from original source coordinates.
+
+The ten-scenario matrix is 4 automatically actionable, 4 detected/source-limited, and 2 Level-0 unobservable. Development Fiber metadata did not expose child source in this Vite baseline. Keep those limitations honest. Full release validation passed (14 production checks and 285 unit tests).
+
+See [P0.4-HOSTILE-ACCEPTANCE.md](P0.4-HOSTILE-ACCEPTANCE.md). This does not close the real-consumer acceptance requirement above: a post-P0.4 TrustWeave browser run remains NOT EXECUTED. After that gate, the roadmap is R8 hardening → R9 adoption → R10 Angular.

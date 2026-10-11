@@ -9,7 +9,7 @@ function _location(source) {
 
 function _provenanceLabel(kind) {
   switch (kind) {
-    case 'invocation': return 'Request invocation';
+    case 'invocation': return 'Invocation';
     case 'registration': return 'Resource registration';
     case 'error-origin': return 'Error origin';
     case 'component-definition': return 'Component definition';
@@ -82,7 +82,11 @@ function enrichPinpointIssueSource(issue, store) {
   const label = issue.issueType === 'network-error' && provenance?.kind === 'invocation'
     ? 'Latest failed request invocation'
     : _provenanceLabel(provenance?.kind);
-  const prefix = location ? `📍 ${label}: ${location}` : null;
+  const precision = provenance?.precision;
+  const coordinateLabel = precision === 'module-location'
+    ? ' (generated module coordinates)'
+    : precision === 'generated-runtime' ? ' (generated runtime coordinates)' : '';
+  const prefix = location ? `📍 ${label}: ${location}${coordinateLabel}` : null;
   const details = prefix && !String(issue.details || '').includes(location)
     ? `${prefix}\n${issue.details || ''}`.trim()
     : issue.details;

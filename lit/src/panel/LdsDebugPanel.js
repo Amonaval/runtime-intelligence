@@ -5,6 +5,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { shapeLegacyRuntimeReport } from './legacy-report-privacy.js';
 
 // ── Session ID ─────────────────────────────────────────────────────────────
 if (typeof window !== 'undefined' && !window.__LDS_SESSION_ID__) {
@@ -116,7 +117,7 @@ function _captureDomStats() {
 
 function _collectReport(note = '') {
     const rawMem = window.__LDS_MEMORY__;
-    return {
+    return shapeLegacyRuntimeReport({
         sessionId:      window.__LDS_SESSION_ID__,
         reportTime:     new Date().toISOString(),
         note:           note || '',
@@ -138,7 +139,7 @@ function _collectReport(note = '') {
         mountCycles:       window.__LDS_MOUNT_CYCLES__ ? window.__LDS_MOUNT_CYCLES__.map(c => ({ ...c, counts: { ...c.counts } })) : [],
         resourceViolations: window.__LDS_RESOURCE_VIOLATIONS__ ? [...window.__LDS_RESOURCE_VIOLATIONS__] : [],
         domStats:           _captureDomStats(),
-    };
+    });
 }
 
 // ── Health scoring ─────────────────────────────────────────────────────────

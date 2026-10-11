@@ -1,3 +1,5 @@
+import { shapeLegacyRuntimeReport } from './legacy-report-privacy.js';
+
 const OPPORTUNITY_FLAGS = Object.freeze([
   ['sequentialApiOpportunity', 'sequential-api-opportunity'],
   ['budgetViolation', 'update-budget-opportunity'],
@@ -237,7 +239,7 @@ function createRuntimeReport({
     intelligence: windowTarget?.__LDS_INTELLIGENCE__ || null,
     evidenceCapsule,
     evidence: Object.freeze([...evidence]),
-    legacyReport: baseReport || {},
+    legacyReport: shapeLegacyRuntimeReport(baseReport || {}),
   });
 }
 

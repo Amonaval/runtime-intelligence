@@ -99,6 +99,7 @@ class UpdateBudgetMonitor {
                         },
                         payload: {
                             budgetViolation: true,
+                            episodeStart: true,
                             ownerId,
                             tag,
                             updateCount: pruned.length,

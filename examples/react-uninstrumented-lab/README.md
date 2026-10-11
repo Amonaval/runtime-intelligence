@@ -68,3 +68,15 @@ The next React-source mission should optimize category 2 only when a trustworthy
 ## Why this lab is separate from `react-fault-lab`
 
 `react-fault-lab` is deterministic feature coverage and intentionally uses Runtime Intelligence hooks/boundaries. This hostile lab measures **zero-touch adoption value** and must never be “improved” by instrumenting its business components.
+
+## Automated hostile browser acceptance
+
+See [P0.4 acceptance](../../docs/P0.4-HOSTILE-ACCEPTANCE.md) for results and known source limitations.
+
+Install optional Playwright tooling in this lab and its Chromium binary, then run:
+
+```bash
+npm run accept:browser -- /absolute/path/to/results
+```
+
+The runner starts its own Vite server, exercises all ten hostile scenarios, verifies lifecycle and actual JSON/HTML exports, and writes a machine receipt. Do not run another lab server on port 4181. Business source remains completely uninstrumented.

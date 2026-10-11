@@ -16,14 +16,15 @@ function fakeLitElement() {
     };
 }
 
-test('pipeline starts with a compact developer-facing ready state', () => {
+test('pipeline starts with a compact developer-facing ready state', t => {
     const store = new EvidenceStore({ maxEntries: 20 });
     const pipeline = new LitIntelligencePipeline({ store, windowTarget: null });
+    t.after(() => pipeline.stop());
     pipeline.start();
     const snapshot = pipeline.snapshot();
     assert.equal(snapshot.status, 'ready');
     assert.match(snapshot.headline, /ready/i);
-    assert.match(snapshot.explanation, /original panel/i);
+    assert.match(snapshot.explanation, /framework, browser, network and ownership evidence/i);
     assert.equal(snapshot.technicalEvidence.eventCount, 0);
     assert.equal('capsule' in snapshot, false);
     assert.equal('incident' in snapshot, false);

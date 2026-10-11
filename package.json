@@ -34,6 +34,7 @@
     "lab:react:hostile": "npm --prefix examples/react-uninstrumented-lab run dev",
     "lab:react:hostile:build": "npm --prefix examples/react-uninstrumented-lab run build",
     "lab:react:hostile:validate": "npm --prefix examples/react-uninstrumented-lab run validate:uninstrumented",
+    "lab:react:hostile:accept": "npm --prefix examples/react-uninstrumented-lab run accept:browser",
     "lab:vue:install": "npm --prefix examples/vue-fault-lab install",
     "lab:vue": "npm --prefix examples/vue-fault-lab run dev",
     "lab:vue:build": "npm --prefix examples/vue-fault-lab run build"

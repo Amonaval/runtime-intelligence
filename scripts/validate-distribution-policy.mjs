@@ -26,7 +26,7 @@ if (license && (!/proprietary/i.test(license) || !/all rights reserved/i.test(li
 const policy = requireFile('docs/R6.5-DISTRIBUTION-LICENSE-IP.md');
 if (policy && (!/authorized private Git/i.test(policy) || !/service boundary/i.test(policy))) failures.push('R6.5 policy must document private distribution and the optional service boundary.');
 const readme = requireFile('README.md');
-if (readme && !/private\/proprietary/i.test(readme)) failures.push('README must clearly state the private/proprietary distribution posture.');
+if (readme && !/private\s*\/\s*proprietary/i.test(readme)) failures.push('README must clearly state the private/proprietary distribution posture.');
 
 let packedFiles = [];
 try {

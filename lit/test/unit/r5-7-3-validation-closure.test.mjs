@@ -76,7 +76,7 @@ test('normalized report deduplicates high-level findings while preserving raw ev
   assert.equal(report.summary.rawNormalizedFindingCount, 2);
   assert.equal(report.summary.normalizedFindingCount, 1);
   assert.equal(report.opportunities[0].occurrenceCount, 2);
-  assert.deepEqual(report.opportunities[0].eventIds.sort(), ['budget-0', 'budget-1']);
+  assert.deepEqual([...report.opportunities[0].eventIds].sort(), ['budget-0', 'budget-1']);
 });
 
 test('update budget diagnostics preserve component source and framework metadata', () => {
