@@ -7,6 +7,7 @@
 
 const _MAX = 200;
 const _log = [];
+const _subscribers = new Set();
 let _patched = false;
 let _clients = 0;
 let _windowTarget = null;
@@ -17,14 +18,30 @@ let _patchedError = null;
 let _patchedWarn = null;
 let _clearFn = null;
 
-function _push(level, args) {
-    const entry = {
+function _captureStack(skipFunction = _captureStack) {
+    try {
+        const error = new Error();
+        if (typeof Error.captureStackTrace === 'function') {
+            Error.captureStackTrace(error, skipFunction);
+        }
+        return error.stack || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _push(level, args, stack = null) {
+    const entry = Object.freeze({
         level,
         message: args.map(a => (typeof a === 'string' ? a : _safe(a))).join(' '),
         ts: new Date().toISOString(),
-    };
+        callStack: stack,
+    });
     _log.push(entry);
     if (_log.length > _MAX) _log.shift();
+    for (const listener of [..._subscribers]) {
+        try { listener(entry); } catch (_) { /* observers must not break console */ }
+    }
 }
 
 function _safe(val) {
@@ -56,11 +73,11 @@ function attach(target = null) {
     const origLog = consoleTarget.log || (() => {});
 
     _patchedError = (...args) => {
-        _push('error', args);
+        _push('error', args, _captureStack(_patchedError));
         _origError.apply(consoleTarget, args);
     };
     _patchedWarn = (...args) => {
-        _push('warn', args);
+        _push('warn', args, _captureStack(_patchedWarn));
         _origWarn.apply(consoleTarget, args);
     };
 
@@ -104,4 +121,10 @@ function detach(_target = null) {
     _clearFn = null;
 }
 
-export const LdsConsole = { attach, detach };
+function subscribe(listener) {
+    if (typeof listener !== 'function') return () => {};
+    _subscribers.add(listener);
+    return () => _subscribers.delete(listener);
+}
+
+export const LdsConsole = { attach, detach, subscribe };

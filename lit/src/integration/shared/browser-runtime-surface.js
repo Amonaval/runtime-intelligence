@@ -64,6 +64,7 @@ class BrowserRuntimeSurface {
   #sequentialFactory;
   #correlationContext;
   #networkUnsubscribe = null;
+  #consoleUnsubscribe = null;
   #sequential = null;
   #started = false;
   #onError = null;
@@ -129,6 +130,14 @@ class BrowserRuntimeSurface {
       }
     } catch {}
 
+    if (typeof this.#consoleCapture?.subscribe === 'function') {
+      try {
+        this.#consoleUnsubscribe = this.#consoleCapture.subscribe(entry => this.#recordConsole(entry));
+      } catch {
+        this.#consoleUnsubscribe = null;
+      }
+    }
+
     if (typeof this.#network?.subscribe === 'function') {
       this.#networkUnsubscribe = this.#network.subscribe(entry => this.#recordNetwork(entry));
       try {
@@ -152,7 +161,7 @@ class BrowserRuntimeSurface {
         });
         this.#store.emit({
           type: RuntimeEventType.ERROR,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
           source: captured.source,
           correlation: this.#correlationContext?.correlation?.(),
           evidence: _browserEvidence(captured.source),
@@ -172,7 +181,7 @@ class BrowserRuntimeSurface {
         });
         this.#store.emit({
           type: RuntimeEventType.ERROR,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
           source: captured.source,
           correlation: this.#correlationContext?.correlation?.(),
           evidence: _browserEvidence(captured.source),
@@ -197,6 +206,8 @@ class BrowserRuntimeSurface {
     this.#started = false;
     this.#networkUnsubscribe?.();
     this.#networkUnsubscribe = null;
+    this.#consoleUnsubscribe?.();
+    this.#consoleUnsubscribe = null;
     try { this.#sequential?.stop?.(); } catch {}
     this.#sequential = null;
 
@@ -247,6 +258,31 @@ class BrowserRuntimeSurface {
     });
   }
 
+  #recordConsole(entry) {
+    if (!entry || (entry.level !== 'warn' && entry.level !== 'error')) return;
+    const captured = captureSourceProvenance({
+      stack: entry.callStack || null,
+      kind: SourceProvenanceKind.INVOCATION,
+      basis: 'console-call-stack',
+      skipPatterns: ['/core/console.js'],
+    });
+    this.#store.emit({
+      type: RuntimeEventType.DIAGNOSTIC,
+      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
+      source: captured.source,
+      correlation: this.#correlationContext?.correlation?.(),
+      evidence: _browserEvidence(captured.source),
+      payload: {
+        diagnostic: 'browser.console-message',
+        consoleMessage: true,
+        level: entry.level,
+        message: entry.message || '',
+        stack: _applicationStack(captured.provenance),
+        ..._provenancePayload(captured.provenance),
+      },
+    });
+  }
+
   #recordNetwork(entry) {
     if (!entry) return;
     const traceId = `net-${Date.now()}-${++_networkTraceSequence}`;
@@ -258,7 +294,7 @@ class BrowserRuntimeSurface {
     });
     this.#store.emit({
       type: RuntimeEventType.NETWORK_COMPLETED,
-      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
       source: captured.source,
       correlation: { traceId, interactionId },
       evidence: _browserEvidence(captured.source),
@@ -291,7 +327,7 @@ class BrowserRuntimeSurface {
     });
     this.#store.emit({
       type: RuntimeEventType.DIAGNOSTIC,
-      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
       source: captured.source,
       correlation: this.#correlationContext?.correlation?.(),
       evidence: {
@@ -323,7 +359,7 @@ class BrowserRuntimeSurface {
         const interactionId = `interaction-${Date.now()}-${++_interactionSequence}`;
         const emitted = this.#store.emit({
           type: RuntimeEventType.INTERACTION,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-4' },
           correlation: { interactionId },
           evidence: _browserEvidence(),
           payload: {

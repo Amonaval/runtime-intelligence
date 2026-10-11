@@ -17,6 +17,7 @@ test('shared browser surface emits evidence and fully releases owned browser ins
     removeEventListener(type){ listeners.delete(type); },
   };
   let networkSubscriber = null;
+  let consoleSubscriber = null;
   const lifecycle = { networkInit: 0, networkDetach: 0, vitalsInit: 0, vitalsDetach: 0, consoleAttach: 0, consoleDetach: 0 };
   const network = {
     init(){ lifecycle.networkInit += 1; },
@@ -30,6 +31,7 @@ test('shared browser surface emits evidence and fully releases owned browser ins
   const consoleCapture = {
     attach(){ lifecycle.consoleAttach += 1; },
     detach(){ lifecycle.consoleDetach += 1; },
+    subscribe(fn){ consoleSubscriber = fn; return () => { consoleSubscriber = null; }; },
   };
   const detector = { start(){}, stop(){} };
   const surface = new BrowserRuntimeSurface({
@@ -44,11 +46,27 @@ test('shared browser surface emits evidence and fully releases owned browser ins
 
   assert.equal(fakeWindow.__LDS_INTELLIGENCE_ENABLED__, true);
   networkSubscriber({ url: '/api/items?token=secret', method: 'GET', status: 200, durationMs: 42, type: 'fetch' });
+  consoleSubscriber({
+    level: 'warn',
+    message: 'inventory stale',
+    callStack: 'Error\n    at warnUser (http://localhost/src/Feature.jsx:41:9)',
+  });
   listeners.get('error')({ message: 'boom', filename: '/src/App.tsx', lineno: 9, colno: 4 });
   docListeners.get('click')({ target: { tagName: 'BUTTON', getAttribute: () => 'button' } });
 
   assert.equal(store.snapshot({ type: RuntimeEventType.NETWORK_COMPLETED }).length, 1);
   assert.equal(store.snapshot({ type: RuntimeEventType.NETWORK_COMPLETED })[0].payload.path, '/api/items');
+  const consoleEvidence = store.snapshot({ type: RuntimeEventType.DIAGNOSTIC })
+    .find(event => event.payload?.consoleMessage === true);
+  assert.ok(consoleEvidence);
+  assert.equal(consoleEvidence.source?.file, 'src/Feature.jsx');
+  assert.equal(consoleEvidence.source?.line, 41);
+  assert.equal(consoleEvidence.source?.column, 9);
+  assert.equal(consoleEvidence.source?.functionName, 'warnUser');
+  assert.equal(consoleEvidence.evidence?.level, 'attribution');
+  assert.equal(consoleEvidence.evidence?.attribution, 'source-attributed');
+  assert.equal(consoleEvidence.payload?.sourceProvenance?.kind, 'invocation');
+  assert.equal(consoleEvidence.payload?.sourceProvenance?.basis, 'console-call-stack');
   assert.equal(store.snapshot({ type: RuntimeEventType.ERROR }).length, 1);
   assert.equal(store.snapshot({ type: RuntimeEventType.INTERACTION }).length, 1);
   assert.equal(surface.started, true);
@@ -56,6 +74,7 @@ test('shared browser surface emits evidence and fully releases owned browser ins
   surface.stop();
   assert.equal(surface.started, false);
   assert.equal(networkSubscriber, null);
+  assert.equal(consoleSubscriber, null);
   assert.equal(docListeners.size, 0);
   assert.equal(listeners.size, 0);
   assert.equal('__LDS_INTELLIGENCE_ENABLED__' in fakeWindow, false);
