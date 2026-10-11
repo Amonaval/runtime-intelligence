@@ -51,3 +51,9 @@ export {
   createEvidenceEvent,
   validateEvidenceEvent,
 } from './evidence-protocol.js';
+export {
+  PUBLIC_API_COMPATIBILITY,
+  PUBLIC_PACKAGE_SURFACES,
+  RUNTIME_INTELLIGENCE_API_VERSION,
+  getRuntimeIntelligenceApiContract,
+} from './api-contract.js';

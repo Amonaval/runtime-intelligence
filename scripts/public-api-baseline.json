@@ -1,0 +1,13 @@
+{
+  "contractVersion": "r6.4/1",
+  "apiVersion": "0.1",
+  "surfaces": {
+    "./loader": ["createRuntimeIntelligenceLoader", "isRuntimeIntelligenceEnabled", "loadRuntimeIntelligence"],
+    "./core": ["FrameworkAdapter", "EvidenceStore", "evidenceStore", "EdgeRelation", "EvidenceGraph", "RootCauseGrouper", "CascadeAnalyzer", "UpdateBudgetMonitor", "BackgroundSessionStore", "FalcorCallGraph", "SequentialApiDetector", "DomDuplicationAdvisor", "VirtualizationAdvisor", "PaintAdvisor", "WorkerOpportunityAdvisor", "IdleSchedulingAdvisor", "SourceResolutionBasis", "SourceResolver", "parseRuntimeSourceLocation", "sanitizeSourceFile", "RecorderState", "IncidentFlightRecorder", "WORKFLOW_SCHEMA_VERSION", "MetricDirection", "VerificationOutcome", "createWorkflowRun", "createWorkflowBaseline", "compareWorkflowRuns", "verifyFix", "EVIDENCE_CAPSULE_SCHEMA_VERSION", "createEvidenceCapsule", "buildEvidenceCapsuleAIPrompt", "PRIVACY_POLICY_VERSION", "PrivacyAction", "ENTERPRISE_SAFE_PRIVACY_POLICY", "createPrivacyPolicy", "maskUrlQuery", "sanitizeHeaders", "applyPrivacyPolicyToEvidenceInput", "sanitizeForExport", "sanitizeForExportWithAudit", "EVIDENCE_SCHEMA_VERSION", "EvidenceLevel", "AttributionQuality", "CapabilitySupport", "FrameworkCapability", "RuntimeEventType", "RuntimeValueCapture", "summarizeRuntimeValue", "createEvidenceEvent", "validateEvidenceEvent", "PUBLIC_API_COMPATIBILITY", "PUBLIC_PACKAGE_SURFACES", "RUNTIME_INTELLIGENCE_API_VERSION", "getRuntimeIntelligenceApiContract"],
+    "./extension": ["RUNTIME_EXTENSION_API_VERSION", "UREP_SCHEMA_VERSION", "assertRuntimeExtensionCompatibility", "createRuntimeExtension", "isRuntimeExtensionCompatible"],
+    "./react": ["ReactAdapter", "reactAdapter", "ReactIntelligenceRuntime", "createReactIntelligenceRuntime", "RuntimeIntelligenceContext", "RuntimeIntelligenceOwnerContext", "RuntimeIntelligenceProvider", "RuntimeIntelligenceProfiler", "withRuntimeIntelligence", "useRuntimeIntelligence", "useRuntimeOwner", "useRuntimeEffect", "useRuntimeResource", "useRuntimeTrackedState"],
+    "./lit": ["LitDebugMixin", "LitAdapter", "litAdapter", "LitIntelligencePipeline", "getLitIntelligencePipeline", "PropertyWatchManager", "NavigationBridge", "NetworkStateCorrelator"],
+    "./panel": ["LdsDebugPanel", "RuntimePanelEvidenceBridge", "bridgeRuntimeEvidenceToPanel", "mountRuntimeIntelligencePanel", "OPPORTUNITY_FLAGS", "enhanceRuntimeIssueForFramework", "createRuntimeReport", "buildRuntimeReportHtml", "downloadRuntimeReport", "downloadRuntimeReports"],
+    "./panel/lit": ["LdsDebugPanel"]
+  }
+}

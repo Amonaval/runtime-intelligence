@@ -15,46 +15,36 @@ Do not restart React parity work unless real dogfood exposes a concrete defect.
 ### R6.1 — DONE — MEDIUM
 Package Contract & Publish Safety.
 
-- explicit stable package subpaths;
-- generic package allowlist;
-- accidental-publish guard;
-- `npm pack` contract validation.
-
 ### R6.2 — DONE — MEDIUM-HIGH
 Production Safety & Conditional Loading.
-
-- default-off `/loader` dynamic-import boundary;
-- disabled React path avoids runtime construction;
-- disabled Lit path avoids adapter/collector activation;
-- reversible network/console/vitals instrumentation;
-- teardown restores host globals/listeners;
-- focused proof that collector initialization does not initiate network requests.
 
 ### R6.3 — DONE — MEDIUM
 Developer Onboarding & Reproducible Installation.
 
-- root README with 5-minute React/Lit quick starts;
-- local tarball is the recommended pre-registry install path;
-- safe dev/debug enablement recipes;
-- packed-artifact consumer smoke via `npm run onboarding:validate`;
-- aggregate release validation command;
-- troubleshooting and local report/export workflow;
-- Git-SHA installs retained for existing dogfood, not promoted as final distribution UX.
-
-### R6.4 — NEXT — MEDIUM-HIGH
+### R6.4 — DONE — MEDIUM-HIGH
 Public API Stability & Extension Contract.
 
-- public vs internal API policy;
-- UREP/plugin extension contract;
-- compatibility/versioning rules;
-- prevent consumers from relying on incidental browser globals;
-- identify any exports that should be stabilized, deprecated, or moved behind internal boundaries before wider distribution.
+- exact public subpath/named-export baseline;
+- `runtime-intelligence/extension` governed UREP extension surface;
+- explicit `0.1` API compatibility contract;
+- same-major UREP/extension compatibility;
+- deep imports and `window.__LDS_*` classified internal;
+- confirmed causality guarded by explicit extension opt-in;
+- public API validation added to the release gate.
 
-### R6.5 — LOW-MEDIUM + OWNER DECISION
+### R6.5 — NEXT — LOW-MEDIUM + OWNER DECISION
 Distribution / License / IP Strategy.
 
-Choose package naming, public vs private registry, intended license and any commercial-service boundary. Browser JavaScript cannot be made truly uncopyable; obfuscation is only friction, not protection.
+Choose:
+
+- final package name/scope;
+- public vs private registry;
+- intended license/IP position;
+- whether any proprietary intelligence moves behind a service boundary;
+- release/versioning mechanics for the chosen distribution model.
+
+Browser JavaScript cannot be made truly uncopyable; obfuscation is only friction, not protection.
 
 ## After R6 baseline
 
-Vue adapter + Vue Fault Lab, then Angular adapter + Angular Fault Lab, reusing the same UREP/report/Opportunities/Intelligence/panel stack.
+Vue adapter + Vue Fault Lab, then Angular adapter + Angular Fault Lab, reusing the same UREP/report/Opportunities/Intelligence/extension/panel stack.
