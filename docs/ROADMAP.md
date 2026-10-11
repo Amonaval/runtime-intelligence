@@ -30,22 +30,25 @@ Production Safety & Conditional Loading.
 - teardown restores host globals/listeners;
 - focused proof that collector initialization does not initiate network requests.
 
-### R6.3 — NEXT — MEDIUM
+### R6.3 — DONE — MEDIUM
 Developer Onboarding & Reproducible Installation.
 
-- 5-minute React/Lit quick starts;
-- local tarball/install validation;
-- dev/debug enablement recipes;
-- troubleshooting and export workflow;
-- replace temporary Git-SHA install UX with a deliberate distribution path once approved.
+- root README with 5-minute React/Lit quick starts;
+- local tarball is the recommended pre-registry install path;
+- safe dev/debug enablement recipes;
+- packed-artifact consumer smoke via `npm run onboarding:validate`;
+- aggregate release validation command;
+- troubleshooting and local report/export workflow;
+- Git-SHA installs retained for existing dogfood, not promoted as final distribution UX.
 
-### R6.4 — MEDIUM
+### R6.4 — NEXT — MEDIUM-HIGH
 Public API Stability & Extension Contract.
 
 - public vs internal API policy;
 - UREP/plugin extension contract;
 - compatibility/versioning rules;
-- prevent consumers from relying on incidental browser globals.
+- prevent consumers from relying on incidental browser globals;
+- identify any exports that should be stabilized, deprecated, or moved behind internal boundaries before wider distribution.
 
 ### R6.5 — LOW-MEDIUM + OWNER DECISION
 Distribution / License / IP Strategy.

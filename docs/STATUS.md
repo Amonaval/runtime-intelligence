@@ -11,6 +11,7 @@ Current `main` includes validated React R5.7.4 plus accepted product hardening/p
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
 - R6.1 Package Contract & Publish Safety: complete
 - R6.2 Production Safety & Conditional Loading: complete
+- R6.3 Developer Onboarding & Reproducible Installation: complete
 - TrustWeave remains intentionally pinned to the R5.7.4 baseline while R6 productization proceeds independently.
 
 The source-resolver hardening is accepted because it conservatively keeps `file://`, `webpack-internal://` and Vite `/@fs/` runtime locations on the generated/provider path, redacts embedded `data:` payloads, and does not upgrade evidence certainty.
@@ -66,15 +67,26 @@ Additional hardening:
 
 Focused local R6.2 production-safety tests: **8 passed, 0 failed**. Full repository validation remains a release checkpoint in a normal checked-out environment.
 
-### Next: R6.3 — Developer Onboarding & Reproducible Installation
+### R6.3 — Developer Onboarding & Reproducible Installation — COMPLETE
 
-- 5-minute React/Lit setup;
-- tarball/package install verification;
-- safe dev/debug enablement recipes;
-- troubleshooting and report/export workflow;
-- prepare deliberate distribution UX without changing the current private-package decision.
+R6.3 adds a real root README and a deliberate pre-registry adoption path instead of expecting developers to understand repository internals.
 
-Recommended effort: MEDIUM.
+- 5-minute React and Lit quick-start recipes;
+- production-safe `/loader` enablement examples;
+- local tarball as the recommended pre-registry consumer-install path;
+- Git-SHA installs retained for existing dogfood compatibility, not as the primary onboarding UX;
+- `npm run onboarding:validate` packs the artifact, installs it in a temporary consumer, and smoke-imports `/loader`, `/core`, `/react`, and `/lit`;
+- `npm run validate:release` aggregates package, production, onboarding, and repository tests;
+- troubleshooting now covers export errors, activation, React/Lit wiring, panel mounting, teardown, and privacy defaults;
+- JSON/HTML export workflow is documented as local/user-triggered by default.
+
+R6.3 deliberately does not publish to a registry or alter licensing. Those remain R6.5 owner decisions.
+
+### Next: R6.4 — Public API Stability & Extension Contract
+
+Define what is public vs internal, formalize supported UREP/plugin extension points and compatibility/versioning rules, and reduce reliance on incidental browser globals.
+
+Recommended effort: MEDIUM-HIGH.
 
 ## Framework expansion
 

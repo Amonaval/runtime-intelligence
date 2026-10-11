@@ -22,6 +22,8 @@
     "build": "npm --prefix lit run build",
     "package:validate": "node scripts/validate-package-contract.mjs",
     "production:validate": "node --test lit/test/unit/production-safety.test.mjs lit/test/unit/browser-runtime-surface.test.mjs",
+    "onboarding:validate": "node scripts/validate-onboarding.mjs",
+    "validate:release": "npm run package:validate && npm run production:validate && npm run onboarding:validate && npm test",
     "lab:react:install": "npm --prefix examples/react-fault-lab install",
     "lab:react": "npm --prefix examples/react-fault-lab run dev",
     "lab:react:build": "npm --prefix examples/react-fault-lab run build"
