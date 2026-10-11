@@ -153,7 +153,8 @@ test('vitals observers disconnect when the last runtime consumer stops', { concu
 });
 
 test('Lit runtime gate stays off by default and honors explicit debug flags', { concurrency: false }, async () => {
-  const fakeWindow = {};
+  const inheritedFlags = { __LDS_NETWORK_ENABLED__: true, __LDS_DEBUG__: { perf: true } };
+  const fakeWindow = Object.create(inheritedFlags);
   await withWindow(fakeWindow, async () => {
     const mod = await import(`${sourceUrl('lit/src/core/gate.js')}?r6=${Date.now()}`);
     assert.equal(mod._runtimeEnabled(), false);
