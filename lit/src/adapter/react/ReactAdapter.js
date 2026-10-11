@@ -34,6 +34,10 @@ function _instrumentedEvidence(source, level = EvidenceLevel.OBSERVATION) {
   };
 }
 
+function _provenancePayload(sourceProvenance) {
+  return sourceProvenance ? { sourceProvenance } : {};
+}
+
 class ReactAdapter extends FrameworkAdapter {
   #profilingEnabled;
   #correlationContext;
@@ -48,7 +52,7 @@ class ReactAdapter extends FrameworkAdapter {
     super({
       ...options,
       framework: 'react',
-      adapterVersion: '2.3',
+      adapterVersion: '2.4',
       capabilities: {
         [FrameworkCapability.OWNER_LIFECYCLE]: CapabilitySupport.PARTIAL,
         [FrameworkCapability.UPDATE_LIFECYCLE]: CapabilitySupport.PARTIAL,
@@ -85,13 +89,21 @@ class ReactAdapter extends FrameworkAdapter {
     return interactionId ? { interactionId } : undefined;
   }
 
-  connect(target, { name = 'react-component', source = null, parentId = null } = {}) {
+  connect(target, {
+    name = 'react-component',
+    source = null,
+    sourceProvenance = null,
+    parentId = null,
+  } = {}) {
     if (!_isToken(target)) return null;
 
     const existing = this.#owners.get(target);
     if (existing?.connected) {
       if (!existing.parentId && parentId) existing.parentId = parentId;
       if (!existing.source && source) existing.source = source;
+      if (!existing.sourceProvenance && sourceProvenance) {
+        existing.sourceProvenance = sourceProvenance;
+      }
       return existing;
     }
 
@@ -113,6 +125,7 @@ class ReactAdapter extends FrameworkAdapter {
       parentId,
       connected: true,
       source,
+      sourceProvenance,
     };
 
     this.#owners.set(target, owner);
@@ -127,7 +140,11 @@ class ReactAdapter extends FrameworkAdapter {
         attribution: AttributionQuality.FRAMEWORK_REPORTED,
         confidence: 0.95,
       },
-      payload: { lifecycle: 'effect-mounted', instrumented: true },
+      payload: {
+        lifecycle: 'effect-mounted',
+        instrumented: true,
+        ..._provenancePayload(sourceProvenance),
+      },
     });
 
     return owner;
@@ -150,21 +167,28 @@ class ReactAdapter extends FrameworkAdapter {
         diagnostic: 'react.owner.parent-linked',
         parentOwnerId: parent.id,
         parentOwnerName: parent.name,
+        ..._provenancePayload(owner.sourceProvenance),
       },
     });
     return owner;
   }
 
-  disconnect(target, { source = null, reason = 'effect-cleanup' } = {}) {
+  disconnect(target, {
+    source = null,
+    sourceProvenance = null,
+    reason = 'effect-cleanup',
+  } = {}) {
     const owner = this.#owners.get(target);
     if (!owner?.connected) return null;
 
     owner.connected = false;
     this.#pendingRequests.delete(target);
+    const effectiveSource = source || owner.source;
+    const effectiveProvenance = sourceProvenance || owner.sourceProvenance || null;
 
     return this.emit(RuntimeEventType.OWNER_DESTROYED, {
       owner,
-      source: source || owner.source,
+      source: effectiveSource,
       correlation: this.#interactionCorrelation(),
       evidence: {
         level: EvidenceLevel.OBSERVATION,
@@ -174,6 +198,7 @@ class ReactAdapter extends FrameworkAdapter {
       payload: {
         lifecycle: String(reason || 'effect-cleanup'),
         instrumented: true,
+        ..._provenancePayload(effectiveProvenance),
       },
     });
   }
@@ -184,6 +209,7 @@ class ReactAdapter extends FrameworkAdapter {
 
   recordUpdateRequested(target, {
     source = null,
+    sourceProvenance = null,
     reason = 'instrumented-update',
     stateKey = null,
     oldValue = undefined,
@@ -208,6 +234,7 @@ class ReactAdapter extends FrameworkAdapter {
           ? null
           : Object.is(oldValue, newValue),
         instrumented: true,
+        ..._provenancePayload(sourceProvenance),
       },
     });
 
@@ -218,7 +245,10 @@ class ReactAdapter extends FrameworkAdapter {
     return event;
   }
 
-  recordStateChange(target, key, oldValue, newValue, { source = null } = {}) {
+  recordStateChange(target, key, oldValue, newValue, {
+    source = null,
+    sourceProvenance = null,
+  } = {}) {
     const owner = this.#owners.get(target);
     if (!owner?.connected || key == null) return null;
 
@@ -233,6 +263,7 @@ class ReactAdapter extends FrameworkAdapter {
         newValue: summarizeRuntimeValue(newValue),
         sameReference: Object.is(oldValue, newValue),
         instrumented: true,
+        ..._provenancePayload(sourceProvenance),
       },
     });
   }
@@ -245,6 +276,7 @@ class ReactAdapter extends FrameworkAdapter {
     startTime = null,
     commitTime = null,
     source = null,
+    sourceProvenance = null,
   } = {}) {
     const owner = this.#owners.get(target);
     if (!owner?.connected) return null;
@@ -257,10 +289,12 @@ class ReactAdapter extends FrameworkAdapter {
         : {}),
       ...(interactionId ? { interactionId } : {}),
     };
+    const effectiveSource = source || owner.source || null;
+    const effectiveProvenance = sourceProvenance || owner.sourceProvenance || null;
 
     const event = this.emit(RuntimeEventType.UPDATE_COMPLETED, {
       owner,
-      source,
+      source: effectiveSource,
       correlation: Object.keys(correlation).length ? correlation : undefined,
       evidence: {
         level: EvidenceLevel.OBSERVATION,
@@ -277,6 +311,7 @@ class ReactAdapter extends FrameworkAdapter {
         pendingRequestCount: pendingRequestEventIds.length,
         pendingRequestEventIds,
         profilingEnabled: this.#profilingEnabled,
+        ..._provenancePayload(effectiveProvenance),
       },
     });
 
@@ -284,7 +319,10 @@ class ReactAdapter extends FrameworkAdapter {
     return event;
   }
 
-  createProfilerCallback(target, { source = null } = {}) {
+  createProfilerCallback(target, {
+    source = null,
+    sourceProvenance = null,
+  } = {}) {
     return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
       try {
         return this.recordProfilerRender(target, {
@@ -295,6 +333,7 @@ class ReactAdapter extends FrameworkAdapter {
           startTime,
           commitTime,
           source,
+          sourceProvenance,
         });
       } catch {
         return null;
@@ -302,7 +341,11 @@ class ReactAdapter extends FrameworkAdapter {
     };
   }
 
-  recordEffectStarted(target, effectId, { source = null, kind = 'effect' } = {}) {
+  recordEffectStarted(target, effectId, {
+    source = null,
+    sourceProvenance = null,
+    kind = 'effect',
+  } = {}) {
     const owner = this.#owners.get(target);
     if (!owner?.connected) return null;
     return this.emit(RuntimeEventType.DIAGNOSTIC, {
@@ -314,11 +357,16 @@ class ReactAdapter extends FrameworkAdapter {
         diagnostic: 'react.effect.started',
         effectId: String(effectId),
         effectKind: String(kind || 'effect'),
+        ..._provenancePayload(sourceProvenance),
       },
     });
   }
 
-  recordEffectCleanup(target, effectId, { source = null, kind = 'effect' } = {}) {
+  recordEffectCleanup(target, effectId, {
+    source = null,
+    sourceProvenance = null,
+    kind = 'effect',
+  } = {}) {
     const owner = this.#owners.get(target);
     if (!owner) return null;
     return this.emit(RuntimeEventType.DIAGNOSTIC, {
@@ -330,6 +378,7 @@ class ReactAdapter extends FrameworkAdapter {
         diagnostic: 'react.effect.cleanup',
         effectId: String(effectId),
         effectKind: String(kind || 'effect'),
+        ..._provenancePayload(sourceProvenance),
       },
     });
   }
@@ -338,6 +387,7 @@ class ReactAdapter extends FrameworkAdapter {
     resourceId,
     resourceType = 'unknown',
     source = null,
+    sourceProvenance = null,
   } = {}) {
     const owner = this.#owners.get(target);
     if (!owner?.connected || !resourceId) return null;
@@ -350,6 +400,7 @@ class ReactAdapter extends FrameworkAdapter {
         resourceId: String(resourceId),
         resourceType: String(resourceType || 'unknown'),
         instrumented: true,
+        ..._provenancePayload(sourceProvenance),
       },
     });
   }
@@ -358,6 +409,7 @@ class ReactAdapter extends FrameworkAdapter {
     resourceId,
     resourceType = 'unknown',
     source = null,
+    sourceProvenance = null,
   } = {}) {
     const owner = this.#owners.get(target);
     if (!owner || !resourceId) return null;
@@ -370,14 +422,27 @@ class ReactAdapter extends FrameworkAdapter {
         resourceId: String(resourceId),
         resourceType: String(resourceType || 'unknown'),
         instrumented: true,
+        ..._provenancePayload(sourceProvenance),
       },
     });
   }
 
-  createEffectBridge(target, effectId, { source = null, kind = 'effect' } = {}) {
+  createEffectBridge(target, effectId, {
+    source = null,
+    sourceProvenance = null,
+    kind = 'effect',
+  } = {}) {
     return Object.freeze({
-      start: () => this.recordEffectStarted(target, effectId, { source, kind }),
-      cleanup: () => this.recordEffectCleanup(target, effectId, { source, kind }),
+      start: () => this.recordEffectStarted(target, effectId, {
+        source,
+        sourceProvenance,
+        kind,
+      }),
+      cleanup: () => this.recordEffectCleanup(target, effectId, {
+        source,
+        sourceProvenance,
+        kind,
+      }),
     });
   }
 

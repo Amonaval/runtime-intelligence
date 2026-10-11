@@ -8,7 +8,7 @@ Missions 01–12 established FrameworkAdapter v2, UREP, EvidenceGraph/root-cause
 
 R5.2 through R5.7.4 unified React with the canonical mature panel, shared browser collectors/intelligence, ownership/profiling, Fault Lab validation, normalized JSON/HTML reports and first-class Opportunities.
 
-Parity is closed. New React work is allowed when real dogfood exposes a concrete trust/value defect.
+Parity is closed. React work is allowed when real dogfood exposes a concrete trust/value defect.
 
 ## R6 — Productization & distribution — COMPLETE
 
@@ -20,45 +20,52 @@ Vue is another thin framework evidence producer into the same UREP/intelligence/
 
 ## P0 — ACTIVE — SOURCE PINPOINT / PROVENANCE
 
-This program supersedes framework-count expansion. Runtime Intelligence must first become extremely strong at turning runtime evidence into an actionable source location.
+This program supersedes framework-count expansion. Optimize for developer time-to-relevant-code.
 
-### P0.1 — Universal runtime invocation provenance — DONE IN SOURCE — HIGH
+### P0.1 — DONE — HIGH
 
-- shared application-frame extraction and filtering;
-- bounded provenance metadata with explicit meaning;
-- network invocation source preserved into UREP;
-- browser error/rejection source attribution when provable;
+Universal runtime invocation provenance:
+
+- shared application-frame extraction/filtering;
+- bounded explicit provenance semantics;
+- network/error source retained into UREP;
 - sequential request common-origin provenance;
-- legacy Lit network parity;
-- Opportunities file:line:column + provenance/application stack;
-- canonical Pinpoint source enrichment;
-- no fabricated source when only internal/vendor frames exist.
+- Opportunities + Pinpoint file:line:column presentation;
+- no fabricated source from internal/vendor-only stacks.
 
-Full closure still requires real consumer validation.
+### P0.2 — DONE IN SOURCE — HIGH
 
-### P0.2 — NEXT — HIGH
+Exact React source attribution:
 
-React/Next original-source attribution + source maps/build metadata + real TrustWeave closure.
+- HOC/component-boundary registration source with exact line/column when provable;
+- exact invocation source for tracked state updates;
+- exact registration source for runtime effects/resources;
+- effect error-origin provenance;
+- Profiler inherits known boundary source without upgrading render evidence;
+- provenance preserved through update-budget and resource-lifetime derived diagnostics;
+- issue-specific Pinpoint source selection.
+
+Focused implementation validation: **16 passed, 0 failed**. Real TrustWeave browser closure is still required.
+
+### P0.3 — NEXT — HIGH
+
+Real TrustWeave closure + remaining uninstrumented React/Next original-source path.
 
 Goals:
 
-- identify component definition/original TSX location without pretending a React Profiler callback stack is the component source;
-- use dev-build metadata and/or source-map providers where generated runtime coordinates need mapping;
-- keep integration automatic or near-zero-friction for consumers;
-- validate against real TrustWeave findings, not only Fault Labs;
-- require finding → file:line → relevant code without manual repository search;
-- retain generated/related/unknown labels when exact original source cannot be proven.
+- finding → displayed application file:line:column → relevant TrustWeave code without manual repository search;
+- validate normal API-backed and React flows, never synthetic TrustWeave faults;
+- investigate React dev/fiber debug metadata and source-map/build metadata for components that do not use a source-bearing boundary/hook;
+- preserve generated/related/unknown when exact original source cannot be proven;
+- avoid a mandatory build plugin unless real dogfood proves runtime/dev metadata insufficient;
+- keep source location semantics distinct from causal/root-cause claims.
 
-### P0.3 — only if real dogfood justifies it
+### P0.4 — only if dogfood justifies it
 
-Extend the same provenance primitive to additional high-value collectors such as console diagnostics and automatic resource registration/ownership callsites. Do not add collectors merely for breadth.
+Extend provenance to additional high-value collectors or editor/deep-link ergonomics only when it measurably reduces time-to-relevant-code.
 
-## R8 — Angular Adapter + Angular Fault Lab — DEFERRED / BLOCKED
+## R8 — Angular Adapter + Angular Fault Lab — BLOCKED
 
 Do not start Angular until P0 source precision and the overall developer value proposition are mature and validated in real consumer use.
 
 When unblocked, Angular must remain a thin UREP evidence producer and reuse the same provenance/intelligence/panel stack.
-
-## Governing roadmap rule
-
-Optimize for **developer time-to-relevant-code**, not number of supported frameworks or number of diagnostics.

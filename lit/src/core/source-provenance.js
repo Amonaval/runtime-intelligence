@@ -5,6 +5,7 @@ const SourceProvenanceKind = Object.freeze({
   REGISTRATION: 'registration',
   ERROR_ORIGIN: 'error-origin',
   COMPONENT_DEFINITION: 'component-definition',
+  COMPONENT_REGISTRATION: 'component-registration',
   COMMON_ORIGIN: 'common-origin',
   RELATED: 'related',
 });

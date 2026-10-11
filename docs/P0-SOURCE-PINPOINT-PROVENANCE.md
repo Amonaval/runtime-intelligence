@@ -1,88 +1,118 @@
 # P0 — Universal Source Pinpoint / Provenance
 
 **Priority:** P0 — blocks framework expansion  
-**P0.1 status:** implemented in source; real TrustWeave browser closure still required
+**P0.1 status:** implemented and pinned into TrustWeave dogfood  
+**P0.2 status:** implemented in source; real TrustWeave browser closure still required
 
-## Why this is now the product priority
+## Product target
 
-Runtime Intelligence already detects and correlates meaningful runtime problems. The value proposition is weak if a finding still leaves the developer searching the repository manually.
+Runtime Intelligence is not "wow" if it detects a useful problem but leaves the developer searching the repository manually.
 
-The product target is:
+The target is:
 
 > A real finding should lead the developer to the most relevant application source location the runtime can honestly prove, with file, line, column and a short application-only stack where available.
 
-Angular and other framework expansion are deferred until this workflow is mature enough to be a defining product advantage.
+Angular and other framework expansion remain deferred until this workflow is mature in real consumer use.
 
-## P0.1 — Runtime invocation provenance
+## P0.1 — Universal runtime invocation provenance
 
-P0.1 introduces one framework-neutral provenance primitive and wires existing runtime evidence through it.
+P0.1 established the framework-neutral provenance primitive and stopped losing source evidence already available at runtime.
 
 Implemented:
 
 - application-frame extraction from V8/Chrome and Firefox-style stacks;
-- filtering of Runtime Intelligence, React/runtime, `node_modules`, Next internals and bundler runtime frames;
-- project-facing path normalization for Next/webpack module paths;
-- local-machine path minimization so usernames/workspace roots are not retained unnecessarily;
-- bounded provenance: at most a small application-only frame list is retained;
-- network `fetch`/XHR evidence now preserves the caller source that `LdsNetwork` was already capturing instead of dropping it at the UREP boundary;
-- failed/unhandled browser errors derive an application source from browser location/stack when available;
-- sequential-request opportunities retain the common originating source as explicit `common-origin` provenance;
-- legacy Lit network evidence receives the same invocation provenance;
-- Opportunities shows file:line:column, provenance meaning and an expandable application stack;
-- canonical Pinpoint can enrich legacy finding cards from UREP evidence, including failed-network source locations, without forking or rewriting the mature panel.
+- filtering of Runtime Intelligence, framework/vendor, `node_modules`, Next internals and bundler runtime frames;
+- project-facing Next/webpack path normalization and local-machine path minimization;
+- bounded application-only provenance frames;
+- fetch/XHR invocation provenance preserved into UREP;
+- browser error/unhandled-rejection origin when provable;
+- sequential-request common-origin provenance;
+- Lit network parity;
+- Opportunities file:line:column + provenance/application stack;
+- canonical Pinpoint enrichment from source-bearing UREP evidence.
+
+P0.1 runtime baseline: `a465a67bc7378bba9b605f39bb41c1efb3b8b3bc`.
+
+## P0.2 — Exact React source attribution
+
+P0.2 strengthens React/Next source precision without pretending a React Profiler callback contains source information that it does not expose.
+
+Implemented:
+
+- `withRuntimeIntelligence(...)` captures its consumer/module registration stack once and can refine a filename-only boundary source to exact line/column when the captured frame is the same file;
+- registration never borrows line/column from a different file;
+- runtime-specific React hooks capture their actual application registration location once;
+- tracked-state setters capture the application invocation stack at the state-update call site;
+- effect errors retain an application-only error-origin stack where available;
+- React owner metadata carries source provenance so Profiler observations can inherit the known component boundary location without changing Profiler evidence semantics;
+- update-budget diagnostics preserve upstream source provenance instead of dropping it during derived intelligence;
+- resource-lifetime diagnostics point to the tracked resource registration location rather than the later owner teardown location;
+- canonical Pinpoint selects issue-relevant evidence (render/update/resource/error/network) instead of an arbitrary later event from the same owner;
+- React-specific filtering rejects bundled Runtime Intelligence frames before choosing the first application frame.
+
+### React evidence boundary
+
+React Profiler remains:
+
+- `observation` evidence;
+- `framework-reported` attribution for render timing;
+- no invented `UPDATE_CAUSE`;
+- no invented causality.
+
+A component registration location means **where the instrumented boundary was registered**, not necessarily the line responsible for an expensive render.
+
+A state-update invocation location means **where the tracked update was requested**, not automatically the business/root cause.
 
 ## Provenance semantics
 
-A source location is not automatically a root cause.
+Source metadata distinguishes meanings such as:
 
-The bounded metadata distinguishes meanings such as:
-
-- `invocation` — where an intercepted operation was called;
-- `registration` — where a tracked resource was registered;
+- `invocation` — where an intercepted/runtime operation was called;
+- `registration` — where a tracked resource/effect/state hook was registered;
 - `error-origin` — the application frame associated with an error;
-- `component-definition` — framework/build metadata identifying a component definition;
+- `component-registration` — where an instrumented React boundary was registered;
+- `component-definition` — framework/build metadata identifying the actual definition when available;
 - `common-origin` — a common call site shared by a correlated request sequence;
 - `related` — useful source context without stronger semantics.
 
-The existing evidence ladder remains unchanged. P0 does not manufacture confirmed causality.
+A source location is not automatically a root cause. The UREP evidence ladder remains unchanged.
 
-## Deliberate boundary
+## P0.2 focused validation
 
-React Profiler callbacks do **not** provide a trustworthy component-definition stack. P0.1 therefore does not capture `new Error().stack` inside `onRender` and pretend that React internals identify the expensive TSX line.
+Executable focused checks cover:
 
-Original React/Next source definition and source-map resolution are P0 follow-up work. They should use build/source-map metadata where runtime stacks cannot prove the location.
+- React HOC registration exact source refinement;
+- prevention of cross-file line borrowing;
+- state-update invocation source selection;
+- Profiler inheritance of known boundary source while remaining observation/framework-reported;
+- existing React pending-update/correlation honesty semantics;
+- Pinpoint selection of the correct render/update event rather than unrelated later evidence;
+- source-provenance propagation through update-budget diagnostics;
+- resource-lifetime diagnosis pointing to resource registration rather than owner teardown.
 
-## Validation performed for P0.1
+Focused P0.2 behavioral result during implementation: **16 passed, 0 failed**.
 
-Focused executable harnesses cover:
+Syntax validation of the final changed/new JavaScript test/source files also passed.
 
-- TrustWeave-style Next/webpack call stacks;
-- Firefox-style stacks;
-- internal-only stacks producing no invented source;
-- local-path privacy minimization;
-- generated Next chunk paths remaining explicitly generated;
-- network invocation attribution;
-- unhandled rejection attribution;
-- legacy Lit network bridge provenance;
-- Opportunities source presentation;
-- canonical Pinpoint network-source enrichment.
+This does **not** claim the full repository test suite or real-browser TrustWeave validation.
 
-Full repository release validation and real TrustWeave browser dogfood are separate closure gates and must not be inferred from these focused checks.
+## Remaining P0 closure work
 
-## P0 closure gate
+Real TrustWeave is the closure bar.
 
-P0 is not fully closed until real TrustWeave dogfood demonstrates this workflow:
+Required:
 
-1. trigger or observe an unfamiliar real finding;
-2. open Runtime Intelligence;
-3. use the displayed source location/application stack;
-4. arrive at the relevant TrustWeave code without manually searching the repository;
-5. preserve honest labels when only generated or related source is available.
+1. install the latest P0 runtime pin in TrustWeave and restart/clear stale Next output if needed;
+2. exercise normal API-backed and instrumented React flows — no synthetic faults;
+3. verify findings show application paths rather than Runtime Intelligence/React/Next/vendor frames;
+4. verify exact line/column where runtime/registration stacks provide them;
+5. confirm the displayed provenance label describes what the location means;
+6. from an unfamiliar finding, open the displayed location and arrive at relevant TrustWeave code without repository search.
 
-## Next — P0.2
+## Next within P0
 
-**React/Next original-source attribution + source-map/build metadata + real TrustWeave closure.**
+The remaining hard case is **uninstrumented React component-definition/original-source attribution** where there is no exact runtime invocation or explicit/registration source.
 
-Recommended effort: **HIGH**.
+Investigate a dev-only, evidence-honest path using React debug/fiber metadata and source-map/build metadata. If exact original source cannot be proven, preserve generated/related/unknown status rather than fabricating precision.
 
-This remains ahead of Angular or any new framework adapter.
+Angular stays blocked until this real-consumer acceptance test is strong.

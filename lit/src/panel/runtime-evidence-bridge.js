@@ -16,6 +16,12 @@ function _ownerKey(event) {
 function _sourceFile(event) {
   return event?.source?.file || null;
 }
+function _sourceLocation(source) {
+  if (!source?.file) return null;
+  const line = Number.isFinite(source.line) ? `:${source.line}` : '';
+  const column = Number.isFinite(source.column) ? `:${source.column}` : '';
+  return `${source.file}${line}${column}`;
+}
 function _frameworkNameFromEvent(event) {
   const name = event?.framework?.name;
   if (!name || ['browser', 'runtime', 'unknown', 'fault-lab-injected'].includes(name)) return null;
@@ -165,12 +171,13 @@ class RuntimePanelEvidenceBridge {
     }
 
     if (event.type === RuntimeEventType.RESOURCE_ACQUIRED) {
+      const location = _sourceLocation(event.source);
       resources.set(resourceId, {
         eventType: event.payload?.resourceType || 'resource',
         target: resourceId,
-        creationStack: _sourceFile(event)
-          ? `at ${ownerName} (${_sourceFile(event)})`
-          : null,
+        creationStack: location ? `at ${ownerName} (${location})` : null,
+        source: event.source || null,
+        sourceProvenance: event.payload?.sourceProvenance || null,
       });
     } else {
       resources.delete(resourceId);
@@ -184,6 +191,11 @@ class RuntimePanelEvidenceBridge {
     if (!resources?.size) return;
 
     const outstanding = [...resources.values()];
+    const sourceBearingResource = outstanding.find(item => item?.source?.file) || null;
+    const violationSource = sourceBearingResource?.source || event.source || null;
+    const violationProvenance = sourceBearingResource?.sourceProvenance
+      || event.payload?.sourceProvenance
+      || null;
     const frameworkName = _frameworkNameFromEvent(event)
       || this.#windowTarget?.__LDS_RUNTIME_FRAMEWORK__
       || 'unknown';
@@ -200,13 +212,13 @@ class RuntimePanelEvidenceBridge {
     try {
       this.#store.emit({
         type: RuntimeEventType.DIAGNOSTIC,
-        framework: { name: frameworkName, adapterVersion: 'panel-evidence-bridge-1' },
+        framework: { name: frameworkName, adapterVersion: 'panel-evidence-bridge-2' },
         owner: event.owner,
-        source: event.source,
+        source: violationSource,
         correlation: event.correlation,
         evidence: {
           level: EvidenceLevel.LIFETIME_VIOLATION,
-          attribution: event.source
+          attribution: violationSource
             ? AttributionQuality.SOURCE_ATTRIBUTED
             : AttributionQuality.DETERMINISTIC,
           confidence: 1,
@@ -216,6 +228,7 @@ class RuntimePanelEvidenceBridge {
           resourceLifetimeViolation: true,
           resourceCount: outstanding.length,
           resourceTypes: [...new Set(outstanding.map(item => item.eventType))],
+          ...(violationProvenance ? { sourceProvenance: violationProvenance } : {}),
         },
       });
     } catch {}

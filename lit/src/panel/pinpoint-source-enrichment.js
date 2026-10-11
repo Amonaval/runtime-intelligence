@@ -13,6 +13,7 @@ function _provenanceLabel(kind) {
     case 'registration': return 'Resource registration';
     case 'error-origin': return 'Error origin';
     case 'component-definition': return 'Component definition';
+    case 'component-registration': return 'Component boundary';
     case 'common-origin': return 'Common request origin';
     default: return 'Related runtime source';
   }
@@ -27,6 +28,28 @@ function _stackFromProvenance(provenance) {
   }).filter(Boolean).join('\n') || null;
 }
 
+function _eventMatchesIssue(issue, event) {
+  switch (issue?.issueType) {
+    case 'network-error':
+      return event.type === RuntimeEventType.NETWORK_COMPLETED && event.payload?.isError === true;
+    case 'runtime-error':
+      return event.type === RuntimeEventType.ERROR;
+    case 'slow-render':
+    case 'high-avg-tti':
+      return event.type === RuntimeEventType.UPDATE_COMPLETED;
+    case 'property-thrash':
+      return event.type === RuntimeEventType.STATE_CHANGED
+        || event.type === RuntimeEventType.UPDATE_REQUESTED;
+    case 'render-storm':
+      return event.type === RuntimeEventType.OWNER_CREATED;
+    case 'resource-outlived-owner':
+      return event.type === RuntimeEventType.DIAGNOSTIC
+        && event.payload?.resourceLifetimeViolation === true;
+    default:
+      return true;
+  }
+}
+
 function _candidateEvent(issue, store) {
   let events = [];
   try { events = store?.snapshot?.() || []; } catch { return null; }
@@ -34,12 +57,7 @@ function _candidateEvent(issue, store) {
 
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
-    if (!event?.source?.file) continue;
-    if (issue?.issueType === 'network-error') {
-      if (event.type === RuntimeEventType.NETWORK_COMPLETED && event.payload?.isError === true) return event;
-      continue;
-    }
-    if (issue?.issueType === 'runtime-error' && event.type !== RuntimeEventType.ERROR) continue;
+    if (!event?.source?.file || !_eventMatchesIssue(issue, event)) continue;
     if (component && !['(network)', '(runtime)', 'browser'].includes(component)) {
       const owner = event.owner?.name || event.owner?.id;
       if (owner !== component) continue;
@@ -58,7 +76,9 @@ function enrichPinpointIssueSource(issue, store) {
   const provenance = event.payload?.sourceProvenance || null;
   const provenanceStack = _stackFromProvenance(provenance);
   const existingStacks = Array.isArray(issue.callStacks) ? issue.callStacks.filter(Boolean) : [];
-  const callStacks = existingStacks.length ? existingStacks : (provenanceStack ? [provenanceStack] : []);
+  const callStacks = provenanceStack
+    ? [provenanceStack, ...existingStacks.filter(stack => stack !== provenanceStack)]
+    : existingStacks;
   const label = issue.issueType === 'network-error' && provenance?.kind === 'invocation'
     ? 'Latest failed request invocation'
     : _provenanceLabel(provenance?.kind);
@@ -73,6 +93,7 @@ function enrichPinpointIssueSource(issue, store) {
     callStacks,
     details,
     sourceProvenance: provenance,
+    sourceLocation: event.source,
     evidenceLevel: event.evidence?.level === 'attribution' ? 'attribution' : issue.evidenceLevel,
   });
 }

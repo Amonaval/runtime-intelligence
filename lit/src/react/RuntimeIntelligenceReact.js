@@ -10,15 +10,36 @@ import {
   useState,
 } from 'react';
 import { evidenceStore } from '../core/evidence-store.js';
+import {
+  AttributionQuality,
+  EvidenceLevel,
+  RuntimeEventType,
+} from '../core/evidence-protocol.js';
+import { SourceProvenanceKind } from '../core/source-provenance.js';
 import { ReactIntelligenceRuntime } from './ReactIntelligenceRuntime.js';
+import {
+  applicationStackFromReactProvenance,
+  captureReactInvocationSource,
+  captureReactRegistrationSource,
+  captureReactStack,
+} from './react-source-provenance.js';
 
 const RuntimeIntelligenceContext = createContext(null);
 const RuntimeIntelligenceOwnerContext = createContext(null);
 
-function _profilerCallback(adapter, token, name, source = null, parentToken = null) {
+function _profilerCallback(
+  adapter,
+  token,
+  name,
+  source = null,
+  sourceProvenance = null,
+  parentToken = null,
+) {
   return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
     try {
-      if (!adapter.isManaged(token)) adapter.connect(token, { name, source });
+      if (!adapter.isManaged(token)) {
+        adapter.connect(token, { name, source, sourceProvenance });
+      }
       if (parentToken) adapter.linkParent?.(token, parentToken);
       adapter.recordProfilerRender(token, {
         id,
@@ -28,6 +49,7 @@ function _profilerCallback(adapter, token, name, source = null, parentToken = nu
         startTime,
         commitTime,
         source,
+        sourceProvenance,
       });
     } catch { /* diagnostics must never break React */ }
   };
@@ -95,6 +117,7 @@ function RuntimeIntelligenceProvider({
         token,
         name,
         source,
+        sourceProvenance: null,
       })
       : null,
     [activeRuntime, token, name, source],
@@ -121,6 +144,7 @@ function RuntimeIntelligenceProfiler({
   children,
   name,
   source = null,
+  sourceProvenance = null,
   enabled = true,
 }) {
   const context = useContext(RuntimeIntelligenceContext);
@@ -132,13 +156,13 @@ function RuntimeIntelligenceProfiler({
   useEffect(() => {
     if (!enabled || !runtime) return undefined;
     if (!runtime.adapter.isManaged(token)) {
-      runtime.adapter.connect(token, { name, source });
+      runtime.adapter.connect(token, { name, source, sourceProvenance });
     }
     if (parentOwner?.token) runtime.adapter.linkParent?.(token, parentOwner.token);
     return () => {
-      try { runtime.adapter.disconnect(token, { source }); } catch {}
+      try { runtime.adapter.disconnect(token, { source, sourceProvenance }); } catch {}
     };
-  }, [enabled, runtime, token, name, source, parentOwner]);
+  }, [enabled, runtime, token, name, source, sourceProvenance, parentOwner]);
 
   const onRender = useMemo(
     () => runtime
@@ -147,10 +171,11 @@ function RuntimeIntelligenceProfiler({
         token,
         name,
         source,
+        sourceProvenance,
         parentOwner?.token || null,
       )
       : null,
-    [runtime, token, name, source, parentOwner],
+    [runtime, token, name, source, sourceProvenance, parentOwner],
   );
   const ownerValue = useMemo(
     () => runtime
@@ -160,9 +185,10 @@ function RuntimeIntelligenceProfiler({
         token,
         name,
         source,
+        sourceProvenance,
       })
       : null,
-    [runtime, token, name, source],
+    [runtime, token, name, source, sourceProvenance],
   );
 
   if (!enabled || !runtime || !onRender) return children;
@@ -182,11 +208,24 @@ function withRuntimeIntelligence(Component, {
     || Component?.displayName
     || Component?.name
     || 'ReactComponent';
+  const registration = captureReactRegistrationSource({
+    source,
+    stack: captureReactStack(),
+    functionName: boundaryName,
+    kind: SourceProvenanceKind.COMPONENT_REGISTRATION,
+    basis: 'react-hoc-registration-stack',
+  });
+  const boundarySource = registration.source || source;
 
   function RuntimeInstrumentedComponent(props) {
     return createElement(
       RuntimeIntelligenceProfiler,
-      { name: boundaryName, source, enabled },
+      {
+        name: boundaryName,
+        source: boundarySource,
+        sourceProvenance: registration.provenance,
+        enabled,
+      },
       createElement(Component, props),
     );
   }
@@ -209,12 +248,26 @@ function useRuntimeEffect(effect, deps, {
   kind = 'effect',
 } = {}) {
   const owner = useRuntimeOwner();
+  const registrationRef = useRef(undefined);
+  if (registrationRef.current === undefined) {
+    registrationRef.current = captureReactRegistrationSource({
+      source,
+      stack: captureReactStack(),
+      kind: SourceProvenanceKind.REGISTRATION,
+      basis: 'react-effect-registration-stack',
+    });
+  }
+  const registration = registrationRef.current;
+  const effectiveSource = registration.source || source || owner?.source || null;
+  const effectiveProvenance = registration.provenance || null;
+
   useEffect(() => {
     if (!owner?.runtime) return effect();
 
     try {
       owner.adapter.recordEffectStarted(owner.token, id, {
-        source: source || owner.source,
+        source: effectiveSource,
+        sourceProvenance: effectiveProvenance,
         kind,
       });
     } catch {}
@@ -224,16 +277,33 @@ function useRuntimeEffect(effect, deps, {
       cleanup = effect();
     } catch (error) {
       try {
+        const captured = captureReactInvocationSource({
+          source,
+          stack: error?.stack || null,
+          kind: SourceProvenanceKind.ERROR_ORIGIN,
+          basis: 'react-effect-error-stack',
+        });
+        const errorSource = captured.source || effectiveSource;
         owner.runtime.store.emit({
-          type: 'error',
+          type: RuntimeEventType.ERROR,
           framework: { name: 'react' },
           owner: owner.adapter.ownerOf?.(owner.token),
-          source: source || owner.source,
+          source: errorSource,
           correlation: owner.runtime.correlationContext?.correlation?.(),
+          evidence: captured.source ? {
+            level: EvidenceLevel.ATTRIBUTION,
+            attribution: AttributionQuality.SOURCE_ATTRIBUTED,
+            confidence: 0.95,
+          } : undefined,
           payload: {
             phase: 'effect',
             message: error?.message || String(error),
-            stack: error?.stack || null,
+            stack: applicationStackFromReactProvenance(captured.provenance)
+              || error?.stack
+              || null,
+            ...(captured.provenance
+              ? { sourceProvenance: captured.provenance }
+              : {}),
           },
         });
       } catch {}
@@ -246,7 +316,8 @@ function useRuntimeEffect(effect, deps, {
       } finally {
         try {
           owner.adapter.recordEffectCleanup(owner.token, id, {
-            source: source || owner.source,
+            source: effectiveSource,
+            sourceProvenance: effectiveProvenance,
             kind,
           });
         } catch {}
@@ -260,13 +331,27 @@ function useRuntimeResource(resourceId, resourceType = 'unknown', {
   source = null,
 } = {}) {
   const owner = useRuntimeOwner();
+  const registrationRef = useRef(undefined);
+  if (registrationRef.current === undefined) {
+    registrationRef.current = captureReactRegistrationSource({
+      source,
+      stack: captureReactStack(),
+      kind: SourceProvenanceKind.REGISTRATION,
+      basis: 'react-resource-registration-stack',
+    });
+  }
+  const registration = registrationRef.current;
+  const effectiveSource = registration.source || source || owner?.source || null;
+  const effectiveProvenance = registration.provenance || null;
+
   useEffect(() => {
     if (!active || !owner?.runtime || !resourceId) return undefined;
     try {
       owner.adapter.recordResourceAcquired(owner.token, {
         resourceId,
         resourceType,
-        source: source || owner.source,
+        source: effectiveSource,
+        sourceProvenance: effectiveProvenance,
       });
     } catch {}
     return () => {
@@ -274,11 +359,12 @@ function useRuntimeResource(resourceId, resourceType = 'unknown', {
         owner.adapter.recordResourceReleased(owner.token, {
           resourceId,
           resourceType,
-          source: source || owner.source,
+          source: effectiveSource,
+          sourceProvenance: effectiveProvenance,
         });
       } catch {}
     };
-  }, [active, owner, resourceId, resourceType, source]);
+  }, [active, owner, resourceId, resourceType, effectiveSource, effectiveProvenance]);
 }
 
 function useRuntimeTrackedState(initialValue, {
@@ -289,19 +375,51 @@ function useRuntimeTrackedState(initialValue, {
   const [state, setState] = useState(initialValue);
   const committedRef = useRef(state);
   const mountedRef = useRef(false);
+  const lastUpdateRef = useRef(null);
+  const registrationRef = useRef(undefined);
+
+  if (registrationRef.current === undefined) {
+    registrationRef.current = captureReactRegistrationSource({
+      source,
+      stack: captureReactStack(),
+      kind: SourceProvenanceKind.REGISTRATION,
+      basis: 'react-state-registration-stack',
+    });
+  }
+  const registration = registrationRef.current;
 
   const setTrackedState = useCallback(action => {
+    const captured = captureReactInvocationSource({
+      source,
+      stack: captureReactStack(),
+      kind: SourceProvenanceKind.INVOCATION,
+      basis: 'react-state-update-stack',
+    });
+    const effectiveSource = captured.source
+      || registration.source
+      || source
+      || owner?.source
+      || null;
+    const effectiveProvenance = captured.provenance
+      || registration.provenance
+      || null;
+    lastUpdateRef.current = {
+      source: effectiveSource,
+      provenance: effectiveProvenance,
+    };
+
     try {
       owner?.adapter?.recordUpdateRequested(owner.token, {
         reason: 'tracked-state-set',
         stateKey: key,
         oldValue: committedRef.current,
         newValue: typeof action === 'function' ? undefined : action,
-        source: source || owner.source,
+        source: effectiveSource,
+        sourceProvenance: effectiveProvenance,
       });
     } catch {}
     setState(action);
-  }, [owner, key, source]);
+  }, [owner, key, source, registration]);
 
   useEffect(() => {
     if (!mountedRef.current) {
@@ -311,16 +429,27 @@ function useRuntimeTrackedState(initialValue, {
     }
     const previous = committedRef.current;
     committedRef.current = state;
+    const lastUpdate = lastUpdateRef.current;
+    lastUpdateRef.current = null;
     try {
       owner?.adapter?.recordStateChange(
         owner.token,
         key,
         previous,
         state,
-        { source: source || owner.source },
+        {
+          source: lastUpdate?.source
+            || registration.source
+            || source
+            || owner?.source
+            || null,
+          sourceProvenance: lastUpdate?.provenance
+            || registration.provenance
+            || null,
+        },
       );
     } catch {}
-  }, [state, owner, key, source]);
+  }, [state, owner, key, source, registration]);
 
   return [state, setTrackedState];
 }

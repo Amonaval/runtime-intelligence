@@ -10,73 +10,74 @@ Current `main` includes validated React R5.7.4, R6 productization, completed Vue
 - Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
 - R6.1–R6.5 productization: complete
-- R7 Vue Adapter + Vue Fault Lab: complete and validated by the follow-up Vue work
-- P0 Source Pinpoint / Provenance: **ACTIVE — highest product priority**
+- R7 Vue Adapter + Vue Fault Lab: complete
+- P0.1 Universal runtime invocation provenance: complete in source and pinned to TrustWeave
+- P0.2 Exact React source attribution: complete in source; real TrustWeave browser validation pending
 - Angular/framework expansion: **BLOCKED/DEFERRED until P0 value-proposition closure**
 
-## Current product state
+## Product direction
 
-Runtime Intelligence is one mature developer product with framework adapters, not separate Lit, React and Vue products.
+Runtime Intelligence is one developer product with shared UREP, intelligence and one canonical panel. Framework adapters remain evidence producers only.
 
 ```text
-explicit production/debug gate
-        -> runtime-intelligence/loader
-        -> LitAdapter / ReactAdapter / VueAdapter / governed extensions
-        -> Universal Runtime Evidence Protocol (UREP)
-        -> shared evidence store
-        -> source provenance + EvidenceGraph/root-cause + shared advisers
-        -> normalized findings/opportunities/report
-        -> one canonical mature panel
+runtime/browser/framework evidence
+        -> source provenance
+        -> UREP EvidenceStore
+        -> EvidenceGraph / root-cause / shared advisers
+        -> normalized findings + Opportunities
+        -> canonical mature panel
+        -> JSON / HTML
 ```
 
 The governing rule remains evidence honesty: observation, correlation, attribution, lifetime violation and confirmed causality must never be conflated.
 
-## React validation — CLOSED for parity, OPEN for P0 source precision
+## React parity — CLOSED; source precision — ACTIVE
 
-R5.2–R5.7.4 parity is complete. React work is now defect/value-driven only. Real TrustWeave testing exposed a major product-value gap: many useful findings did not automatically identify the application call site with file/line/column.
+R5.2–R5.7.4 parity remains closed. React work is now driven by the P0 source-precision defect exposed by real TrustWeave dogfood.
 
 ## R6 — COMPLETE
 
 Package contract, production safety, onboarding, public API/extension stability and private/proprietary distribution are complete.
 
-## R7 — Vue Adapter + Vue Fault Lab — COMPLETE
+## R7 — Vue — COMPLETE
 
-Vue remains a thin UREP evidence producer reusing the same browser surface, intelligence, Opportunities/reporting and canonical panel.
+Vue remains a thin UREP evidence producer reusing shared browser collection, intelligence, Opportunities/reporting and the canonical panel.
 
 ## P0 — Source Pinpoint / Provenance — ACTIVE
 
-### P0.1 — Universal runtime invocation provenance — implemented in source
+### P0.1 — DONE
 
-P0.1 adds a framework-neutral source-provenance layer and closes the highest-value evidence loss found during TrustWeave dogfood:
+- network invocation stacks no longer disappear at the UREP boundary;
+- browser errors/rejections derive bounded application-only source where possible;
+- sequential API findings retain common caller provenance;
+- Opportunities and Pinpoint surface source provenance explicitly;
+- internal-only stacks remain unattributed rather than generating fake precision.
 
-- captured network call stacks are no longer discarded at the UREP boundary;
-- browser errors/unhandled rejections derive bounded application-only source provenance when available;
-- sequential API opportunities retain their common caller location;
-- Lit legacy network evidence uses the same provenance path;
-- Opportunities prominently shows file:line:column, provenance meaning and application frames;
-- canonical Pinpoint enriches legacy cards from source-bearing UREP evidence instead of inventing fallback paths;
-- internal/vendor-only stacks remain unattributed rather than producing false precision;
-- local machine roots are minimized where possible.
+P0.1 runtime baseline: `a465a67bc7378bba9b605f39bb41c1efb3b8b3bc`.
 
-P0.1 deliberately does **not** claim that a runtime invocation location is a root cause. React render timing remains an observation unless stronger evidence exists.
+### P0.2 — IMPLEMENTED IN SOURCE
 
-### P0 validation state
+- React HOC/boundary registration can refine filename-only source to exact line/column from the consumer registration stack;
+- tracked React state updates capture the actual application invocation call site;
+- runtime effect/resource hooks capture registration source;
+- effect errors capture application error origin when provable;
+- Profiler observations inherit known component-boundary source but remain framework-reported observations;
+- derived update-budget diagnostics retain provenance;
+- resource-lifetime findings preserve the resource registration source rather than owner teardown source;
+- Pinpoint uses issue-specific evidence selection.
 
-Focused executable validation covers source parsing/filtering, TrustWeave-style Next stacks, browser network/error integration, legacy network bridging and panel presentation.
+Focused P0.2 behavioral validation during implementation: **16 passed, 0 failed**. Final changed/new JS syntax checks passed.
 
-Still required for full P0 closure:
+Not claimed yet:
 
-- real TrustWeave browser dogfood on the new runtime build;
-- React/Next component-definition/original-source attribution where runtime stacks alone are insufficient;
-- source-map/build metadata strategy and validation;
-- finding → displayed location → relevant code acceptance test on real issues.
+- full `npm run validate:release` for the P0.2 commit;
+- real-browser TrustWeave P0.2 closure;
+- exact original component definition for completely uninstrumented React components.
 
 See `docs/P0-SOURCE-PINPOINT-PROVENANCE.md`.
 
-## Next — P0.2, not Angular
+## Next — P0 real-world closure / uninstrumented React source
 
-**P0.2 — React/Next original-source attribution + source-map/build metadata + real TrustWeave closure.**
+Repin TrustWeave to the P0.2 runtime and validate normal real-world flows. Then address the remaining React/Next case using trustworthy dev/fiber/build/source-map metadata only if needed.
 
-Recommended effort: **HIGH**.
-
-Angular remains deferred until Runtime Intelligence's core value proposition is demonstrably strong in real consumer use.
+Angular remains deferred.

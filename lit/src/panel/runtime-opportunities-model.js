@@ -135,6 +135,7 @@ function _provenanceLabel(kind) {
     case 'registration': return 'Resource registration';
     case 'error-origin': return 'Error origin';
     case 'component-definition': return 'Component definition';
+    case 'component-registration': return 'Component boundary';
     case 'common-origin': return 'Common request origin';
     case 'related': return 'Related source';
     default: return null;

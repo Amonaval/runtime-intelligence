@@ -105,6 +105,9 @@ class UpdateBudgetMonitor {
                             windowMs: budget.windowMs,
                             countPerWindow: budget.countPerWindow,
                             totalMs,
+                            ...(event.payload?.sourceProvenance
+                                ? { sourceProvenance: event.payload.sourceProvenance }
+                                : {}),
                             ...(event.payload?.synthetic === true ? { synthetic: true } : {}),
                         },
                     });
