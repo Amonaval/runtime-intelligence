@@ -1,23 +1,15 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runNpm } from './lib/npm-runner.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
-  './loader',
-  './core',
-  './extension',
-  './react',
-  './lit',
-  './panel',
-  './panel/lit',
-  './package.json',
+  './loader', './core', './extension', './react', './lit', './panel', './panel/lit', './package.json',
 ];
-
 const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/', 'docs/'];
 
 function exportTargets(value) {
@@ -38,15 +30,9 @@ if (pkg.private !== true) failures.push('Package must remain private under the R
 
 for (const subpath of requiredExports) {
   const value = pkg.exports?.[subpath];
-  if (!value) {
-    failures.push(`Missing public export ${subpath}.`);
-    continue;
-  }
+  if (!value) { failures.push(`Missing public export ${subpath}.`); continue; }
   const targets = exportTargets(value);
-  if (!targets.length) {
-    failures.push(`Export ${subpath} has no runtime/default/types target.`);
-    continue;
-  }
+  if (!targets.length) { failures.push(`Export ${subpath} has no runtime/default/types target.`); continue; }
   for (const target of targets) {
     if (target === './package.json') continue;
     const absolute = path.join(root, target.replace(/^\.\//, ''));
@@ -67,8 +53,7 @@ if (packageFiles.some((entry) => entry === 'lit/custom' || entry.startsWith('lit
 
 let packedFiles = [];
 try {
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const raw = execFileSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const raw = runNpm(['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: root });
   const pack = JSON.parse(raw);
   packedFiles = (pack?.[0]?.files || []).map((entry) => entry.path);
 } catch (error) {
@@ -82,7 +67,6 @@ for (const subpath of requiredExports) {
     if (packedFiles.length && !packedFiles.includes(packedTarget)) failures.push(`Pack output is missing exported file ${packedTarget}.`);
   }
 }
-
 for (const prefix of forbiddenPackedPrefixes) {
   if (packedFiles.some((file) => file.startsWith(prefix))) failures.push(`Pack output unexpectedly contains ${prefix}.`);
 }
@@ -91,7 +75,6 @@ if (failures.length) {
   console.error(`Runtime Intelligence package contract failed:\n- ${failures.join('\n- ')}`);
   process.exit(1);
 }
-
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
 console.log('Public surfaces: runtime-intelligence/loader, /core, /extension, /react, /lit, /panel, /panel/lit.');
 console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports.');
