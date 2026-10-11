@@ -1,20 +1,24 @@
-# Runtime Intelligence â€” Developer Adoption Guide
+# Runtime Intelligence â€” New Project Integration Guide
 
-Use this guide when adding Runtime Intelligence to a **new or existing React, Lit, or Vue application**. The product is intentionally framework-neutral: every framework feeds the same UREP evidence store, shared intelligence, Opportunities model, reports, and canonical panel.
+Use this guide when adding Runtime Intelligence to a new or existing **React, Lit, or Vue** application.
 
-The recommended adoption strategy is **zero-touch first, precision second**:
+The adoption rule is simple:
 
-1. integrate at the application shell;
-2. reproduce real behavior;
-3. use automatic browser/framework evidence first;
-4. add strategic instrumentation only where it materially improves a finding;
-5. never treat a nearby source line as a proven root cause.
+1. **Start at the application shell.**
+2. Reproduce a real problem.
+3. Use automatic browser/framework evidence first.
+4. Add strategic instrumentation only where it materially improves precision.
+5. Never treat a nearby source location as proven causality.
+
+Runtime Intelligence feeds all supported frameworks into the same UREP evidence store, shared intelligence pipeline, Opportunities model, reports, and canonical panel.
+
+---
 
 ## 1. Install
 
 Runtime Intelligence is currently private/proprietary. Use an authorized tarball or an explicitly authorized Git SHA.
 
-### Packed artifact â€” preferred
+### Recommended: packed artifact
 
 From the Runtime Intelligence repository:
 
@@ -22,23 +26,21 @@ From the Runtime Intelligence repository:
 npm pack --ignore-scripts
 ```
 
-In the consumer:
+Then in the consumer:
 
 ```bash
 npm install /absolute/path/to/runtime-intelligence-0.1.3.tgz
 ```
 
-### Controlled Git-SHA dogfood
+A controlled Git-SHA install is also supported for dogfood environments.
 
-```bash
-npm install --no-save --package-lock=false github:Amonaval/runtime-intelligence#<approved-sha>
-```
+Do not deep-import repository paths such as `runtime-intelligence/lit/src/...`.
 
-Do not deep-import `lit/src/...`. Use only documented package surfaces.
+---
 
-## 2. Enable safely
+## 2. Safe enablement
 
-Diagnostics should be off by default. The application owns the authorization decision.
+Diagnostics should be **off by default** and activated only by an application-owned development/authorization gate plus explicit opt-in.
 
 Vite example:
 
@@ -48,27 +50,29 @@ const runtimeIntelligenceEnabled =
   localStorage.getItem('runtime-intelligence') === 'on';
 ```
 
-The loader requires literal `true`; truthy strings do not activate it.
+The conditional loader activates only for literal `true`:
 
 ```js
 import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
 
-const diagnostics = await loadRuntimeIntelligence({
+const loaded = await loadRuntimeIntelligence({
   enabled: runtimeIntelligenceEnabled,
-  framework: 'react', // or lit / vue
+  framework: 'react', // react | lit | vue
   panel: true,
 });
 ```
 
-Runtime Intelligence does not upload telemetry or start its own analytics transport. Its browser collectors observe the host application only when enabled.
+Runtime Intelligence does not add an upload endpoint or background telemetry transport. Network instrumentation observes host traffic while enabled.
 
 ---
 
 # React
 
-## React Level 0 â€” application-shell only
+## 3. React Level 0 â€” zero-touch application code
 
-Start here. **No application component needs a Runtime Intelligence import.**
+Start here.
+
+Your business components can remain completely ordinary React. Put Runtime Intelligence only in the application bootstrap/shell.
 
 ```jsx
 import React from 'react';
@@ -77,7 +81,9 @@ import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
 import App from './App.jsx';
 
 const root = createRoot(document.getElementById('root'));
-const enabled = import.meta.env.DEV &&
+
+const enabled =
+  import.meta.env.DEV &&
   localStorage.getItem('runtime-intelligence') === 'on';
 
 const loaded = await loadRuntimeIntelligence({
@@ -95,8 +101,13 @@ if (!loaded.enabled) {
   } = loaded.frameworkModule;
   const { mountRuntimeIntelligencePanel } = loaded.panelModule;
 
-  const runtime = createReactIntelligenceRuntime({ profilingEnabled: true });
-  const panel = mountRuntimeIntelligencePanel({ store: runtime.store });
+  const runtime = createReactIntelligenceRuntime({
+    profilingEnabled: true,
+  });
+
+  const panel = mountRuntimeIntelligencePanel({
+    store: runtime.store,
+  });
 
   root.render(
     <RuntimeIntelligenceProvider
@@ -117,61 +128,72 @@ if (!loaded.enabled) {
 }
 ```
 
-### What Level 0 can pinpoint well
+### What Level 0 can pinpoint automatically
 
-When the browser exposes a useful stack, Runtime Intelligence can automatically retain application provenance for:
+When the browser provides a useful stack, Runtime Intelligence can retain application provenance for high-value browser/runtime observations such as:
 
 - `fetch` / XHR invocation;
-- network failures;
-- browser errors and unhandled rejections;
-- sequential request chains/common origins;
-- other browser evidence that already carries deterministic application frames.
+- network failure;
+- unhandled rejection / browser error;
+- sequential API calls with a common application origin;
+- other evidence that already carries deterministic application frames.
 
 A useful finding should look conceptually like:
 
 ```text
-src/api/orders-api.ts:84:17
+src/services/orders-api.ts:84:17
 Provenance: Invocation
-
-application stack
-  requestOrders         orders-api.ts:84
-  loadAccountWorkspace  load-workspace.ts:31
-  onOpenAccount          AccountPage.tsx:118
 ```
 
-The first frame is **where the observed operation originated**, not automatically the business root cause.
+The location means **the observed operation originated there**. It is not automatically the business root cause.
 
-### What Level 0 cannot honestly promise
+### What React Level 0 cannot honestly promise
 
-React's public Profiler callback reports timing/phase, not an original component-definition line. Therefore a completely uninstrumented internal component that renders slowly may be observable through root profiling without a trustworthy exact TSX line.
+React's public Profiler callback reports render timing/phase; it does not provide the original definition line for every child component.
 
-Correct behavior is:
+For a completely uninstrumented slow child, correct output may therefore be:
 
 ```text
 Slow React render observed
-Component source: unavailable / not proven
+Component source: source unavailable
 ```
 
-not a guessed framework stack frame.
+Runtime Intelligence must prefer `source unavailable` over a guessed React/framework/bundler frame.
 
-This limitation is deliberately exercised by `examples/react-uninstrumented-lab`.
+The hostile benchmark `examples/react-uninstrumented-lab` exists specifically to test this boundary.
 
-## React Level 1 â€” strategic component boundaries
+---
 
-Add instrumentation only to components whose render ownership matters.
+## 4. React Level 1 â€” strategic component boundaries
+
+If Level 0 identifies a suspicious area but not the exact component boundary, add instrumentation only to a few high-value surfaces.
+
+### HOC
 
 ```jsx
 import { withRuntimeIntelligence } from 'runtime-intelligence/react';
-import { OrdersGrid } from './OrdersGrid.jsx';
+import OrdersGrid from './OrdersGrid.jsx';
 
 export default withRuntimeIntelligence(OrdersGrid, {
   name: 'OrdersGrid',
 });
 ```
 
-P0 source provenance captures the HOC registration stack and can refine a component-boundary filename to line/column when provable. This is **component-boundary provenance**, not a claim that the line caused every render.
+The HOC captures **component-boundary registration provenance** when the application registration stack exposes a trustworthy source.
 
-Or use an explicit profiler boundary:
+That means:
+
+```text
+Component boundary: OrdersGrid.tsx:42
+```
+
+not:
+
+```text
+This line definitely caused every render.
+```
+
+### Explicit profiler boundary
 
 ```jsx
 import { RuntimeIntelligenceProfiler } from 'runtime-intelligence/react';
@@ -181,11 +203,13 @@ import { RuntimeIntelligenceProfiler } from 'runtime-intelligence/react';
 </RuntimeIntelligenceProfiler>
 ```
 
-Use Level 1 for a few high-value surfaces, not every component.
+Use Level 1 for a few strategically important subtrees, not every component.
 
-## React Level 2 â€” state/effect/resource provenance
+---
 
-Use runtime-aware hooks only when you need exact state/update/resource evidence.
+## 5. React Level 2 â€” exact state/effect/resource provenance
+
+Use Runtime Intelligence-aware hooks only when you need exact operation-level evidence.
 
 ```jsx
 import {
@@ -194,17 +218,372 @@ import {
   useRuntimeResource,
 } from 'runtime-intelligence/react';
 
-const [query, setQuery] = useRuntimeTrackedState('', { key: 'query' });
+const [query, setQuery] = useRuntimeTrackedState('', {
+  key: 'query',
+});
 
 useRuntimeEffect(() => {
   // effect body
-}, [query], { id: 'search-effect' });
+}, [query], {
+  id: 'search-effect',
+});
 
-useRuntimeResource('orders-subscription', 'subscription', { active: true });
+useRuntimeResource(
+  'orders-subscription',
+  'subscription',
+  { active: true },
+);
 ```
 
-These APIs can capture invocation/registration provenance because application code is actually on the stack. They still do not upgrade correlation to confirmed causality automatically.
+These APIs can capture invocation/registration provenance because application code is actually on the stack.
 
-## React / Next.js
+They still do **not** automatically upgrade attribution/correlation to confirmed causality.
 
-Keep Runtime Intelligence in a client-only boundary. Do not evaluate browser enablement or mount the panel during SSR. A practical pattern is a small `'use client'` diagnostics shellÑ¡…Ð‘å¹…µ¥…±±ä±½…‘ÌIÕ¹Ñ¥µ”%¹Ñ•±±¥•¹”…¹ÝÉ…ÁÌÑ¡”…ÁÁ±¥…Ñ¥½¸ÍÕ‰ÑÉ•”…™Ñ•ÈÑ¡”±¥•¹Ðµ½Õ¹ÑÌ¸()MÑ…ÉÐÝ¥Ñ 1•Ù•°€À¸‘1•Ù•°€Ä‰½Õ¹‘…É¥•Ì½¹±ä…™Ñ•ÈÉ•…°™¥¹‘¥¹ÌÍ¡½ÜÝ¡•É”•áÑÉ„É•¹‘•È½Ý¹•ÉÍ¡¥ÀÝ½Õ±Á…ä½™˜¸((´´´((ŒYÕ”€Ì((¹Õ•ÍÌÑ¡”…ÁÀµ±•Ù•°¥¹ÍÑ…±±•È…¸½‰Í•ÉÙ”½µÁ½¹•¹Ð±¥™•å±”Ñ¡É½Õ „±½‰…°µ¥á¥¸…¹YÕ”½µÁ½¹•¹Ðµ•Ñ…‘…Ñ„¸()%¹ÍÑ…±°IÕ¹Ñ¥µ”%¹Ñ•±±¥•¹”€¨©‰•™½É”…ÁÀ¹µ½Õ¹Ð ¥€¨¨è()©Ì)¥µÁ½ÉÐìÉ•…Ñ•ÁÀô™É½´€ÙÕ”œì)¥µÁ½ÉÐì±½…‘IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”ô™É½´€ÉÕ¹Ñ¥µ”µ¥¹Ñ•±±¥•¹”½±½…‘•Èœì)¥µÁ½ÉÐÁÀ™É½´€œ¸½ÁÀ¹ÙÕ”œì()½¹ÍÐ…ÁÀ€ôÉ•…Ñ•ÁÀ¡ÁÀ¤ì)½¹ÍÐ•¹…‰±•€ô¥µÁ½ÉÐ¹µ•Ñ„¹•¹Ø¹X€˜˜(€±½…±MÑ½É…”¹•Ñ%Ñ•´ ÉÕ¹Ñ¥µ”µ¥¹Ñ•±±¥•¹”œ¤€ôôô€½¸œì()½¹ÍÐ±½…‘•€ô…Ý…¥Ð±½…‘IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”¡ì(€•¹…‰±•°(€™É…µ•Ý½É¬è€ÙÕ”œ°(€Á…¹•°èÑÉÕ”°)ô¤ì()±•Ð‘¥…¹½ÍÑ¥Ì€ô¹Õ±°ì)±•ÐÁ…¹•°€ô¹Õ±°ì()¥˜€¡±½…‘•¹•¹…‰±•¤ì(€‘¥…¹½ÍÑ¥Ì€ô±½…‘•¹™É…µ•Ý½É­5½‘Õ±”¹¥¹ÍÑ…±±YÕ•IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”¡…ÁÀ°ì(€€€•¹…‰±•èÑÉÕ”°(€€€Ù•ÉÍ¥½¸è€œÌ¹àœ°(€ô¤ì((€Á…¹•°€ô±½…‘•¹Á…¹•±5½‘Õ±”¹µ½Õ¹ÑIÕ¹Ñ¥µ•%¹Ñ•±±¥•¹•A…¹•°¡ì(€€€ÍÑ½É”è‘¥…¹½ÍÑ¥Ì¹ÍÑ½É”°(€ô¤ì)ô()…ÁÀ¹µ½Õ¹Ð œ…ÁÀœ¤ì)€()9¼…ÁÁ±¥…Ñ¥½¸½µÁ½¹•¹Ð¹••‘Ì„IÕ¹Ñ¥µ”%¹Ñ•±±¥•¹”¥µÁ½ÉÐ¸((ŒŒŒYÕ”•Ù¥‘•¹”Í•µ…¹Ñ¥Ì((´‰•™½É•5½Õ¹Ñ€€¼µ½Õ¹Ñ•‘€€¼‰•™½É•UÁ‘…Ñ•€€¼ÕÁ‘…Ñ•‘€€¼Õ¹µ½Õ¹Ñ•‘€…É”™É…µ•Ý½É¬±¥™•å±”½‰Í•ÉÙ…Ñ¥½¹Ìì(´½µÁ½¹•¹Ð™¥±”µ•Ñ…‘…Ñ„ÍÕ …ÌYÕ”Ì}}™¥±•€…¸ÁÉ½Ù¥‘”½µÁ½¹•¹ÐÍ½ÕÉ”…ÑÑÉ¥‰ÕÑ¥½¸Ý¡•¸ÁÉ•Í•¹Ðì(´ÕÁ‘…Ñ”Ñ¥µ¥¹œ¥Ì½‰Í•ÉÙ…Ñ¥½¸ì(´YÕ”‘½•Ì¹½Ð…ÕÑ½µ…Ñ¥…±±ä•áÁ½Í”„ÁÉ½Ù•¸É•…Ñ¥Ù”‘•Á•¹‘•¹ä½É½½Ð…ÕÍ”™½È•Ù•ÉäÕÁ‘…Ñ”ì(´•ÉÉ½ÉÌ½‰Í•ÉÙ•Ñ¡É½Õ YÕ”Ì•ÉÉ½È¡½½­ÌÉ•µ…¥¸•ÉÉ½È•Ù¥‘•¹”°¹½ÐÁÉ½½˜Ñ¡…ÐÑ¡”½µÁ½¹•¹Ð‘•™¥¹¥Ñ¥½¸±¥¹”…ÕÍ•Ñ¡”‘•™•Ð¸()UÍ”½µÁ½¹•¹Ñ¥±Ñ•É€½¹±äÝ¡•¸„Ù•Éä±…É”…ÁÀ¹••‘ÌÑ¼É•‘Õ”½±±•Ñ¥½¸Í½Á”¸()©Ì)‘¥…¹½ÍÑ¥Ì€ô±½…‘•¹™É…µ•Ý½É­5½‘Õ±”¹¥¹ÍÑ…±±YÕ•IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”¡…ÁÀ°ì(€•¹…‰±•èÑÉÕ”°(€½µÁ½¹•¹Ñ¥±Ñ•Èè½µÁ½¹•¹Ð€ôø€…½µÁ½¹•¹Ðü¸‘½ÁÑ¥½¹Ìü¹¹…µ”ü¹ÍÑ…ÉÑÍ]¥Ñ  Q¡¥É‘A…ÉÑäœ¤°)ô¤ì)€((´´´((Œ1¥Ð()½È„¹•Ü1¥ÐÁÉ½©•Ð°É•…Ñ”½¹”Í¡…É•…ÁÁ±¥…Ñ¥½¸‰…Í”±…ÍÌ…¹±•Ð…ÁÁ±¥…Ñ¥½¸•±•µ•¹ÑÌ•áÑ•¹¥Ð¸Q¡¥Ì…Ù½¥‘Ì•‘¥Ñ¥¹œ•Ù•Éä½µÁ½¹•¹ÐÍ•Á…É…Ñ•±ä¸((ŒŒ1¥Ð1•Ù•°€À¼ÄƒŠPÍ¡…É•‰…Í”±…ÍÌ()©Ì)¥µÁ½ÉÐì1¥Ñ±•µ•¹Ðô™É½´€±¥Ðœì)¥µÁ½ÉÐì±½…‘IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”ô™É½´€ÉÕ¹Ñ¥µ”µ¥¹Ñ•±±¥•¹”½±½…‘•Èœì()½¹ÍÐ•¹…‰±•€ô¥µÁ½ÉÐ¹µ•Ñ„¹•¹Ø¹X€˜˜(€±½…±MÑ½É…”¹•Ñ%Ñ•´ ÉÕ¹Ñ¥µ”µ¥¹Ñ•±±¥•¹”œ¤€ôôô€½¸œì()½¹ÍÐ±½…‘•€ô…Ý…¥Ð±½…‘IÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”¡ì(€•¹…‰±•°(€™É…µ•Ý½É¬è€±¥Ðœ°(€Á…¹•°èÑÉÕ”°)ô¤ì()±•ÐÁ…¹•°€ô¹Õ±°ì)±•Ð…Ñ¥Ù…Ñ¥½¸€ô¹Õ±°ì)±•ÐÁÁ±•µ•¹Ð€ô1¥Ñ±•µ•¹Ðì()¥˜€¡±½…‘•¹•¹…‰±•¤ì(€…Ñ¥Ù…Ñ¥½¸€ô±½…‘•¹™É…µ•Ý½É­5½‘Õ±”¹½¹™¥ÕÉ•1¥ÑIÕ¹Ñ¥µ•%¹Ñ•±±¥•¹”¡ì(€€€•¹…‰±•èÑÉÕ”°(€ô¤ì((€ÁÁ±•µ•¹Ð€ô±½…‘•¹™É…µ•Ý½É­5½‘Õ±”¹1¥Ñ•‰Õ5¥á¥¸¡1¥Ñ±•µ•¹Ð¤ì((€½¹ÍÐì•Ù¥‘•¹•MÑ½É”ô€ô…Ý…¥Ð¥µÁ½ÉÐ ÉÕ¹Ñ¥µ”µ¥¹Ñ•±±¥•¹”½½É”œ¤ì(€Á…¹•°€ô±½…‘•¹Á…¹•±5½‘Õ±”¹µ½Õ¹ÑIÕ¹Ñ¥µ•%¹Ñ•±±¥•¹•A…¹•°¡ìÍÑ½É”è•Ù¥‘•¹•MÑ½É”ô¤ì)ô()•áÁ½ÉÐìÁÁ±•µ•¹Ð°…Ñ¥Ù…Ñ¥½¸°Á…¹•°ôì)€()Q¡•¸¹½Éµ…°½µÁ½¹•¹ÑÌ½¹±ä‘•Á•¹½¸å½ÕÈ…ÁÁ±¥…Ñ¥½¸Ì‰…Í”±…ÍÌè()©Ì)¥µÁ½ÉÐì¡Ñµ°ô™É½´€±¥Ðœì)¥µÁ½ÉÐìÁÁ±•µ•¹Ðô™É½´€œ¸½…ÁÀµ•±•µ•¹Ð¹©Ìœì()•áÁ½ÉÐ±…ÍÌ=É‘•ÉÍÉ¥•áÑ•¹‘ÌÁÁ±•µ•¹Ðì(€É•¹‘•È ¤ì(€€€É•ÑÕÉ¸¡Ñµ±€ñ Èù=É‘•ÉÌð½ Èù€ì(€ô)ô)€()…±°½¹™¥ÕÉ•1¥ÑIÕ¹Ñ¥µ•%¹Ñ•±±¥•¹” ¸¸¸¥€€¨©‰•™½É”¥¹ÍÑÉÕµ•¹Ñ••±•µ•¹ÑÌ½¹¹•Ð¨¨¸%ÑÌÁÉ½É…µµ…Ñ¥Œ…Ñ”¥ÌÑ¡”ÍÕÁÁ½ÉÑ•¹•ÜµÁÉ½©•Ð…Ñ¥Ù…Ñ¥½¸Á…Ñ ìÝ¥¹‘½Ü¹}}1M|©€É•µ…¥¹Ì„½µÁ…Ñ¥‰¥±¥Ñä‰É¥‘”…¹Í¡½Õ±¹½Ð‰”Ñ¡”™½Õ¹‘…Ñ¥½¸½˜„¹•Ü¥¹Ñ•É…Ñ¥½¸¸((ŒŒŒá¥ÍÑ¥¹œ1¥ÐÁÉ½©•Ð()%˜µ½ÍÐ•±•µ•¹ÑÌ…±É•…‘ä•áÑ•¹„Í¡…É•‰…Í”°¥¹ÍÑÉÕµ•¹ÐÑ¡…Ð‰…Í”½¹”¸()%˜¡Õ¹‘É•‘Ì½˜•á¥ÍÑ¥¹œ•±•µ•¹ÑÌ‘¥É•Ñ±ä•áÑ•¹1¥Ñ±•µ•¹Ñ€°‘¼¹½ÐÁÉ½Ñ½ÑåÁ”µÁ…Ñ 1¥Ð±½‰…±±ä¸5¥É…Ñ”¡¥ µÙ…±Õ”½µÁ½¹•¹Ð™…µ¥±¥•ÌÑ¼…¸¥¹ÍÑÉÕµ•¹Ñ•…ÁÁ±¥…Ñ¥½¸‰…Í”¥¹É•µ•¹Ñ…±±ä¸((ŒŒŒ1¥Ð•Ù¥‘•¹”Í•µ…¹Ñ¥Ì()1¥Ð…¸‘¥É•Ñ±ä½‰Í•ÉÙ”½µÁ½¹•¹Ð±¥™•å±”½ÕÁ‘…Ñ”‰½Õ¹‘…É¥•ÌÑ¡É½Õ Ñ¡”µ¥á¥¸¸AÉ½Á•ÉÑä½ÕÁ‘…Ñ”•Ù¥‘•¹”…¸Ñ¡•É•™½É”‰”µ½É”ÁÉ•¥Í”Ñ¡…¸I•…Ð1•Ù•°€À°‰ÕÐ„ÁÉ½Á•ÉÑä¡…¹”¥ÌÍÑ¥±°¹½Ð…ÕÑ½µ…Ñ¥…±±äÁÉ½½˜½˜‰ÕÍ¥¹•ÍÌ…ÕÍ…±¥Ñä¸((´´´((ŒÙ¥‘•¹”µÅÕ…±¥Ñä±…‘‘•È()ð1•Ù•°ð%¹Ñ•É…Ñ¥½¸½ÍÐðI•…ÐðYÕ”ð1¥ÐðQåÁ¥…°Í½ÕÉ”ÁÉ•¥Í¥½¸ð)ð€´´´ð€´´´ð€´´´ð€´´´ð€´´´ð€´´´ð)ð€ÀƒŠPÍ¡•±°½‰É½ÝÍ•Èð½¹”‰½½ÑÍÑÉ…ÀðÁÉ½Ù¥‘•È€¬É½½ÐÁÉ½™¥±•Èð¥¹ÍÑ…±±•Èð…Ñ¥Ù…Ñ¥½¸€¬Í¡…É•‰…Í”‘•¥Í¥½¸ð¹•ÑÝ½É¬½•ÉÉ½ÉÌ½™Ñ•¸•á…Ðì¥¹Ñ•É¹…°É•¹‘•ÈÍ½ÕÉ”µ…ä‰”Õ¹­¹½Ý¸ð)ð€ÄƒŠP™É…µ•Ý½É¬½Ý¹•ÉÍ¡¥ÀðÍµ…±°ÍÑÉ…Ñ•¥Œ‰½Õ¹‘…Éä½‰…Í”ð!=½AÉ½™¥±•È½¸Í•±•Ñ•ÍÕÉ™…•Ìð±½‰…°µ¥á¥¸…±É•…‘äÁÉ½Ù¥‘•Ì‰É½…½Ý¹•ÉÍ¡¥ÀðÍ¡…É•¥¹ÍÑÉÕµ•¹Ñ•‰…Í”ð½µÁ½¹•¹Ð½‰½Õ¹‘…Éä…ÑÑÉ¥‰ÕÑ¥½¸ð)ð€ÈƒŠP•á…Ð½Á•É…Ñ¥½¸¡½½­ÌðÑ…É•Ñ•½‘”¡…¹•ÌðÑÉ…­•ÍÑ…Ñ”½•™™•Ð½É•Í½ÕÉ”¡½½­Ìð…ÁÀµÍÁ•¥™¥Œ•áÑ•¹Í¥½¸½¹±ä¥˜¹••‘•ðÁÉ½Á•ÉÑä½É•Í½ÕÉ”Ñ½½±¥¹œÝ¡•É”¹••‘•ð¥¹Ù½…Ñ¥½¸½É•¥ÍÑÉ…Ñ¥½¸…ÑÑÉ¥‰ÕÑ¥½¸ð)ð€ÌƒŠP½Ù•É¹••áÑ•¹Í¥½¸ðÁ±Õ¥¸½‘”ðÕÍÑ½´UI@•áÑ•¹Í¥½¸ðÕÍÑ½´UI@•áÑ•¹Í¥½¸ðÕÍÑ½´UI@•áÑ•¹Í¥½¸ð‘½µ…¥¸µÍÁ•¥™¥Œ•Ù¥‘•¹”ì½¹™¥Éµ•…ÕÍ…±¥ÑäÍÑ¥±°Õ…É‘•ð()¼¹½Ð©ÕµÀÑ¼1•Ù•°€È•Ù•ÉåÝ¡•É”¸MÑ…ÉÐ…Ð1•Ù•°€À…¹¥¹ÍÑÉÕµ•¹Ð½¹±äÝ¡•É”„É•…°‘¥…¹½ÍÑ¥ŒÅÕ•ÍÑ¥½¸…¹¹½Ð‰”…¹ÍÝ•É•¡½¹•ÍÑ±ä¸((Œ!½ÜÑ¼É•…A¥¹Á½¥¹Ð()QÉ•…ÐÑ¡”ÁÉ½Ù•¹…¹”±…‰•°…ÌÁ…ÉÐ½˜Ñ¡”™¥¹‘¥¹œè((´€¨©%¹Ù½…Ñ¥½¸¨¨ƒŠPÑ¡”½‰Í•ÉÙ•½Á•É…Ñ¥½¸Ý…Ì…±±•¡•É”¸(´€¨©I•¥ÍÑÉ…Ñ¥½¸¨¨ƒŠP„É•Í½ÕÉ”½•™™•Ð½±¥ÍÑ•¹•ÈÝ…ÌÉ•¥ÍÑ•É•¡•É”¸(´€¨©ÉÉ½È½É¥¥¸¨¨ƒŠPÑ¡”…ÁÑÕÉ••ÉÉ½ÈÍÑ…¬É•Í½±Ù•Ì¡•É”¸(´€¨©½µÁ½¹•¹Ð‰½Õ¹‘…Éä¨¨ƒŠP¥¹ÍÑÉÕµ•¹Ñ…Ñ¥½¸½™É…µ•Ý½É¬µ•Ñ…‘…Ñ„¥‘•¹Ñ¥™¥•ÌÑ¡¥Ì½µÁ½¹•¹Ð‰½Õ¹‘…Éä¡•É”¸(´€¨©I•±…Ñ•€¼½ÉÉ•±…Ñ•¨¨ƒŠPÑ•µÁ½É…±±ä½ÈÍÑÉÕÑÕÉ…±±äÉ•±…Ñ•ì¹½Ð…ÕÍ…°ÁÉ½½˜¸(´€¨©U¹­¹½Ý¸¨¨ƒŠPIÕ¹Ñ¥µ”%¹Ñ•±±¥•¹”¥¹Ñ•¹Ñ¥½¹…±±ä½Õ±¹½ÐÁÉ½Ù”Í½ÕÉ”¸()™¥±”½±¥¹”Ý¥Ñ¡½ÕÐ¥ÑÌÁÉ½Ù•¹…¹”µ•…¹¥¹œ¥Ì¥¹½µÁ±•Ñ”¸()]¡•¸•á…Ð…ÑÑÉ¥‰ÕÑ¥½¸¥Ì¹½ÐÁÉ½Ù…‰±”°Ñ¡”½ÉÉ•Ð‘•Ù•±½Á•Èµ™…¥¹œÉ•ÍÕ±Ð¥Ì€¨©Í½ÕÉ”Õ¹…Ù…¥±…‰±•€¨¨€¡½È…¸•áÁ±¥¥Ñ±ä½ÉÉ•±…Ñ•½Õ¹­¹½Ý¸±½…Ñ¥½¸¤°¹•Ù•È„Õ•ÍÍ••á…Ð±¥¹”¸((ŒI•½µµ•¹‘•…‘½ÁÑ¥½¸¡•­±¥ÍÐ((Ä¸¥¹ÍÑ…±°…¸…ÕÑ¡½É¥é•Á…­…”…ÉÑ¥™…Ðì(È¸…‘½¹”…ÁÁ±¥…Ñ¥½¸µ½Ý¹••¹…‰±”Ñ½±”ì(Ì¸¥¹Ñ•É…Ñ”Ñ¡”™É…µ•Ý½É¬…ÐÑ¡”Í¡•±°½É½½Ðì(Ð¸µ½Õ¹ÐÑ¡”…¹½¹¥…°Á…¹•°……¥¹ÍÐÑ¡”Í…µ”ÍÑ½É”½ÉÕ¹Ñ¥µ”ì(Ô¸É•ÁÉ½‘Õ”¹½Éµ…°…ÁÁ±¥…Ñ¥½¸‰•¡…Ù¥½Èì(Ø¸¡•¬Ñ¡…Ð¹•ÑÝ½É¬½•ÉÉ½ÉÌÁ½¥¹ÐÑ¼…ÁÁ±¥…Ñ¥½¸™¥±•ÌÉ…Ñ¡•ÈÑ¡…¸IÕ¹Ñ¥µ”%¹Ñ•±±¥•¹”½™É…µ•Ý½É¬¥¹Ñ•É¹…±Ìì(Ü¸¥¹ÍÁ•Ð=ÁÁ½ÉÑÕ¹¥Ñ¥•Ì…¹A¥¹Á½¥¹ÐÁÉ½Ù•¹…¹”±…‰•±Ìì(à¸…‘ÍÑÉ…Ñ•¥Œ™É…µ•Ý½É¬‰½Õ¹‘…É¥•Ì½¹±äÝ¡•É”1•Ù•°€À¥Ì¥¹ÍÕ™™¥¥•¹Ðì(ä¸•áÁ½ÉÐ)M=8½!Q50…™Ñ•ÈÉ•ÁÉ½‘Õ¥¹œ„µ•…¹¥¹™Õ°¥ÍÍÕ”ì(ÄÀ¸Ù…±¥‘…Ñ”‘¥Í…‰±•µ½‘”‰•™½É”Í¡¥ÁÁ¥¹œ¸((ŒY…±¥‘…Ñ¥½¸•¹Ù¥É½¹µ•¹ÑÌ()UÍ”Ñ¡”±…‰Ì™½È‘¥™™•É•¹ÐÁÕÉÁ½Í•Ìè((´•á…µÁ±•Ì½É•…Ðµ™…Õ±Ðµ±…‰€ƒŠP‘•Ñ•Éµ¥¹¥ÍÑ¥ŒI•…Ð…Á…‰¥±¥Ñä½…Õ±Ð1…ˆ½Ù•É…”ì(´•á…µÁ±•Ì½É•…ÐµÕ¹¥¹ÍÑÉÕµ•¹Ñ•µ±…‰€ƒŠP¡½ÍÑ¥±”é•É¼µÑ½Õ I•…ÐÁÉ½‘ÕÐµÙ…±Õ”Ù…±¥‘…Ñ¥½¸ì(´•á…µÁ±•Ì½ÙÕ”µ™…Õ±Ðµ±…‰€ƒŠPYÕ”…‘…ÁÑ•È…Á…‰¥±¥ÑäÙ…±¥‘…Ñ¥½¸ì(´„É•…°½¹ÍÕµ•ÈÍÕ …ÌQÉÕÍÑ]•…Ù”ƒŠPÉ•…°µÝ½É±‘½™½½°¹•Ù•ÈÍå¹Ñ¡•Ñ¥Œ•Ù¥‘•¹”¥¹©•Ñ¥½¸¸()Q¡”Õ¹¥¹ÍÑÉÕµ•¹Ñ•I•…Ð±…ˆ¥ÌÑ¡”‰•ÍÐÁ±…”Ñ¼©Õ‘”Ý¡•Ñ¡•È…ÕÑ½µ…Ñ¥ŒÍ½ÕÉ”Á¥¹Á½¥¹Ñ¥¹œ™••±ÌÕÍ•™Õ°Ý¥Ñ¡½ÕÐ…ÁÁ±¥…Ñ¥½¸µÍÁ•¥™¥Œ¡•±À¸(
+---
+
+## 6. React / Next.js
+
+Keep Runtime Intelligence in a **client-only** boundary.
+
+Do not evaluate browser enablement, access `localStorage`, or mount the panel during SSR.
+
+A practical Next.js pattern is a small `'use client'` diagnostics shell that initializes Runtime Intelligence after the client mounts and wraps the application subtree.
+
+Start at Level 0. Add Level 1 boundaries only after real findings show where extra render ownership would materially help.
+
+---
+
+# Vue 3
+
+## 7. Vue Level 0 â€” install once before mount
+
+Vue supports broad application-level lifecycle observation without editing each component.
+
+```js
+import { createApp } from 'vue';
+import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
+import App from './App.vue';
+
+const app = createApp(App);
+
+const enabled =
+  import.meta.env.DEV &&
+  localStorage.getItem('runtime-intelligence') === 'on';
+
+const loaded = await loadRuntimeIntelligence({
+  enabled,
+  framework: 'vue',
+  panel: true,
+});
+
+let diagnostics = null;
+let panel = null;
+
+if (loaded.enabled) {
+  diagnostics =
+    loaded.frameworkModule.installVueRuntimeIntelligence(app, {
+      enabled: true,
+      version: app.version,
+    });
+
+  panel =
+    loaded.panelModule.mountRuntimeIntelligencePanel({
+      store: diagnostics.store,
+    });
+}
+
+app.mount('#app');
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    panel?.destroy();
+    diagnostics?.stop();
+  });
+}
+```
+
+Install Runtime Intelligence **before `app.mount()`**.
+
+No application component needs a Runtime Intelligence import for this Level 0 integration.
+
+### Vue evidence semantics
+
+Runtime Intelligence may observe:
+
+- component mount/unmount;
+- `beforeUpdate â†’ updated` lifecycle timing;
+- component errors;
+- parent/owner hierarchy;
+- browser/network evidence.
+
+Vue build metadata such as `__file` can provide component source attribution when available.
+
+These remain distinct claims:
+
+```text
+component lifecycle observed      â‰  root cause
+parent/owner relationship         â‰  causal relationship
+update timing observed            â‰  reactive dependency proven
+component source available        â‰  that line caused the defect
+```
+
+### Optional filtering
+
+For very large applications, reduce noise only after observing actual volume:
+
+```js
+loaded.frameworkModule.installVueRuntimeIntelligence(app, {
+  enabled: true,
+  componentFilter(component) {
+    return component?.$?.type?.name !== 'TinyIcon';
+  },
+});
+```
+
+An application-specific `sourceResolver` may be supplied only when it maps trustworthy project metadata. Do not invent source paths when metadata is absent.
+
+---
+
+# Lit
+
+## 8. Lit Level 0/1 â€” public programmatic activation + shared base
+
+For new projects, use the public programmatic activation API. Do **not** build new integration code around `window.__LDS_*`; those globals remain compatibility-only.
+
+Make the diagnostics decision before instrumented custom elements connect.
+
+```js
+import { LitElement } from 'lit';
+import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
+
+const enabled =
+  import.meta.env.DEV &&
+  localStorage.getItem('runtime-intelligence') === 'on';
+
+const loaded = await loadRuntimeIntelligence({
+  enabled,
+  framework: 'lit',
+  panel: true,
+});
+
+let panel = null;
+let activation = null;
+let AppElement = LitElement;
+
+if (loaded.enabled) {
+  activation =
+    loaded.frameworkModule.configureLitRuntimeIntelligence({
+      enabled: true,
+    });
+
+  AppElement =
+    loaded.frameworkModule.LitDebugMixin(LitElement);
+
+  const { evidenceStore } =
+    await import('runtime-intelligence/core');
+
+  panel =
+    loaded.panelModule.mountRuntimeIntelligencePanel({
+      store: evidenceStore,
+    });
+}
+
+export { AppElement, activation, panel };
+```
+
+Application elements can then extend the shared base normally:
+
+```js
+import { html } from 'lit';
+import { AppElement } from './app-element.js';
+
+export class OrdersGrid extends AppElement {
+  render() {
+    return html`<h2>Orders</h2>`;
+  }
+}
+```
+
+This avoids editing every Lit component with Runtime Intelligence-specific imports when your application already hasâ€”or can introduceâ€”a shared base class.
+
+### Selective Lit tools
+
+You can activate only selected tools:
+
+```js
+const activation =
+  loaded.frameworkModule.configureLitRuntimeIntelligence({
+    enabled: true,
+    tools: {
+      intelligence: true,
+      network: true,
+      perf: true,
+      vitals: true,
+    },
+  });
+```
+
+A selective programmatic configuration is authoritative while active; stale compatibility globals do not silently broaden it.
+
+For HMR/tests:
+
+```js
+panel?.destroy();
+activation?.stop();
+```
+
+A stale activation controller cannot disable a newer activation.
+
+### Existing Lit projects
+
+If most elements already extend a shared application base, instrument that base once.
+
+If hundreds of elements directly extend `LitElement`, do not globally prototype-patch Lit. Migrate the highest-value component families to an instrumented shared base incrementally.
+
+### Lit evidence semantics
+
+The mixin can observe lifecycle/update boundaries and feed component ownership into UREP.
+
+A property/update observation still does not automatically prove business causality.
+
+---
+
+# Evidence-quality ladder
+
+## 9. Choose the cheapest level that answers the question
+
+| Level | Integration cost | React | Vue | Lit | Typical source precision |
+| --- | --- | --- | --- | --- | --- |
+| **0 â€” shell/browser** | one bootstrap | provider + root profiler | app installer | activation + shared-base decision | browser/network/error source often exact; internal render source may remain unknown |
+| **1 â€” framework ownership** | selected boundaries/base | HOC / Profiler | app mixin already broad | instrumented shared base | stronger component/boundary attribution |
+| **2 â€” exact operations** | targeted code changes | tracked state/effect/resource hooks | app-specific extension only if justified | focused property/resource tooling where needed | invocation/registration attribution |
+| **3 â€” governed extension** | plugin code | custom UREP extension | custom UREP extension | custom UREP extension | domain-specific evidence; causality still guarded |
+
+Do not jump to Level 2 everywhere. The product is successful when Level 0 finds useful evidence and deeper instrumentation is added only where it converts a specific unknown into stronger provable attribution.
+
+---
+
+# How to read Pinpoint
+
+## 10. Provenance labels matter
+
+Treat the location and its meaning together.
+
+- **Invocation** â€” the observed operation was invoked here.
+- **Registration** â€” a resource/effect/listener was registered here.
+- **Error origin** â€” captured error stack resolves here.
+- **Component boundary** â€” framework/instrumentation identifies this component boundary here.
+- **Common origin** â€” multiple observations share this application caller.
+- **Correlated / related** â€” useful contextual location, not causal proof.
+- **Unknown / source unavailable** â€” Runtime Intelligence could not prove an exact source.
+
+A file/line without provenance meaning is incomplete.
+
+---
+
+# Developer workflow
+
+## 11. First diagnostic session
+
+1. Integrate only the framework's Level 0 path.
+2. Enable Runtime Intelligence explicitly.
+3. Reproduce one real user-visible issue.
+4. Open **Pinpoint**, **Intelligence**, and **Opportunities**.
+5. Check evidence level and provenance wording.
+6. If a source is displayed, open the exact file/line.
+7. Verify that it is genuinely relevantâ€”not Runtime Intelligence, React/Vue/Lit internals, a bundler frame, or `node_modules`.
+8. If the source remains unknown, decide whether one Level 1 boundary would answer the question.
+9. Export JSON + HTML when you need a reproducible before/after artifact.
+10. Re-run the same workflow after the fix.
+
+---
+
+## 12. Source precision checklist
+
+For every source shown, ask:
+
+- Is this an application file?
+- Are line/column actually supported by the captured stack/framework metadata?
+- Does the provenance label describe what the location means?
+- Is correlation still labeled as correlation?
+- Is a framework owner relationship still structural rather than causal?
+- When exact attribution is not provable, does the UI show `source unavailable` instead of guessing?
+
+---
+
+# Troubleshooting
+
+## 13. Panel loads but no evidence appears
+
+Verify:
+
+- the loader returned `enabled: true`;
+- framework integration started before the relevant lifecycle;
+- the panel and runtime use the same store;
+- the framework-specific Level 0 setup is actually mounted/installed.
+
+## 14. React shows network source but not child render source
+
+This is possible and honest.
+
+A browser `fetch` stack can provide an exact invocation line while React's root Profiler still cannot prove which uninstrumented child definition caused a slow commit.
+
+Use one strategic Level 1 boundary if that question matters.
+
+## 15. Lit loads but component evidence is absent
+
+Verify:
+
+- `configureLitRuntimeIntelligence({ enabled: true })` ran;
+- it ran before the instrumented element connected;
+- the element extends `LitDebugMixin(...)` directly or through the shared application base;
+- the loader returned `enabled: true`.
+
+Do not use internal `window.__LDS_*` globals as the new-project fix.
+
+## 16. Vue component evidence is absent
+
+Verify:
+
+- `installVueRuntimeIntelligence(app, ...)` ran before `app.mount()`;
+- `enabled` is literal `true`;
+- `componentFilter` did not exclude the component.
+
+## 17. Original TypeScript/JSX/Vue source is unavailable
+
+Development stacks, framework file metadata, and source maps may provide original-source information depending on the environment.
+
+Runtime Intelligence should never fabricate an exact original path merely to make Pinpoint look complete.
+
+---
+
+# Validation environments
+
+## 18. Use each environment for what it proves
+
+| Environment | Purpose |
+| --- | --- |
+| `examples/react-fault-lab` | deterministic React capability coverage with explicit instrumentation |
+| `examples/react-uninstrumented-lab` | hostile zero-touch React value test; business components must remain uninstrumented |
+| `examples/vue-fault-lab` | Vue adapter/canonical-panel validation |
+| real consumer such as TrustWeave | real-world dogfood; never inject synthetic faults merely to make evidence look good |
+
+Hostile React lab commands:
+
+```bash
+npm run lab:react:hostile:install
+npm run lab:react:hostile:validate
+npm run lab:react:hostile
+```
+
+The hostile lab is the correct place to judge whether automatic source pinpointing feels valuable without application-specific help.
+
+---
+
+# Adoption principle
+
+A developer should be able to begin at Level 0 and get useful, honest evidence quickly.
+
+Deeper instrumentation is justified only when it turns a concrete `unknown` or weak correlation into stronger, **provable** attribution.
+
+Framework count is secondary. Developer time-to-relevant-code is the product value.
