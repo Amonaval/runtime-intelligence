@@ -10,6 +10,7 @@ const DEFAULT_LOADERS = Object.freeze({
   core: () => import('../core/index.js'),
   react: () => import('../react/index.js'),
   lit: () => import('../lit/index.js'),
+  vue: () => import('../vue/index.js'),
   panel: () => import('../panel/index.js'),
 });
 

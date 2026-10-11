@@ -23,7 +23,7 @@ try {
   const tarball = path.join(packDir, filename);
 
   writeFileSync(path.join(consumerDir, 'package.json'), JSON.stringify({ name: 'runtime-intelligence-onboarding-smoke', private: true, type: 'module' }, null, 2));
-  runNpm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarball, 'react@18', 'lit@3'], { cwd: consumerDir });
+  runNpm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarball, 'react@18', 'lit@3', 'vue@3'], { cwd: consumerDir });
 
   const smokeFile = path.join(consumerDir, 'smoke.mjs');
   writeFileSync(smokeFile, `
@@ -32,12 +32,15 @@ import * as core from 'runtime-intelligence/core';
 import { RUNTIME_EXTENSION_API_VERSION, createRuntimeExtension } from 'runtime-intelligence/extension';
 import * as react from 'runtime-intelligence/react';
 import * as lit from 'runtime-intelligence/lit';
+import * as vue from 'runtime-intelligence/vue';
 
 if (typeof core.EvidenceStore !== 'function') throw new Error('core export missing EvidenceStore');
 if (typeof core.getRuntimeIntelligenceApiContract !== 'function') throw new Error('core API contract export missing');
 if (typeof createRuntimeExtension !== 'function') throw new Error('extension export missing createRuntimeExtension');
 if (typeof react.createReactIntelligenceRuntime !== 'function') throw new Error('react runtime export missing');
 if (typeof lit.LitDebugMixin !== 'function') throw new Error('lit mixin export missing');
+if (typeof vue.createVueIntelligenceRuntime !== 'function') throw new Error('vue runtime export missing');
+if (typeof vue.installVueRuntimeIntelligence !== 'function') throw new Error('vue install export missing');
 
 const extensionStore = new core.EvidenceStore();
 const extension = createRuntimeExtension({ id: 'onboarding.smoke', version: '1.0.0', store: extensionStore });
@@ -45,12 +48,16 @@ const extensionEvent = extension.diagnostic('ready', { ok: true });
 if (extensionEvent.payload?.diagnostic !== 'onboarding.smoke.ready') throw new Error('extension diagnostic namespace contract failed');
 if (extension.manifest.extensionApiVersion !== RUNTIME_EXTENSION_API_VERSION) throw new Error('extension API manifest mismatch');
 
-const disabled = await loadRuntimeIntelligence({ enabled: false, framework: 'react', panel: true });
+const disabled = await loadRuntimeIntelligence({ enabled: false, framework: 'vue', panel: true });
 if (disabled.enabled !== false || disabled.frameworkModule !== null || disabled.panelModule !== null) throw new Error('disabled loader contract failed');
+
 const reactLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'react' });
 if (!reactLoaded.enabled || typeof reactLoaded.frameworkModule?.createReactIntelligenceRuntime !== 'function') throw new Error('React dynamic loader path failed');
 const litLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'lit' });
 if (!litLoaded.enabled || typeof litLoaded.frameworkModule?.LitDebugMixin !== 'function') throw new Error('Lit dynamic loader path failed');
+const vueLoaded = await loadRuntimeIntelligence({ enabled: true, framework: 'vue' });
+if (!vueLoaded.enabled || typeof vueLoaded.frameworkModule?.createVueIntelligenceRuntime !== 'function') throw new Error('Vue dynamic loader path failed');
+
 console.log('consumer smoke passed');
 `);
 
@@ -60,10 +67,11 @@ console.log('consumer smoke passed');
   if (consumerPackage.private !== true) throw new Error('Packed package unexpectedly lost private guard.');
   if (!consumerPackage.exports?.['./loader']) throw new Error('Packed package is missing ./loader export.');
   if (!consumerPackage.exports?.['./extension']) throw new Error('Packed package is missing ./extension export.');
+  if (!consumerPackage.exports?.['./vue']) throw new Error('Packed package is missing ./vue export.');
 
   console.log(`Runtime Intelligence onboarding validation passed using ${filename}.`);
-  console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit.');
-  console.log('Verified extension contract plus default-off loader and React/Lit dynamic loading from the packed artifact.');
+  console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit, /vue.');
+  console.log('Verified extension contract plus default-off loader and React/Lit/Vue dynamic loading from the packed artifact.');
 } catch (error) {
   const stderr = error?.stderr?.toString?.().trim();
   console.error(`Runtime Intelligence onboarding validation failed: ${stderr || error.message}`);

@@ -1,4 +1,4 @@
-export type RuntimeIntelligenceFramework = 'core' | 'react' | 'lit';
+export type RuntimeIntelligenceFramework = 'core' | 'react' | 'lit' | 'vue';
 
 export interface RuntimeIntelligenceLoadOptions {
   enabled?: boolean;

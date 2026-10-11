@@ -16,6 +16,7 @@ export { _toolEnabled, _getDebugFlag } from './core/gate.js';
 export { FrameworkAdapter }    from './adapter/FrameworkAdapter.js';
 export { LitAdapter, litAdapter } from './adapter/lit/LitAdapter.js';
 export { ReactAdapter, reactAdapter } from './adapter/react/ReactAdapter.js';
+export { VueAdapter, vueAdapter } from './adapter/vue/VueAdapter.js';
 export { LitIntelligencePipeline, getLitIntelligencePipeline } from './integration/lit/LitIntelligencePipeline.js';
 export { PropertyWatchManager } from './integration/lit/property-watch-manager.js';
 export { NavigationBridge } from './integration/lit/navigation-bridge.js';

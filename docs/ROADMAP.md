@@ -34,19 +34,34 @@ Distribution / License / IP Strategy.
 - distribution posture enforced by `npm run distribution:validate`;
 - release validation includes distribution policy;
 - obfuscation is not treated as an IP boundary;
-- secret/premium intelligence may later live behind an opt-in service boundary;
-- historical rights are not claimed to be revoked.
+- secret/premium intelligence may later live behind an opt-in service boundary.
 
-## R7 — NEXT — MEDIUM-HIGH
+## R7 — DONE — MEDIUM-HIGH
 
 Vue Adapter + Vue Fault Lab.
 
-- add Vue adapter without duplicating intelligence logic;
-- reuse UREP, shared browser surface, shared advisers and canonical panel;
-- define evidence-capability honesty for Vue before implementing collectors;
-- build a focused synthetic Fault Lab;
-- validate package/onboarding/API contracts remain unchanged or are deliberately versioned.
+- Vue is a thin UREP evidence producer, not a new product fork;
+- owner lifecycle and update lifecycle use Vue application lifecycle hooks;
+- update timing is an observed `beforeUpdate` → `updated` window, not render-only profiling;
+- update cause and reactive dependency remain unsupported;
+- app-level Vue errors feed the existing error evidence path;
+- explicit resource ownership is supported without manufacturing lifetime violations;
+- shared browser collectors, advisers, RuntimeIntelligencePipeline, Opportunities/report model and canonical panel are reused;
+- `/vue` is a deliberate additive public API/package subpath;
+- synthetic Vue Fault Lab covers representative validation cases.
 
-## After R7
+Full checkout-level release validation and real-browser Fault Lab execution remain validation gates rather than assumed results.
 
-Angular Adapter + Angular Fault Lab, then broader dogfood/adoption work as justified by real consumers.
+## R8 — NEXT — MEDIUM-HIGH
+
+Angular Adapter + Angular Fault Lab.
+
+- define an Angular capability/evidence matrix before implementation;
+- reuse UREP and shared intelligence;
+- avoid framework-specific root-cause/opportunity/report/panel forks;
+- create only the smallest synthetic lab needed to validate Angular evidence semantics;
+- preserve production-safe conditional loading and the private package contract.
+
+## After R8
+
+Broader dogfood/adoption work should be justified by real consumers and defects, not framework-count targets.

@@ -1,0 +1,18 @@
+{
+  "name": "runtime-intelligence-vue-fault-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "runtime-intelligence": "file:../..",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

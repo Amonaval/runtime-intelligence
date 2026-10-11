@@ -6,6 +6,7 @@ const PUBLIC_PACKAGE_SURFACES = Object.freeze([
   'runtime-intelligence/extension',
   'runtime-intelligence/react',
   'runtime-intelligence/lit',
+  'runtime-intelligence/vue',
   'runtime-intelligence/panel',
   'runtime-intelligence/panel/lit',
 ]);

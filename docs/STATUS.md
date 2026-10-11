@@ -14,16 +14,17 @@ Current `main` includes validated React R5.7.4 plus accepted product hardening/p
 - R6.3 Developer Onboarding & Reproducible Installation: complete
 - R6.4 Public API Stability & Extension Contract: complete
 - R6.5 Distribution / License / IP Strategy: complete
-- TrustWeave remains intentionally pinned to the R5.7.4 baseline while R6 productization proceeds independently.
+- R7 Vue Adapter + Vue Fault Lab: complete in source; full repository release validation remains a checkout-level checkpoint
+- TrustWeave remains intentionally pinned to the R5.7.4 baseline; R7 does not require a consumer repin.
 
 ## Current product state
 
-Runtime Intelligence is one mature developer product with framework adapters, not separate Lit and React products.
+Runtime Intelligence is one mature developer product with framework adapters, not separate Lit, React and Vue products.
 
 ```text
 explicit production/debug gate
         -> runtime-intelligence/loader (default off, dynamic imports only)
-        -> LitAdapter / ReactAdapter / governed extensions
+        -> LitAdapter / ReactAdapter / VueAdapter / governed extensions
         -> Universal Runtime Evidence Protocol (UREP)
         -> shared evidence store
         -> incident recorder + EvidenceGraph + RootCauseGrouper
@@ -41,53 +42,57 @@ Completed sequence: R5.2 through R5.7.4. Further React work is defect-driven onl
 
 ## R6 productization — COMPLETE
 
-### R6.1 — Package Contract & Publish Safety — COMPLETE
-
-One package with explicit public subpaths, generic pack allowlist and package-contract validation.
-
-### R6.2 — Production Safety & Conditional Loading — COMPLETE
-
-Default-off `/loader`, disabled-path near-zero instrumentation, reversible browser hooks and no collector-initiated network request.
-
-Focused local production-safety tests: **8 passed, 0 failed**.
-
-### R6.3 — Developer Onboarding & Reproducible Installation — COMPLETE
-
-Root quick start, tarball consumer validation, safe enablement recipes and aggregate release validation.
-
-### R6.4 — Public API Stability & Extension Contract — COMPLETE
-
-Exact public API baseline, governed `runtime-intelligence/extension`, compatibility rules and guarded causal claims.
-
-Focused extension tests: **5 passed, 0 failed**. Public API baseline validation passed in the isolated harness.
-
-### R6.5 — Distribution / License / IP Strategy — COMPLETE
-
-R6.5 closes the product/distribution boundary:
-
-- package remains `runtime-intelligence` and `private: true`;
-- package license changes from the earlier MIT metadata to the current proprietary `UNLICENSED` baseline;
-- `LICENSE.md` carries an all-rights-reserved proprietary notice;
-- approved delivery is authorized private Git SHA or authorized tarball;
-- no public registry or registry URL is configured;
-- `npm run distribution:validate` machine-checks the distribution posture and packed license notice;
-- `npm run validate:release` now includes distribution-policy validation;
-- browser obfuscation is explicitly treated only as friction, not IP protection;
-- local collectors/adapters/UREP/panel remain in the browser package;
-- truly secret/premium intelligence may later move behind an opt-in service boundary consuming sanitized report/evidence contracts;
-- R6.5 adds no telemetry, background upload or surprise network calls;
-- historical rights are not claimed to be revoked by this policy change.
-
-## R6 closure
-
-R6.1–R6.5 establish a complete productization baseline: package contract, production safety, onboarding, stable API/extensions and proprietary distribution policy.
+R6.1–R6.5 establish the package contract, production safety, reproducible onboarding, public API/extension contract and private/proprietary distribution boundary.
 
 Full repository `npm run validate:release` remains a release checkpoint in a normal checked-out environment.
 
-## Next: R7 — Vue Adapter + Vue Fault Lab
+## R7 — Vue Adapter + Vue Fault Lab — COMPLETE
 
-Vue is the next framework expansion now that the R6 contract is stable.
+R7 adds Vue as another thin framework evidence producer while keeping the existing shared product architecture.
+
+Implemented:
+
+- `runtime-intelligence/vue` public subpath;
+- `VueAdapter` with explicit capability honesty;
+- Vue lifecycle ownership through application-wide mixin hooks;
+- observed update lifecycle timing (`beforeUpdate` → `updated`) without claiming render-only timing;
+- Vue application error-handler observation;
+- explicit resource acquisition/release evidence;
+- shared `VueIntelligenceRuntime` using the same browser surface, pipeline, advisers and canonical panel;
+- production-safe Vue installation that is side-effect free when disabled;
+- loader/package/API/onboarding wiring;
+- synthetic Vue Fault Lab for slow updates, errors, repeated updates, explicit resource lifetime and interaction/network correlation;
+- focused unit coverage for adapter semantics, integration teardown and runtime reuse.
+
+Evidence constraints:
+
+- `UPDATE_CAUSE`: unsupported;
+- `REACTIVE_DEPENDENCY`: unsupported;
+- state-change causality is not invented;
+- owner hierarchy is structural only;
+- update timing is a lifecycle-window observation;
+- errors are observations;
+- resource ownership is emitted only from explicit instrumentation.
+
+## Validation state
+
+Performed during R7 implementation:
+
+- source inspection against current `main`;
+- syntax validation of the new Vue JavaScript files;
+- focused isolated behavioral harness for Vue adapter/integration semantics: **11 passed, 0 failed**.
+
+Not claimed in this connector session:
+
+- full `npm run validate:release`;
+- Vue Fault Lab browser execution;
+- packed tarball/onboarding execution;
+- real Vue consumer dogfood.
+
+Those remain explicit follow-up validation gates.
+
+## Next: R8 — Angular Adapter + Angular Fault Lab
 
 Recommended effort: **MEDIUM-HIGH**.
 
-R7 must reuse UREP, shared intelligence, Opportunities, extension contract and canonical panel rather than creating a Vue-specific product fork.
+Use the same constraint as Vue: Angular is only an evidence producer into UREP and the existing intelligence/panel stack. Before coding, define which Angular lifecycle/profiling signals are deterministic versus merely observable.

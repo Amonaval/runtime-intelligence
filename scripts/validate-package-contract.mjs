@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
-  './loader', './core', './extension', './react', './lit', './panel', './panel/lit', './package.json',
+  './loader', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
 ];
 const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/', 'docs/'];
 
@@ -76,6 +76,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
-console.log('Public surfaces: runtime-intelligence/loader, /core, /extension, /react, /lit, /panel, /panel/lit.');
+console.log('Public surfaces: runtime-intelligence/loader, /core, /extension, /react, /lit, /vue, /panel, /panel/lit.');
 console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports.');
 console.log('Publish safety: package remains private under R6.5; app-specific lit/custom is excluded.');

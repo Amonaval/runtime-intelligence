@@ -2,7 +2,7 @@
 
 ## Current decision
 
-Runtime Intelligence is **one package with stable public subpaths**, not four independently versioned packages.
+Runtime Intelligence is **one package with stable public subpaths**, not independently versioned framework packages.
 
 ```text
 runtime-intelligence/loader
@@ -10,6 +10,7 @@ runtime-intelligence/core
 runtime-intelligence/extension
 runtime-intelligence/react
 runtime-intelligence/lit
+runtime-intelligence/vue
 runtime-intelligence/panel
 runtime-intelligence/panel/lit
 ```
@@ -18,9 +19,11 @@ This keeps UREP, adapters, intelligence, reports and the canonical panel on one 
 
 Do not split into `@runtime-intelligence/*` packages unless real distribution/ownership constraints justify the additional release/versioning complexity.
 
+R7 adds `/vue` as a deliberate compatible public surface. It does not create a separately versioned Vue product.
+
 ## Distribution
 
-The R6.5 baseline is private/proprietary:
+The R6.5 baseline remains private/proprietary:
 
 - package name stays `runtime-intelligence`;
 - `private: true`;

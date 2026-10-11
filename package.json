@@ -1,7 +1,7 @@
 {
   "name": "runtime-intelligence",
-  "version": "0.1.0",
-  "description": "Framework-neutral runtime intelligence with React, Lit and one canonical mature panel.",
+  "version": "0.1.1",
+  "description": "Framework-neutral runtime intelligence with React, Lit, Vue and one canonical mature panel.",
   "private": true,
   "type": "module",
   "exports": {
@@ -22,6 +22,10 @@
     },
     "./lit": {
       "import": "./lit/src/lit/index.js"
+    },
+    "./vue": {
+      "types": "./lit/src/vue/index.d.ts",
+      "import": "./lit/src/vue/index.js"
     },
     "./panel": {
       "types": "./lit/src/panel/index.d.ts",
@@ -45,16 +49,23 @@
     "validate:release": "npm run package:validate && npm run api:validate && npm run distribution:validate && npm run production:validate && npm run onboarding:validate && npm test",
     "lab:react:install": "npm --prefix examples/react-fault-lab install",
     "lab:react": "npm --prefix examples/react-fault-lab run dev",
-    "lab:react:build": "npm --prefix examples/react-fault-lab run build"
+    "lab:react:build": "npm --prefix examples/react-fault-lab run build",
+    "lab:vue:install": "npm --prefix examples/vue-fault-lab install",
+    "lab:vue": "npm --prefix examples/vue-fault-lab run dev",
+    "lab:vue:build": "npm --prefix examples/vue-fault-lab run build"
   },
   "dependencies": {
     "lit": "^3.3.1"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "vue": ">=3.3.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },

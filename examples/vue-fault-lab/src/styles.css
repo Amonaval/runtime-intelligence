@@ -1,0 +1,10 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #f5f6f8; color: #17191d; }
+main { width: min(900px, calc(100% - 32px)); margin: 40px auto 120px; display: grid; gap: 16px; }
+header, .card { background: white; border: 1px solid #dfe2e8; border-radius: 14px; padding: 20px; }
+h1, h2, p { margin-top: 0; }
+.eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+button { padding: 9px 12px; margin-right: 8px; cursor: pointer; }
+output { display: block; margin-top: 12px; font-family: ui-monospace, monospace; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.resource-probe { margin-top: 12px; display: flex; gap: 12px; font-family: ui-monospace, monospace; font-size: 13px; }
