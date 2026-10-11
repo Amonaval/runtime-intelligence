@@ -1,5 +1,6 @@
 import './LdsDebugPanel.js';
 import { bridgeRuntimeEvidenceToPanel } from './runtime-evidence-bridge.js';
+import { installRuntimeOpportunitiesPanel } from './opportunities-panel-presentation.js';
 import {
   createRuntimeReport,
   downloadRuntimeReport,
@@ -52,6 +53,13 @@ function mountRuntimeIntelligencePanel({
   const element = documentTarget.createElement('lds-debug-panel');
   element.setAttribute('data-runtime-intelligence-panel', 'canonical');
   documentTarget.body.appendChild(element);
+
+  const opportunitiesPresentation = installRuntimeOpportunitiesPanel({
+    panel: element,
+    store,
+    windowTarget,
+    documentTarget,
+  });
 
   const framework = windowTarget.__LDS_RUNTIME_FRAMEWORK__ || 'unknown';
   const originalRenderIssueCard = typeof element._renderIssueCard === 'function'
@@ -117,6 +125,7 @@ function mountRuntimeIntelligencePanel({
     downloadHtml,
     downloadBoth,
     destroy() {
+      opportunitiesPresentation.destroy?.();
       bridge.stop();
       element.remove();
     },
