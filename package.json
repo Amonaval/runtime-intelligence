@@ -2,6 +2,7 @@
   "name": "runtime-intelligence",
   "version": "0.1.0",
   "description": "Framework-neutral runtime intelligence with React, Lit and one canonical mature panel.",
+  "private": true,
   "type": "module",
   "exports": {
     "./core": { "import": "./lit/src/core/index.js" },
@@ -12,13 +13,13 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lit/src",
-    "lit/custom"
+    "lit/src"
   ],
   "scripts": {
     "test": "npm --prefix lit test",
     "test:smoke": "npm --prefix lit run test:smoke",
     "build": "npm --prefix lit run build",
+    "package:validate": "node scripts/validate-package-contract.mjs",
     "lab:react:install": "npm --prefix examples/react-fault-lab install",
     "lab:react": "npm --prefix examples/react-fault-lab run dev",
     "lab:react:build": "npm --prefix examples/react-fault-lab run build"

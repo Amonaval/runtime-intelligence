@@ -1,27 +1,54 @@
 # Runtime Intelligence roadmap
 
-## Mission 01 — DONE
-FrameworkAdapter v2 + Universal Runtime Evidence Protocol.
+## Foundation / intelligence core — COMPLETE
 
-## Mission 02 — NEXT — HIGH
-Evidence Graph + causal/root-cause grouping.
+Missions 01–12 established FrameworkAdapter v2, UREP, EvidenceGraph/root-cause grouping, source resolution, incident recording, workflow verification, resource ownership, privacy/redaction, governance and shared advisers.
 
-## Mission 03 — MEDIUM-HIGH
-Generic Source Resolver / source-map attribution.
+## React productization / parity — COMPLETE
 
-## Mission 04 — MEDIUM
-Incident Flight Recorder / bounded last-N-seconds capture.
+R5.2 through R5.7.4 unified React with the canonical mature panel, shared browser collectors/intelligence, ownership/profiling, Fault Lab validation, normalized JSON/HTML reports and first-class Opportunities.
 
-## Mission 05 — HIGH
-Extract workflow baseline, compare, verification and Evidence Capsule into generic core.
+Do not restart React parity work unless real dogfood exposes a concrete defect.
 
-## Mission 06 — HIGH
-Resource Ownership Ledger v2 across listeners, timers, observers, requests, subscriptions and framework owners.
+## R6 — Productization & distribution
 
-## Mission 07 — MEDIUM-HIGH
-Enterprise privacy/redaction and safe export policy.
+### R6.1 — DONE — MEDIUM
+Package Contract & Publish Safety.
 
-## Mission 08 — MEDIUM
-Rules, budgets, suppressions and framework capability governance.
+- explicit stable package subpaths;
+- generic package allowlist;
+- accidental-publish guard;
+- `npm pack` contract validation.
 
-Framework expansion starts after the generic intelligence core is trustworthy. Lit stays the gold-standard adapter; React is market priority, with Vue/Angular/Svelte following where framework-native evidence is strong.
+### R6.2 — NEXT — MEDIUM-HIGH
+Production Safety & Conditional Loading.
+
+- dev-only activation;
+- near-zero disabled overhead;
+- conditional loading/tree-shaking boundaries;
+- no surprise production network calls.
+
+### R6.3 — MEDIUM
+Developer Onboarding & Reproducible Installation.
+
+- 5-minute React/Lit quick starts;
+- local tarball/install validation;
+- troubleshooting and export workflow;
+- replace temporary Git-SHA install UX with a deliberate distribution path once approved.
+
+### R6.4 — MEDIUM
+Public API Stability & Extension Contract.
+
+- public vs internal API policy;
+- UREP/plugin extension contract;
+- compatibility/versioning rules;
+- prevent consumers from relying on incidental browser globals.
+
+### R6.5 — LOW-MEDIUM + OWNER DECISION
+Distribution / License / IP Strategy.
+
+Choose package naming, public vs private registry, intended license and any commercial-service boundary. Browser JavaScript cannot be made truly uncopyable; obfuscation is only friction, not protection.
+
+## After R6 baseline
+
+Vue adapter + Vue Fault Lab, then Angular adapter + Angular Fault Lab, reusing the same UREP/report/Opportunities/Intelligence/panel stack.

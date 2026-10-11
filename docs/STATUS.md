@@ -3,6 +3,16 @@
 **Updated:** 2026-10-11  
 **Canonical status:** this file is the single current-state summary. Historical mission/handover files are context, not competing status sources.
 
+## Canonical baseline
+
+Current `main` includes validated React R5.7.4 plus one accepted post-R5.7.4 source-resolver hardening commit.
+
+- Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
+- Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
+- TrustWeave remains intentionally pinned to the R5.7.4 baseline and was not repinned for the source-resolver hardening review.
+
+The hardening is accepted because it conservatively keeps `file://`, `webpack-internal://` and Vite `/@fs/` runtime locations on the generated/provider path, redacts embedded `data:` payloads, and does not upgrade evidence certainty.
+
 ## Current product state
 
 Runtime Intelligence is one mature developer product with framework adapters, not separate Lit and React products.
@@ -13,58 +23,60 @@ LitAdapter / ReactAdapter / browser collectors
         -> shared evidence store
         -> incident recorder + EvidenceGraph + RootCauseGrouper
         -> shared developer intelligence / evidence capsule
-        -> one mature LdsDebugPanel (including ✨ Intelligence)
+        -> normalized opportunities/report model
+        -> one mature LdsDebugPanel (✨ Intelligence + ⚡ Opportunities)
         -> normalized runtime-intelligence-report/1 JSON + HTML
 ```
 
 The governing rule remains evidence honesty: observation, correlation, attribution, lifetime violation and confirmed causality must never be conflated.
 
-## React parity work completed
+## React validation — CLOSED
 
-- R5.2 — Canonical Panel Unification: React mounts the existing mature panel through a thin UREP compatibility bridge; no second React dashboard.
-- R5.3 — Shared Runtime Surface Parity: existing Network, Vitals, Console, errors, interaction capture and generic advisers are reused in React.
-- R5.4 — React Component & Ownership Intelligence: owner hierarchy plus opt-in tracked state/effect/resource evidence feeds mature Perf/Memory/Pinpoint workflows.
-- R5.5 — React Correlation + Intelligence: shared interaction context, EvidenceGraph, RootCauseGrouper, incident recorder, navigation/network correlation and Intelligence tab/evidence capsule.
-- R5.6 — TrustWeave React Parity Closure: root-profiler de-duplication option, low-friction HOC boundaries, budget-monitor integration, package/test hardening and explicit parity matrix.
-- R5.7 — React Fault Lab: isolated deterministic validation harness for React/browser capabilities.
-- R5.7.1 — React presentation/export hardening: framework-aware recommendations, graceful unknown attribution and normalized JSON/HTML report export including diagnostics/opportunities/Intelligence/evidence capsule.
-- R5.7.2 — Expanded one-pass Fault Lab: broader behavioral fault coverage, rare-signal injection, one-button run-all flow and report export.
+Completed sequence:
 
-## Product/packaging boundary
+- R5.2 — Canonical Panel Unification
+- R5.3 — Shared Runtime Surface Parity
+- R5.4 — React Component & Ownership Intelligence
+- R5.5 — React Correlation + Intelligence
+- R5.6 — TrustWeave React Parity Closure
+- R5.7 — React Fault Lab
+- R5.7.1 — Presentation/export hardening
+- R5.7.2 — Expanded one-pass Fault Lab
+- R5.7.3 — Validation-gap closure
+- R5.7.4 — First-class Opportunities
 
-`LdsDebugPanel` remains the canonical mature product UI and is implemented with Lit. The root package therefore carries `lit` as an internal dependency for the panel. React remains an optional peer for the React adapter/runtime. React consumers do not maintain a second panel implementation.
-
-Fault-lab fixtures live under `examples/` and remain outside the published package allowlist.
-
-## Practical parity expectation
-
-React now targets roughly 80–90% of Lit's practical product value. The remaining gap is primarily native framework semantics: arbitrary Lit reactive-property watching/dependency cascades do not have a defensible automatic React equivalent without explicit instrumentation. Runtime Intelligence exposes opt-in tracked state/effect/resource hooks rather than guessing.
+Further React work is defect-driven only. Do not add parity missions merely to increase coverage.
 
 ## Evidence safeguards retained
 
-- React `UPDATE_CAUSE` remains unsupported unless stronger explicit evidence exists.
-- React `REACTIVE_DEPENDENCY` remains unsupported.
-- Interaction proximity produces temporal correlation context only.
+- React `UPDATE_CAUSE` remains unsupported unless explicit stronger evidence exists.
+- React `REACTIVE_DEPENDENCY` remains unsupported generically.
+- Interaction proximity and Network→state proximity are correlation only.
 - Nested owner hierarchy is structural, not causal.
 - Profiler timing is framework-reported observation.
-- Network→state matching is correlation and never sets `causedByEventId`.
-- Fault Lab synthetic evidence is explicitly labeled and never represents a consumer defect.
+- Resource lifetime violations require explicitly tracked ownership.
+- Synthetic Fault Lab evidence is explicitly labeled and must not leak into consumer dogfood.
 
-## Framework adoption
+## R6 productization
 
-See `docs/FRAMEWORK-ADOPTION-LADDER.md`.
+### R6.1 — Package Contract & Publish Safety — COMPLETE
 
-The intended pattern for React, Lit, future Vue/Angular and other adapters is:
+The R6 baseline keeps one package with explicit `/core`, `/react`, `/lit`, `/panel` and `/panel/lit` exports. The package is now guarded with `private: true` until distribution/license strategy is explicitly approved. The generic package allowlist contains `lit/src` only; Syndigo-specific `lit/custom` is no longer part of the packed artifact.
 
-```text
-small root/plugin integration
-        + optional strategic framework instrumentation
-        -> same UREP evidence model
-        -> same shared intelligence
-        -> same mature panel
-        -> same normalized report schema
-```
+`npm run package:validate` validates the export contract and `npm pack --dry-run` contents.
 
-## Validation
+### Next: R6.2 — Production Safety & Conditional Loading
 
-Unit/regression coverage exists for canonical panel bridging, shared browser runtime capture, React ownership/resource mapping, interaction-context correlation, cross-surface adviser contracts and normalized report presentation. Real browser execution remains the final checkpoint; the React Fault Lab now makes that checkpoint repeatable with one-pass JSON/HTML artifacts.
+Prove and harden:
+
+- dev-only enablement;
+- near-zero disabled overhead;
+- safe conditional loading/tree-shaking boundaries;
+- no surprise production network calls;
+- privacy-safe defaults remain intact when enabled.
+
+Recommended effort: MEDIUM-HIGH.
+
+## Framework expansion
+
+Vue/Angular work remains deferred until the R6 package/product contract is stable. Future adapters must reuse UREP, shared intelligence, Opportunities and the canonical panel rather than forking product logic.
