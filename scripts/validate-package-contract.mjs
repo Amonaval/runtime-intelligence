@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
-  './loader', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
+  './loader', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
 ];
 const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/', 'docs/'];
 
@@ -47,6 +47,14 @@ if (loaderTarget) {
   if (!loaderSource.includes('import(')) failures.push('The /loader entry must preserve an explicit dynamic-import boundary.');
 }
 
+const vueLoaderTarget = importTarget(pkg.exports?.['./loader/vue']);
+if (vueLoaderTarget) {
+  const vueLoaderSource = readFileSync(path.join(root, vueLoaderTarget.replace(/^\.\//, '')), 'utf8');
+  if (!vueLoaderSource.includes("import('../vue/index.js')")) failures.push('The /loader/vue entry must dynamically import only the Vue integration.');
+  if (!vueLoaderSource.includes("import('../panel/index.js')")) failures.push('The /loader/vue entry must preserve optional panel loading.');
+  if (/react\/index\.js|\.\.\/lit\/index\.js/.test(vueLoaderSource)) failures.push('The /loader/vue entry must not reference React or Lit framework modules.');
+}
+
 const packageFiles = Array.isArray(pkg.files) ? pkg.files : [];
 if (!packageFiles.includes('lit/src')) failures.push('Published allowlist must include lit/src.');
 if (packageFiles.some((entry) => entry === 'lit/custom' || entry.startsWith('lit/custom/'))) failures.push('Syndigo-specific lit/custom must not ship in the generic package.');
@@ -76,6 +84,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
-console.log('Public surfaces: runtime-intelligence/loader, /core, /extension, /react, /lit, /vue, /panel, /panel/lit.');
-console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports.');
+console.log('Public surfaces: runtime-intelligence/loader, /loader/vue, /core, /extension, /react, /lit, /vue, /panel, /panel/lit.');
+console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports; /loader/vue is framework-isolated.');
 console.log('Publish safety: package remains private under R6.5; app-specific lit/custom is excluded.');

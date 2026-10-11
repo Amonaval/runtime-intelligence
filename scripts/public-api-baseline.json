@@ -1,11 +1,15 @@
 {
-  "contractVersion": "r7/1",
+  "contractVersion": "r7/2",
   "apiVersion": "0.1",
   "surfaces": {
     "./loader": [
       "createRuntimeIntelligenceLoader",
       "isRuntimeIntelligenceEnabled",
       "loadRuntimeIntelligence"
+    ],
+    "./loader/vue": [
+      "isVueRuntimeIntelligenceEnabled",
+      "loadVueRuntimeIntelligence"
     ],
     "./core": [
       "FrameworkAdapter",

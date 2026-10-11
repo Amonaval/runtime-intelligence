@@ -1,6 +1,6 @@
 {
   "name": "runtime-intelligence",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework-neutral runtime intelligence with React, Lit, Vue and one canonical mature panel.",
   "private": true,
   "type": "module",
@@ -8,6 +8,9 @@
     "./loader": {
       "types": "./lit/src/loader/index.d.ts",
       "import": "./lit/src/loader/index.js"
+    },
+    "./loader/vue": {
+      "import": "./lit/src/loader/vue.js"
     },
     "./core": {
       "import": "./lit/src/core/index.js"

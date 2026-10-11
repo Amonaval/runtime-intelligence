@@ -1,5 +1,5 @@
 import { createApp, h } from 'vue';
-import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
+import { loadVueRuntimeIntelligence } from 'runtime-intelligence/loader/vue';
 import './styles.css';
 
 function burnCpu(ms = 130) {
@@ -156,9 +156,8 @@ const App = {
   `,
 };
 
-const loaded = await loadRuntimeIntelligence({
+const loaded = await loadVueRuntimeIntelligence({
   enabled: true,
-  framework: 'vue',
   panel: true,
 });
 
