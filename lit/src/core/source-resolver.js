@@ -23,7 +23,8 @@ function _clampConfidence(value, fallback) {
 }
 
 function _generatedScheme(file) {
-  return /^(?:https?:|blob:|data:|webpack:|vite:)/i.test(file || '');
+  return /^(?:https?:|blob:|data:|file:|webpack(?:-internal)?:|vite:)/i.test(file || '')
+    || /^\/@fs\//i.test(file || '');
 }
 
 function _safeDecode(value) {
@@ -34,6 +35,9 @@ function sanitizeSourceFile(file) {
   if (typeof file !== 'string') return null;
   let value = file.trim();
   if (!value) return null;
+
+  // Data URLs can embed complete source/data payloads. Never retain that payload.
+  if (/^data:/i.test(value)) return 'data:[redacted]';
 
   // Source locations must never retain URL query values or fragments.
   value = value.split(/[?#]/, 1)[0].replace(/\\/g, '/');
@@ -52,7 +56,7 @@ function sanitizeSourceFile(file) {
   }
 
   value = value
-    .replace(/^webpack:\/\/+/, '')
+    .replace(/^webpack(?:-internal)?:\/\/+/, '')
     .replace(/^vite:\/\/+/, '')
     .replace(/^file:\/\/+/, '')
     .replace(/^\/@fs\//, '')

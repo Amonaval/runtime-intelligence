@@ -4,6 +4,7 @@ import {
   SourceResolutionBasis,
   SourceResolver,
   parseRuntimeSourceLocation,
+  sanitizeSourceFile,
 } from '../../src/core/source-resolver.js';
 import { AttributionQuality } from '../../src/core/evidence-protocol.js';
 
@@ -87,4 +88,31 @@ test('parses Windows stack locations without confusing drive colon with line num
   assert.equal(parsed.line, 42);
   assert.equal(parsed.column, 6);
   assert.equal(parsed.functionName, 'fn');
+});
+
+test('file URLs remain generated so a source-map provider can resolve them', async () => {
+  const result = await new SourceResolver({ providers: [() => ({ file: 'src/a.ts', line: 3, column: 2 })] })
+    .resolve({ source: 'file:///dist/app.js:100:4' });
+  assert.equal(result.basis, SourceResolutionBasis.SOURCE_MAP);
+});
+
+test('data URLs do not retain embedded source payloads', () => {
+  const sanitized = sanitizeSourceFile('data:text/javascript,console.log(%22secret%22)');
+  assert.equal(sanitized.includes('secret'), false);
+});
+
+test('webpack-internal URLs remain generated and are normalized before provider lookup', async () => {
+  const result = await new SourceResolver({ providers: [({ generated }) => {
+    assert.equal(generated.file, 'src/app.js');
+    return { file: 'src/app.ts', line: 10, column: 2 };
+  }] }).resolve({ source: 'webpack-internal:///src/app.js:200:8' });
+  assert.equal(result.basis, SourceResolutionBasis.SOURCE_MAP);
+});
+
+test('vite /@fs paths remain generated instead of being overstated as canonical source', async () => {
+  const result = await new SourceResolver({ providers: [({ generated }) => {
+    assert.equal(generated.file, 'C:/repo/src/app.ts');
+    return { file: 'src/app.ts', line: 12, column: 3 };
+  }] }).resolve({ source: '/@fs/C:/repo/src/app.ts:12:3' });
+  assert.equal(result.basis, SourceResolutionBasis.SOURCE_MAP);
 });
