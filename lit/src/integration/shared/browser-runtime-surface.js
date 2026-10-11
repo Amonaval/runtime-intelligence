@@ -7,6 +7,7 @@ import { LdsNetwork } from '../../core/network.js';
 import { LdsVitals } from '../../core/vitals.js';
 import { LdsConsole } from '../../core/console.js';
 import { SequentialApiDetector } from '../../core/sequential-api-detector.js';
+import { captureSourceProvenance, SourceProvenanceKind } from '../../core/source-provenance.js';
 
 let _networkTraceSequence = 0;
 let _interactionSequence = 0;
@@ -26,12 +27,31 @@ function _errorSource(event) {
   };
 }
 
-function _browserEvidence() {
-  return {
+function _browserEvidence(source = null) {
+  return source ? {
+    level: EvidenceLevel.ATTRIBUTION,
+    attribution: AttributionQuality.SOURCE_ATTRIBUTED,
+    confidence: 0.95,
+  } : {
     level: EvidenceLevel.OBSERVATION,
     attribution: AttributionQuality.DETERMINISTIC,
     confidence: 1,
   };
+}
+
+function _provenancePayload(provenance) {
+  return provenance ? { sourceProvenance: provenance } : {};
+}
+
+function _applicationStack(provenance) {
+  const frames = Array.isArray(provenance?.frames) ? provenance.frames : [];
+  if (!frames.length) return null;
+  return frames.map(frame => {
+    if (!frame?.file) return null;
+    const line = Number.isFinite(frame.line) ? `:${frame.line}` : '';
+    const column = Number.isFinite(frame.column) ? `:${frame.column}` : '';
+    return `at ${frame.functionName || 'application'} (${frame.file}${line}${column})`;
+  }).filter(Boolean).join('\n') || null;
 }
 
 class BrowserRuntimeSurface {
@@ -124,29 +144,43 @@ class BrowserRuntimeSurface {
 
     if (typeof win.addEventListener === 'function') {
       this.#onError = event => {
+        const captured = captureSourceProvenance({
+          source: _errorSource(event),
+          stack: event?.error?.stack || null,
+          kind: SourceProvenanceKind.ERROR_ORIGIN,
+          basis: event?.filename ? 'browser-error-event' : 'runtime-stack',
+        });
         this.#store.emit({
           type: RuntimeEventType.ERROR,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-2' },
-          source: _errorSource(event),
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+          source: captured.source,
           correlation: this.#correlationContext?.correlation?.(),
-          evidence: _browserEvidence(),
+          evidence: _browserEvidence(captured.source),
           payload: {
             phase: 'window.error',
             message: event?.error?.message || event?.message || 'Unhandled browser error',
-            stack: event?.error?.stack || null,
+            stack: _applicationStack(captured.provenance),
+            ..._provenancePayload(captured.provenance),
           },
         });
       };
       this.#onUnhandledRejection = event => {
+        const captured = captureSourceProvenance({
+          stack: event?.reason?.stack || null,
+          kind: SourceProvenanceKind.ERROR_ORIGIN,
+          basis: 'runtime-stack',
+        });
         this.#store.emit({
           type: RuntimeEventType.ERROR,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-2' },
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+          source: captured.source,
           correlation: this.#correlationContext?.correlation?.(),
-          evidence: _browserEvidence(),
+          evidence: _browserEvidence(captured.source),
           payload: {
             phase: 'unhandledrejection',
             message: event?.reason?.message || String(event?.reason || 'Unhandled promise rejection'),
-            stack: event?.reason?.stack || null,
+            stack: _applicationStack(captured.provenance),
+            ..._provenancePayload(captured.provenance),
           },
         });
       };
@@ -217,11 +251,17 @@ class BrowserRuntimeSurface {
     if (!entry) return;
     const traceId = `net-${Date.now()}-${++_networkTraceSequence}`;
     const interactionId = this.#correlationContext?.currentInteraction?.() || null;
+    const captured = captureSourceProvenance({
+      stack: entry.callStack || null,
+      kind: SourceProvenanceKind.INVOCATION,
+      basis: 'network-call-stack',
+    });
     this.#store.emit({
       type: RuntimeEventType.NETWORK_COMPLETED,
-      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-2' },
+      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+      source: captured.source,
       correlation: { traceId, interactionId },
-      evidence: _browserEvidence(),
+      evidence: _browserEvidence(captured.source),
       payload: {
         path: _pathWithoutQuery(entry.url || entry.fullUrl),
         method: entry.method || 'GET',
@@ -232,27 +272,34 @@ class BrowserRuntimeSurface {
         isError: entry.isError === true,
         isSlow: entry.isSlow === true,
         isLarge: entry.isLarge === true,
+        ..._provenancePayload(captured.provenance),
       },
     });
   }
 
   #recordSequentialOpportunity(opportunity) {
     if (!opportunity) return;
+    const source = opportunity.callerFile ? {
+      file: opportunity.callerFile,
+      line: Number.parseInt(opportunity.callerLine, 10) || null,
+      functionName: opportunity.callerFn || null,
+    } : null;
+    const captured = captureSourceProvenance({
+      source,
+      kind: SourceProvenanceKind.COMMON_ORIGIN,
+      basis: 'sequential-request-common-origin',
+    });
     this.#store.emit({
       type: RuntimeEventType.DIAGNOSTIC,
-      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-2' },
-      source: opportunity.callerFile ? {
-        file: opportunity.callerFile,
-        line: Number.parseInt(opportunity.callerLine, 10) || null,
-        functionName: opportunity.callerFn || null,
-      } : null,
+      framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
+      source: captured.source,
       correlation: this.#correlationContext?.correlation?.(),
       evidence: {
-        level: opportunity.callerFile ? EvidenceLevel.ATTRIBUTION : EvidenceLevel.CORRELATION,
-        attribution: opportunity.callerFile
+        level: captured.source ? EvidenceLevel.ATTRIBUTION : EvidenceLevel.CORRELATION,
+        attribution: captured.source
           ? AttributionQuality.SOURCE_ATTRIBUTED
           : AttributionQuality.TEMPORAL_INFERENCE,
-        confidence: opportunity.callerFile ? 0.9 : 0.75,
+        confidence: captured.source ? 0.9 : 0.75,
       },
       payload: {
         diagnostic: 'network.sequential-api-opportunity',
@@ -261,6 +308,7 @@ class BrowserRuntimeSurface {
         totalMs: opportunity.totalMs,
         estimatedSavingsMs: opportunity.estimatedSavingsMs,
         callerFn: opportunity.callerFn || null,
+        ..._provenancePayload(captured.provenance),
       },
     });
   }
@@ -275,7 +323,7 @@ class BrowserRuntimeSurface {
         const interactionId = `interaction-${Date.now()}-${++_interactionSequence}`;
         const emitted = this.#store.emit({
           type: RuntimeEventType.INTERACTION,
-          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-2' },
+          framework: { name: 'browser', adapterVersion: 'browser-runtime-surface-3' },
           correlation: { interactionId },
           evidence: _browserEvidence(),
           payload: {

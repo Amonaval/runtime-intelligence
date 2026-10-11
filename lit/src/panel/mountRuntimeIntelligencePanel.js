@@ -1,4 +1,5 @@
 import './LdsDebugPanel.js';
+import { enrichPinpointIssueSource } from './pinpoint-source-enrichment.js';
 import { bridgeRuntimeEvidenceToPanel } from './runtime-evidence-bridge.js';
 import { installRuntimeOpportunitiesPanel } from './opportunities-panel-presentation.js';
 import {
@@ -82,7 +83,10 @@ function mountRuntimeIntelligencePanel({
     : null;
   if (originalRenderIssueCard) {
     element._renderIssueCard = issue => originalRenderIssueCard(
-      enhanceRuntimeIssueForFramework(issue, { framework: resolveFramework() }),
+      enhanceRuntimeIssueForFramework(
+        enrichPinpointIssueSource(issue, store),
+        { framework: resolveFramework() },
+      ),
     );
   }
 

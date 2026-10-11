@@ -125,12 +125,37 @@ function _sourceLabel(item) {
   const source = item?.source;
   if (!source?.file) return null;
   const line = Number.isFinite(source.line) ? `:${source.line}` : '';
-  return `${source.file}${line}`;
+  const column = Number.isFinite(source.column) ? `:${source.column}` : '';
+  return `${source.file}${line}${column}`;
+}
+
+function _provenanceLabel(kind) {
+  switch (kind) {
+    case 'invocation': return 'Request invocation';
+    case 'registration': return 'Resource registration';
+    case 'error-origin': return 'Error origin';
+    case 'component-definition': return 'Component definition';
+    case 'common-origin': return 'Common request origin';
+    case 'related': return 'Related source';
+    default: return null;
+  }
+}
+
+function _applicationFrames(item) {
+  const frames = item?.payload?.sourceProvenance?.frames;
+  if (!Array.isArray(frames)) return Object.freeze([]);
+  return Object.freeze(frames.slice(0, 5).map(frame => Object.freeze({
+    file: frame?.file || null,
+    line: Number.isFinite(frame?.line) ? frame.line : null,
+    column: Number.isFinite(frame?.column) ? frame.column : null,
+    functionName: frame?.functionName || null,
+  })).filter(frame => frame.file));
 }
 
 function decorateRuntimeOpportunity(item) {
   const origin = item?.synthetic === true || item?.payload?.synthetic === true ? 'synthetic' : 'observed';
   const category = opportunityCategory(item?.kind);
+  const provenance = item?.payload?.sourceProvenance || null;
   return Object.freeze({
     ...item,
     origin,
@@ -141,6 +166,9 @@ function decorateRuntimeOpportunity(item) {
     priority: opportunityPriority(item),
     summary: opportunitySummary(item),
     sourceLabel: _sourceLabel(item),
+    sourceProvenance: provenance,
+    sourceProvenanceLabel: _provenanceLabel(provenance?.kind),
+    applicationFrames: _applicationFrames(item),
     evidenceLevel: item?.evidence?.level || 'observation',
     navigation: opportunityNavigation(item),
   });

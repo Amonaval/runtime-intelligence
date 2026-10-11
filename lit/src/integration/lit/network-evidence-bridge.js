@@ -5,6 +5,7 @@ import {
 } from '../../core/evidence-protocol.js';
 import { evidenceStore } from '../../core/evidence-store.js';
 import { LdsNetwork } from '../../core/network.js';
+import { captureSourceProvenance, SourceProvenanceKind } from '../../core/source-provenance.js';
 
 let _networkTraceSequence = 0;
 
@@ -21,16 +22,26 @@ function _safePath(entry) {
 
 function recordLegacyNetworkEntry(entry, { store = evidenceStore } = {}) {
     if (!entry || !store || typeof store.emit !== 'function') return null;
+    const captured = captureSourceProvenance({
+        stack: entry.callStack || null,
+        kind: SourceProvenanceKind.INVOCATION,
+        basis: 'network-call-stack',
+    });
     return store.emit({
         type: RuntimeEventType.NETWORK_COMPLETED,
         framework: {
             name: 'browser',
-            adapterVersion: 'legacy-network-bridge-1',
+            adapterVersion: 'legacy-network-bridge-2',
         },
+        source: captured.source,
         correlation: {
             traceId: _nextNetworkTraceId(entry),
         },
-        evidence: {
+        evidence: captured.source ? {
+            level: EvidenceLevel.ATTRIBUTION,
+            attribution: AttributionQuality.SOURCE_ATTRIBUTED,
+            confidence: 0.95,
+        } : {
             level: EvidenceLevel.OBSERVATION,
             attribution: AttributionQuality.DETERMINISTIC,
             confidence: 1,
@@ -45,6 +56,7 @@ function recordLegacyNetworkEntry(entry, { store = evidenceStore } = {}) {
             isError: entry.isError === true,
             isSlow: entry.isSlow === true,
             isLarge: entry.isLarge === true,
+            ...(captured.provenance ? { sourceProvenance: captured.provenance } : {}),
         },
     });
 }

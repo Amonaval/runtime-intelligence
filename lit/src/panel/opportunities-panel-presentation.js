@@ -84,6 +84,14 @@ function _evidenceColor(level) {
   return '#9399b2';
 }
 
+function _frameLabel(frame) {
+  if (!frame?.file) return '';
+  const line = Number.isFinite(frame.line) ? `:${frame.line}` : '';
+  const column = Number.isFinite(frame.column) ? `:${frame.column}` : '';
+  const fn = frame.functionName ? `${frame.functionName} — ` : '';
+  return `${fn}${frame.file}${line}${column}`;
+}
+
 function _navigate(panel, item) {
   const nav = item.navigation;
   if (!nav) return;
@@ -115,7 +123,20 @@ function _renderOpportunityCard(panel, item) {
           </div>
           <div style="color:#bac2de;font-size:11px;margin-top:5px;line-height:1.45">${item.summary}</div>
           ${item.owner?.name ? html`<div style="color:#89b4fa;font-size:10px;margin-top:5px">${item.owner.name}</div>` : ''}
-          ${item.sourceLabel ? html`<div style="color:#a6e3a1;font-size:10px;margin-top:2px;overflow-wrap:anywhere">${item.sourceLabel}</div>` : html`<div style="color:#585b70;font-size:10px;margin-top:2px">Runtime/browser observation — no reliable source attribution</div>`}
+          ${item.sourceLabel ? html`
+            <div style="margin-top:7px;padding:6px 8px;border:1px solid #2f4f3a;border-radius:5px;background:#0d1a12">
+              <div style="color:#a6e3a1;font-size:11px;font-weight:600;overflow-wrap:anywhere">📍 ${item.sourceLabel}</div>
+              ${item.sourceProvenanceLabel ? html`<div style="color:#7f9f86;font-size:9px;margin-top:2px">${item.sourceProvenanceLabel}${item.sourceProvenance?.precision ? ` · ${item.sourceProvenance.precision}` : ''}</div>` : ''}
+              ${item.applicationFrames?.length > 1 ? html`
+                <details style="margin-top:4px;color:#9399b2;font-size:9px">
+                  <summary style="cursor:pointer">Application stack · ${item.applicationFrames.length} frames</summary>
+                  <div style="margin-top:4px;line-height:1.5;overflow-wrap:anywhere">
+                    ${item.applicationFrames.map(frame => html`<div>${_frameLabel(frame)}</div>`)}
+                  </div>
+                </details>
+              ` : ''}
+            </div>
+          ` : html`<div style="color:#585b70;font-size:10px;margin-top:2px">Runtime/browser observation — no reliable source attribution</div>`}
         </div>
       </div>
 
@@ -168,7 +189,7 @@ function _renderOpportunitiesTab(panel, { store, windowTarget }) {
     </div>
 
     <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 10px;margin-bottom:10px;color:#6c7086;font-size:10px;line-height:1.45">
-      Opportunities are actionable optimization or reliability signals. Evidence strength is preserved: observation/correlation does not imply causality. Synthetic entries exist only in validation labs and are clearly marked.
+      Opportunities are actionable optimization or reliability signals. Evidence strength is preserved: observation/correlation does not imply causality. Source labels describe where an operation was observed or attributed; they do not by themselves prove root cause. Synthetic entries exist only in validation labs and are clearly marked.
     </div>
 
     <div class="filter-bar" style="gap:8px;align-items:center">

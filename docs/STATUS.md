@@ -5,17 +5,14 @@
 
 ## Canonical baseline
 
-Current `main` includes validated React R5.7.4 plus accepted product hardening/productization work.
+Current `main` includes validated React R5.7.4, R6 productization, completed Vue R7, and the active P0 Source Pinpoint / Provenance program.
 
 - Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
-- R6.1 Package Contract & Publish Safety: complete
-- R6.2 Production Safety & Conditional Loading: complete
-- R6.3 Developer Onboarding & Reproducible Installation: complete
-- R6.4 Public API Stability & Extension Contract: complete
-- R6.5 Distribution / License / IP Strategy: complete
-- R7 Vue Adapter + Vue Fault Lab: complete in source; full repository release validation remains a checkout-level checkpoint
-- TrustWeave remains intentionally pinned to the R5.7.4 baseline; R7 does not require a consumer repin.
+- R6.1–R6.5 productization: complete
+- R7 Vue Adapter + Vue Fault Lab: complete and validated by the follow-up Vue work
+- P0 Source Pinpoint / Provenance: **ACTIVE — highest product priority**
+- Angular/framework expansion: **BLOCKED/DEFERRED until P0 value-proposition closure**
 
 ## Current product state
 
@@ -23,76 +20,63 @@ Runtime Intelligence is one mature developer product with framework adapters, no
 
 ```text
 explicit production/debug gate
-        -> runtime-intelligence/loader (default off, dynamic imports only)
+        -> runtime-intelligence/loader
         -> LitAdapter / ReactAdapter / VueAdapter / governed extensions
         -> Universal Runtime Evidence Protocol (UREP)
         -> shared evidence store
-        -> incident recorder + EvidenceGraph + RootCauseGrouper
-        -> shared developer intelligence / evidence capsule
-        -> normalized opportunities/report model
-        -> one mature LdsDebugPanel (✨ Intelligence + ⚡ Opportunities)
-        -> normalized runtime-intelligence-report/1 JSON + HTML
+        -> source provenance + EvidenceGraph/root-cause + shared advisers
+        -> normalized findings/opportunities/report
+        -> one canonical mature panel
 ```
 
 The governing rule remains evidence honesty: observation, correlation, attribution, lifetime violation and confirmed causality must never be conflated.
 
-## React validation — CLOSED
+## React validation — CLOSED for parity, OPEN for P0 source precision
 
-Completed sequence: R5.2 through R5.7.4. Further React work is defect-driven only.
+R5.2–R5.7.4 parity is complete. React work is now defect/value-driven only. Real TrustWeave testing exposed a major product-value gap: many useful findings did not automatically identify the application call site with file/line/column.
 
-## R6 productization — COMPLETE
+## R6 — COMPLETE
 
-R6.1–R6.5 establish the package contract, production safety, reproducible onboarding, public API/extension contract and private/proprietary distribution boundary.
-
-Full repository `npm run validate:release` remains a release checkpoint in a normal checked-out environment.
+Package contract, production safety, onboarding, public API/extension stability and private/proprietary distribution are complete.
 
 ## R7 — Vue Adapter + Vue Fault Lab — COMPLETE
 
-R7 adds Vue as another thin framework evidence producer while keeping the existing shared product architecture.
+Vue remains a thin UREP evidence producer reusing the same browser surface, intelligence, Opportunities/reporting and canonical panel.
 
-Implemented:
+## P0 — Source Pinpoint / Provenance — ACTIVE
 
-- `runtime-intelligence/vue` public subpath;
-- `VueAdapter` with explicit capability honesty;
-- Vue lifecycle ownership through application-wide mixin hooks;
-- observed update lifecycle timing (`beforeUpdate` → `updated`) without claiming render-only timing;
-- Vue application error-handler observation;
-- explicit resource acquisition/release evidence;
-- shared `VueIntelligenceRuntime` using the same browser surface, pipeline, advisers and canonical panel;
-- production-safe Vue installation that is side-effect free when disabled;
-- loader/package/API/onboarding wiring;
-- synthetic Vue Fault Lab for slow updates, errors, repeated updates, explicit resource lifetime and interaction/network correlation;
-- focused unit coverage for adapter semantics, integration teardown and runtime reuse.
+### P0.1 — Universal runtime invocation provenance — implemented in source
 
-Evidence constraints:
+P0.1 adds a framework-neutral source-provenance layer and closes the highest-value evidence loss found during TrustWeave dogfood:
 
-- `UPDATE_CAUSE`: unsupported;
-- `REACTIVE_DEPENDENCY`: unsupported;
-- state-change causality is not invented;
-- owner hierarchy is structural only;
-- update timing is a lifecycle-window observation;
-- errors are observations;
-- resource ownership is emitted only from explicit instrumentation.
+- captured network call stacks are no longer discarded at the UREP boundary;
+- browser errors/unhandled rejections derive bounded application-only source provenance when available;
+- sequential API opportunities retain their common caller location;
+- Lit legacy network evidence uses the same provenance path;
+- Opportunities prominently shows file:line:column, provenance meaning and application frames;
+- canonical Pinpoint enriches legacy cards from source-bearing UREP evidence instead of inventing fallback paths;
+- internal/vendor-only stacks remain unattributed rather than producing false precision;
+- local machine roots are minimized where possible.
 
-## Validation state
+P0.1 deliberately does **not** claim that a runtime invocation location is a root cause. React render timing remains an observation unless stronger evidence exists.
 
-Performed during R7 implementation:
+### P0 validation state
 
-- source inspection against current `main`;
-- syntax validation of the new Vue JavaScript files;
-- focused isolated behavioral harness for Vue adapter/integration semantics: **11 passed, 0 failed**.
+Focused executable validation covers source parsing/filtering, TrustWeave-style Next stacks, browser network/error integration, legacy network bridging and panel presentation.
 
-Not claimed in this connector session:
+Still required for full P0 closure:
 
-- full `npm run validate:release`;
-- Vue Fault Lab browser execution;
-- packed tarball/onboarding execution;
-- real Vue consumer dogfood.
+- real TrustWeave browser dogfood on the new runtime build;
+- React/Next component-definition/original-source attribution where runtime stacks alone are insufficient;
+- source-map/build metadata strategy and validation;
+- finding → displayed location → relevant code acceptance test on real issues.
 
-Those remain explicit follow-up validation gates.
+See `docs/P0-SOURCE-PINPOINT-PROVENANCE.md`.
 
-## Next: R8 — Angular Adapter + Angular Fault Lab
+## Next — P0.2, not Angular
 
-Recommended effort: **MEDIUM-HIGH**.
+**P0.2 — React/Next original-source attribution + source-map/build metadata + real TrustWeave closure.**
 
-Use the same constraint as Vue: Angular is only an evidence producer into UREP and the existing intelligence/panel stack. Before coding, define which Angular lifecycle/profiling signals are deterministic versus merely observable.
+Recommended effort: **HIGH**.
+
+Angular remains deferred until Runtime Intelligence's core value proposition is demonstrably strong in real consumer use.

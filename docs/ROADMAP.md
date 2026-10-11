@@ -8,60 +8,57 @@ Missions 01–12 established FrameworkAdapter v2, UREP, EvidenceGraph/root-cause
 
 R5.2 through R5.7.4 unified React with the canonical mature panel, shared browser collectors/intelligence, ownership/profiling, Fault Lab validation, normalized JSON/HTML reports and first-class Opportunities.
 
-Do not restart React parity work unless real dogfood exposes a concrete defect.
+Parity is closed. New React work is allowed when real dogfood exposes a concrete trust/value defect.
 
 ## R6 — Productization & distribution — COMPLETE
 
-### R6.1 — DONE — MEDIUM
-Package Contract & Publish Safety.
+R6.1–R6.5 established package safety, conditional loading, onboarding, public API/extension stability and the private/proprietary distribution boundary.
 
-### R6.2 — DONE — MEDIUM-HIGH
-Production Safety & Conditional Loading.
+## R7 — Vue Adapter + Vue Fault Lab — COMPLETE
 
-### R6.3 — DONE — MEDIUM
-Developer Onboarding & Reproducible Installation.
+Vue is another thin framework evidence producer into the same UREP/intelligence/panel product.
 
-### R6.4 — DONE — MEDIUM-HIGH
-Public API Stability & Extension Contract.
+## P0 — ACTIVE — SOURCE PINPOINT / PROVENANCE
 
-### R6.5 — DONE — LOW-MEDIUM
-Distribution / License / IP Strategy.
+This program supersedes framework-count expansion. Runtime Intelligence must first become extremely strong at turning runtime evidence into an actionable source location.
 
-- package remains `runtime-intelligence` and `private: true`;
-- proprietary `UNLICENSED` baseline + `LICENSE.md`;
-- authorized private Git/tarball distribution only;
-- no public registry and no hard-coded registry;
-- distribution posture enforced by `npm run distribution:validate`;
-- release validation includes distribution policy;
-- obfuscation is not treated as an IP boundary;
-- secret/premium intelligence may later live behind an opt-in service boundary.
+### P0.1 — Universal runtime invocation provenance — DONE IN SOURCE — HIGH
 
-## R7 — DONE — MEDIUM-HIGH
+- shared application-frame extraction and filtering;
+- bounded provenance metadata with explicit meaning;
+- network invocation source preserved into UREP;
+- browser error/rejection source attribution when provable;
+- sequential request common-origin provenance;
+- legacy Lit network parity;
+- Opportunities file:line:column + provenance/application stack;
+- canonical Pinpoint source enrichment;
+- no fabricated source when only internal/vendor frames exist.
 
-Vue Adapter + Vue Fault Lab.
+Full closure still requires real consumer validation.
 
-- Vue is a thin UREP evidence producer, not a new product fork;
-- owner lifecycle and update lifecycle use Vue application lifecycle hooks;
-- update timing is an observed `beforeUpdate` → `updated` window, not render-only profiling;
-- update cause and reactive dependency remain unsupported;
-- app-level Vue errors feed the existing error evidence path;
-- explicit resource ownership is supported without manufacturing lifetime violations;
-- shared browser collectors, advisers, RuntimeIntelligencePipeline, Opportunities/report model and canonical panel are reused;
-- `/vue` is a deliberate additive public API/package subpath;
-- synthetic Vue Fault Lab covers representative validation cases.
+### P0.2 — NEXT — HIGH
 
-Full checkout-level release validation and real-browser Fault Lab execution remain validation gates rather than assumed results.
+React/Next original-source attribution + source maps/build metadata + real TrustWeave closure.
 
-## R8 — NEXT — MEDIUM-HIGH
+Goals:
 
-Angular Adapter + Angular Fault Lab.
+- identify component definition/original TSX location without pretending a React Profiler callback stack is the component source;
+- use dev-build metadata and/or source-map providers where generated runtime coordinates need mapping;
+- keep integration automatic or near-zero-friction for consumers;
+- validate against real TrustWeave findings, not only Fault Labs;
+- require finding → file:line → relevant code without manual repository search;
+- retain generated/related/unknown labels when exact original source cannot be proven.
 
-- define an Angular capability/evidence matrix before implementation;
-- reuse UREP and shared intelligence;
-- avoid framework-specific root-cause/opportunity/report/panel forks;
-- create only the smallest synthetic lab needed to validate Angular evidence semantics;
-- preserve production-safe conditional loading and the private package contract.
+### P0.3 — only if real dogfood justifies it
 
-## After R8
+Extend the same provenance primitive to additional high-value collectors such as console diagnostics and automatic resource registration/ownership callsites. Do not add collectors merely for breadth.
 
-Broader dogfood/adoption work should be justified by real consumers and defects, not framework-count targets.
+## R8 — Angular Adapter + Angular Fault Lab — DEFERRED / BLOCKED
+
+Do not start Angular until P0 source precision and the overall developer value proposition are mature and validated in real consumer use.
+
+When unblocked, Angular must remain a thin UREP evidence producer and reuse the same provenance/intelligence/panel stack.
+
+## Governing roadmap rule
+
+Optimize for **developer time-to-relevant-code**, not number of supported frameworks or number of diagnostics.
