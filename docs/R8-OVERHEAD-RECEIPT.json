@@ -1,0 +1,51 @@
+{
+  "scope": "Node synthetic evidence throughput; p95 is across batch averages, not browser render latency or heap proof",
+  "node": "v24.19.0",
+  "rows": [
+    {
+      "mode": "store-only",
+      "eventsPerBatch": 1000,
+      "measuredBatches": 7,
+      "p50BatchAverageMsPerEvent": 0.011247192999999996,
+      "p95BatchAverageMsPerEvent": 0.015553134999999997,
+      "budgetMsPerEvent": 5,
+      "result": "PASS",
+      "retentionCap": 250
+    },
+    {
+      "mode": "React browser-free runtime",
+      "eventsPerBatch": 1000,
+      "measuredBatches": 7,
+      "p50BatchAverageMsPerEvent": 0.007385295000000013,
+      "p95BatchAverageMsPerEvent": 0.00799798899999999,
+      "budgetMsPerEvent": 5,
+      "result": "PASS",
+      "retentionCap": 250
+    },
+    {
+      "mode": "Vue browser-free runtime",
+      "eventsPerBatch": 1000,
+      "measuredBatches": 7,
+      "p50BatchAverageMsPerEvent": 0.006406620000000032,
+      "p95BatchAverageMsPerEvent": 0.008652595999999988,
+      "budgetMsPerEvent": 5,
+      "result": "PASS",
+      "retentionCap": 250
+    },
+    {
+      "mode": "shared slow-analysis",
+      "eventsPerBatch": 20,
+      "measuredBatches": 7,
+      "p50BatchAverageMsPerEvent": 0.3537744000000004,
+      "p95BatchAverageMsPerEvent": 0.4327349499999997,
+      "budgetMsPerEvent": 100,
+      "result": "PASS",
+      "retentionCap": 250
+    }
+  ],
+  "budgets": {
+    "ordinaryBatchP95MsPerEvent": 5,
+    "analysisBatchP95MsPerEvent": 100
+  },
+  "disabledLoaderImports": 0
+}

@@ -229,3 +229,7 @@ npm run lab:react:hostile:validate
 Current work prioritizes **developer value and source precision over adding more framework adapters**. Angular and broader framework expansion remain blocked until the P0 source-pinpoint value proposition is mature.
 
 See [`docs/STATUS.md`](docs/STATUS.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and [`docs/P0-SOURCE-PINPOINT-PROVENANCE.md`](docs/P0-SOURCE-PINPOINT-PROVENANCE.md).
+
+## R8 hardening validation
+
+Run `npm run validate:release`, `npm run overhead:validate` and `npm run compatibility:validate`. The compatibility validator tests two exact packed-artifact framework rows; enable its browser checks with RI_PLAYWRIGHT_MODULE and RI_CHROMIUM_EXECUTABLE. Without browser configuration those checks remain NOT EXECUTED. See [R8-HARDENING.md](docs/R8-HARDENING.md) for tested versions, receipts, reproduction and explicit coverage limits. Canonical and legacy reports now include exportPrivacy audit metadata and scrub every exported branch.

@@ -24,6 +24,11 @@ import { installLegacyNetworkEvidenceBridge } from './integration/lit/network-ev
 
 // Page-level tools are initialized once per enabled page session.
 let _pageToolsInited = false;
+let _networkBridgeCleanup = null;
+let _networkAcquired = false;
+let _vitalsAcquired = false;
+const _activeElements = new Set();
+const _detachRuntime = Symbol('runtime-intelligence-detach');
 const _runtimeActive = Symbol('runtime-intelligence-active');
 
 function _initPageTools() {
@@ -32,9 +37,23 @@ function _initPageTools() {
     const intelligenceEnabled = _toolEnabled('intelligence');
     const networkEnabled = _toolEnabled('network');
     if (intelligenceEnabled) getLitIntelligencePipeline().start();
-    if (intelligenceEnabled && networkEnabled) installLegacyNetworkEvidenceBridge();
-    if (_toolEnabled('vitals')) LdsVitals.init();
-    if (networkEnabled) LdsNetwork.init();
+    if (intelligenceEnabled && networkEnabled) _networkBridgeCleanup = installLegacyNetworkEvidenceBridge();
+    if (_toolEnabled('vitals')) _vitalsAcquired = LdsVitals.init() !== false;
+    if (networkEnabled) _networkAcquired = LdsNetwork.init() !== false;
+}
+
+function stopLitPageTools() {
+    if (!_pageToolsInited) return false;
+    for (const element of [..._activeElements]) element[_detachRuntime]();
+    _networkBridgeCleanup?.();
+    _networkBridgeCleanup = null;
+    getLitIntelligencePipeline().stop();
+    if (_networkAcquired) LdsNetwork.detach();
+    if (_vitalsAcquired) LdsVitals.detach();
+    _networkAcquired = false;
+    _vitalsAcquired = false;
+    _pageToolsInited = false;
+    return true;
 }
 
 const LitDebugMixin = superclass => class extends superclass {
@@ -47,6 +66,7 @@ const LitDebugMixin = superclass => class extends superclass {
         // Start opt-in intelligence recording before the first UREP owner event.
         _initPageTools();
         litAdapter.connect(this);
+        _activeElements.add(this);
 
         // Baseline diagnostics used by the mature panel while runtime is enabled.
         LdsMemory.attach(this);
@@ -64,6 +84,10 @@ const LitDebugMixin = superclass => class extends superclass {
 
     disconnectedCallback() {
         super.disconnectedCallback?.();
+        this[_detachRuntime]();
+    }
+
+    [_detachRuntime]() {
         if (!this[_runtimeActive]) return;
 
         // Detach in reverse attach order so diagnostic-owned resources are
@@ -81,6 +105,7 @@ const LitDebugMixin = superclass => class extends superclass {
         // The UREP owner is considered dead only after diagnostic cleanup.
         litAdapter.disconnect(this);
         this[_runtimeActive] = false;
+        _activeElements.delete(this);
     }
 
     requestUpdate(name, oldValue, options) {
@@ -91,19 +116,23 @@ const LitDebugMixin = superclass => class extends superclass {
     performUpdate(...args) {
         if (!this[_runtimeActive]) return super.performUpdate?.(...args);
 
+        const owner = litAdapter.ownerOf(this);
+        const complete = () => {
+            if (this[_runtimeActive] && owner?.connected && litAdapter.ownerOf(this) === owner) litAdapter.recordUpdateCompleted(this);
+        };
         litAdapter.recordUpdateStarted(this);
         try {
             const result = super.performUpdate?.(...args);
             if (result && typeof result.then === 'function') {
-                return result.finally(() => litAdapter.recordUpdateCompleted(this));
+                return result.finally(complete);
             }
-            litAdapter.recordUpdateCompleted(this);
+            complete();
             return result;
         } catch (error) {
-            litAdapter.recordUpdateCompleted(this);
+            complete();
             throw error;
         }
     }
 };
 
-export { LitDebugMixin };
+export { LitDebugMixin, stopLitPageTools };

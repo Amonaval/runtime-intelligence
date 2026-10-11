@@ -37,7 +37,9 @@
     "lab:react:hostile:accept": "npm --prefix examples/react-uninstrumented-lab run accept:browser",
     "lab:vue:install": "npm --prefix examples/vue-fault-lab install",
     "lab:vue": "npm --prefix examples/vue-fault-lab run dev",
-    "lab:vue:build": "npm --prefix examples/vue-fault-lab run build"
+    "lab:vue:build": "npm --prefix examples/vue-fault-lab run build",
+    "compatibility:validate": "node scripts/validate-r8-compatibility.mjs",
+    "overhead:validate": "node scripts/validate-r8-overhead.mjs"
   },
   "dependencies": { "lit": "^3.3.1" },
   "peerDependencies": { "react": ">=18.0.0", "vue": ">=3.3.0" },

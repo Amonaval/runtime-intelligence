@@ -1,3 +1,4 @@
+import { ownBrowserProperty } from '../shared/owned-browser-properties.js';
 import { EvidenceGraph } from '../../core/evidence-graph.js';
 import { RootCauseGrouper } from '../../core/root-cause.js';
 import { IncidentFlightRecorder } from '../../core/incident-flight-recorder.js';
@@ -99,6 +100,9 @@ class LitIntelligencePipeline {
     #transientIncidentSequence = 0;
     #slowUpdateThresholdMs;
     #presentInPanel;
+    #properties = new Map();
+    #releasePanel = null;
+    #releaseOpportunities = null;
 
     constructor({
         store = evidenceStore,
@@ -142,7 +146,7 @@ class LitIntelligencePipeline {
         this.#paintAdvisor = new PaintAdvisor({ store, windowTarget });
         this.#workerAdvisor = new WorkerOpportunityAdvisor({ store, windowTarget });
         this.#idleAdvisor = new IdleSchedulingAdvisor({ store });
-        installLitOpportunitiesPanelPresentation({ target: windowTarget });
+
         this.#recorder = new IncidentFlightRecorder({
             store,
             start: false,
@@ -160,6 +164,7 @@ class LitIntelligencePipeline {
 
     start() {
         if (this.#unsubscribe) return this;
+        this.#releaseOpportunities = installLitOpportunitiesPanelPresentation({ target: this.#windowTarget, managed: true });
         this.#recorder.start();
         this.#unsubscribe = this.#store.subscribe(event => this.#onEvidence(event));
         this.#latest = createReadyDeveloperSummary();
@@ -175,23 +180,24 @@ class LitIntelligencePipeline {
         this.#workerAdvisor?.start();
         this.#idleAdvisor?.start();
         if (this.#windowTarget) {
-            this.#windowTarget.__LDS_INTELLIGENCE_PIPELINE__ = this;
+            const own = (key, value) => this.#properties.set(key, ownBrowserProperty(this.#windowTarget, key, value));
+            own('__LDS_INTELLIGENCE_PIPELINE__', this);
+            own('__LDS_INTELLIGENCE__', this.#latest);
+            own('__LDS_CASCADE_REPORT__', this.#latestCascade);
             if (this.#falcorCallGraph) {
-                this.#windowTarget.__LDS_FALCOR_CALL_GRAPH__ = this.#falcorCallGraph;
+                own('__LDS_FALCOR_CALL_GRAPH__', this.#falcorCallGraph);
             }
             if (this.#sequentialDetector) {
-                this.#windowTarget.__LDS_SEQUENTIAL_API_DETECTOR__ = this.#sequentialDetector;
+                own('__LDS_SEQUENTIAL_API_DETECTOR__', this.#sequentialDetector);
             }
-            this.#windowTarget.__LDS_EXPORT_SESSION_REPORT__ = () => this.exportSessionReport();
+            own('__LDS_EXPORT_SESSION_REPORT__', () => this.exportSessionReport());
             if (_toolEnabled('intelligence')) {
                 if (this.#presentInPanel) {
-                    installLitIntelligencePanelPresentation({ target: this.#windowTarget });
+                    this.#releasePanel = installLitIntelligencePanelPresentation({ target: this.#windowTarget, managed: true });
                 }
                 if (this.#watchManager) {
-                    this.#windowTarget.__LDS_WATCH_PROPERTY__ =
-                        (tag, prop, opts) => this.#watchManager.watch(tag, prop, opts);
-                    this.#windowTarget.__LDS_UNWATCH_PROPERTY__ =
-                        (tag, prop) => this.#watchManager.unwatch(tag, prop);
+                    own('__LDS_WATCH_PROPERTY__', (tag, prop, opts) => this.#watchManager.watch(tag, prop, opts));
+                    own('__LDS_UNWATCH_PROPERTY__', (tag, prop) => this.#watchManager.unwatch(tag, prop));
                 }
             }
         }
@@ -215,6 +221,13 @@ class LitIntelligencePipeline {
         this.#workerAdvisor?.stop();
         this.#idleAdvisor?.stop();
         clearTimeout(this.#cascadeDebounce);
+        this.#cascadeDebounce = null;
+        this.#releaseOpportunities?.();
+        this.#releaseOpportunities = null;
+        this.#releasePanel?.();
+        this.#releasePanel = null;
+        for (const property of this.#properties.values()) property.release();
+        this.#properties.clear();
         return this;
     }
 
@@ -305,6 +318,7 @@ class LitIntelligencePipeline {
     }
 
     resume({ clear = true } = {}) {
+        if (!this.#unsubscribe) return this;
         this.#recorder.resume({ clear });
         this.#analysisContext = null;
         this.#latestCapsule = null;
@@ -352,7 +366,7 @@ class LitIntelligencePipeline {
         if (event.type === RuntimeEventType.DEPENDENCY_TRIGGERED) {
             clearTimeout(this.#cascadeDebounce);
             this.#cascadeDebounce = setTimeout(() => {
-                if (this.#recorder.incident()) return; // frozen crash takes priority
+                if (!this.#unsubscribe || this.#recorder.incident()) return; // stopped/frozen crash takes priority
                 const buf = this.#recorder.snapshot();
                 if (buf.length > 0) {
                     this.#analyze(event, this.#snapshotRollingIncident(event, 'cascade_refresh'));
@@ -462,7 +476,8 @@ class LitIntelligencePipeline {
 
     #dispatchPanelUpdate() {
         if (!this.#windowTarget) return;
-        this.#windowTarget.__LDS_CASCADE_REPORT__ = this.#latestCascade;
+        if (!this.#unsubscribe) return;
+        this.#properties.get('__LDS_CASCADE_REPORT__')?.update(this.#latestCascade);
         const EventCtor = this.#windowTarget.CustomEvent;
         if (typeof this.#windowTarget.dispatchEvent === 'function' && typeof EventCtor === 'function') {
             this.#windowTarget.dispatchEvent(new EventCtor('lds-intelligence-updated', {
@@ -475,7 +490,8 @@ class LitIntelligencePipeline {
         if (!this.#windowTarget) return;
         // This global is intentionally a compact developer view. Heavy forensic
         // evidence is available only through __LDS_INTELLIGENCE_PIPELINE__.exportCapsule().
-        this.#windowTarget.__LDS_INTELLIGENCE__ = this.#latest;
+        if (!this.#unsubscribe) return;
+        this.#properties.get('__LDS_INTELLIGENCE__')?.update(this.#latest);
         this.#dispatchPanelUpdate();
 
         // Mission 11C: persist compact finding to localStorage when MonitorInBackground is active

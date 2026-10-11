@@ -1,4 +1,4 @@
-import { shapeLegacyRuntimeReport } from './legacy-report-privacy.js';
+import { shapeLegacyRuntimeReport, sanitizeRuntimeReport } from './legacy-report-privacy.js';
 
 const OPPORTUNITY_FLAGS = Object.freeze([
   ['sequentialApiOpportunity', 'sequential-api-opportunity'],
@@ -218,7 +218,7 @@ function createRuntimeReport({
   let evidenceCapsule = null;
   try { evidenceCapsule = windowTarget?.__LDS_INTELLIGENCE_PIPELINE__?.exportCapsule?.() || null; } catch {}
 
-  return Object.freeze({
+  return Object.freeze(sanitizeRuntimeReport({
     schemaVersion: 'runtime-intelligence-report/1',
     reportTime: new Date().toISOString(),
     note: note || baseReport?.note || '',
@@ -240,7 +240,7 @@ function createRuntimeReport({
     evidenceCapsule,
     evidence: Object.freeze([...evidence]),
     legacyReport: shapeLegacyRuntimeReport(baseReport || {}),
-  });
+  }));
 }
 
 function _escapeHtml(value) {
@@ -252,17 +252,18 @@ function _originBadge(item) {
 }
 
 function buildRuntimeReportHtml(report) {
+  report = sanitizeRuntimeReport(report);
   const findingRows = (report.normalizedFindings || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${item.occurrenceCount || 1}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
   const opportunityRows = (report.opportunities || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${item.occurrenceCount || 1}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Runtime Intelligence Report</title>
 <style>*{box-sizing:border-box}body{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;margin:0;padding:24px;background:#111827;color:#e5e7eb}h1,h2{color:#93c5fd}h1{margin:0 0 6px}.meta{color:#9ca3af;margin-bottom:18px}.cards{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.card{background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 14px}.num{font-size:22px;font-weight:700}table{width:100%;border-collapse:collapse;margin:10px 0 22px}th,td{border-bottom:1px solid #374151;padding:7px;text-align:left;vertical-align:top}th{color:#9ca3af;background:#1f2937;position:sticky;top:0}pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;padding:8px;border-radius:6px;max-height:380px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;color:#93c5fd}.empty{color:#9ca3af}</style></head><body>
 <h1>Runtime Intelligence Report</h1>
 <div class="meta">${_escapeHtml(report.framework)} · ${_escapeHtml(report.reportTime)} · session ${_escapeHtml(report.sessionId || 'n/a')}</div>
-<div class="cards"><div class="card"><div class="num">${report.summary?.evidenceCount || 0}</div>evidence</div><div class="card"><div class="num">${report.summary?.diagnosticCount || 0}</div>diagnostics</div><div class="card"><div class="num">${report.summary?.opportunityCount || 0}</div>unique opportunities</div><div class="card"><div class="num">${report.summary?.normalizedFindingCount || 0}</div>unique findings</div></div>
+<div class="cards"><div class="card"><div class="num">${_escapeHtml(report.summary?.evidenceCount || 0)}</div>evidence</div><div class="card"><div class="num">${_escapeHtml(report.summary?.diagnosticCount || 0)}</div>diagnostics</div><div class="card"><div class="num">${_escapeHtml(report.summary?.opportunityCount || 0)}</div>unique opportunities</div><div class="card"><div class="num">${_escapeHtml(report.summary?.normalizedFindingCount || 0)}</div>unique findings</div></div>
 <h2>Normalized findings</h2>${findingRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Origin</th><th>Occurrences</th><th>Observed</th><th>Recommendation</th></tr></thead><tbody>${findingRows}</tbody></table>` : '<div class="empty">No normalized findings.</div>'}
 <h2>Optimization / reliability opportunities</h2>${opportunityRows ? `<table><thead><tr><th>Kind</th><th>Owner</th><th>Source</th><th>Evidence</th><th>Origin</th><th>Occurrences</th><th>Payload</th><th>Recommendation</th></tr></thead><tbody>${opportunityRows}</tbody></table>` : '<div class="empty">No opportunities.</div>'}
 <h2>Intelligence</h2><pre>${_escapeHtml(JSON.stringify(report.intelligence, null, 2))}</pre>
@@ -291,6 +292,7 @@ function _download({ documentTarget, content, mimeType, fileName }) {
 function downloadRuntimeReport({ report, format = 'json', documentTarget = typeof document !== 'undefined' ? document : null, prefix = 'runtime-intelligence-report' } = {}) {
   if (!report) return null;
   const stamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
+  report = sanitizeRuntimeReport(report);
   if (format === 'html') return _download({ documentTarget, content: buildRuntimeReportHtml(report), mimeType: 'text/html;charset=utf-8', fileName: `${prefix}-${stamp}.html` });
   return _download({ documentTarget, content: JSON.stringify(report, null, 2), mimeType: 'application/json;charset=utf-8', fileName: `${prefix}-${stamp}.json` });
 }

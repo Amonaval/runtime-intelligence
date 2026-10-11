@@ -1,5 +1,6 @@
 import { EvidenceLevel, AttributionQuality, RuntimeEventType } from './evidence-protocol.js';
 
+const MAX_TRACKED_OWNERS = 1000;
 const DEFAULT_BUDGET = Object.freeze({ countPerWindow: 5, windowMs: 100 });
 
 class UpdateBudgetMonitor {
@@ -7,7 +8,6 @@ class UpdateBudgetMonitor {
     #defaultBudget;
     #tagBudgets = new Map();
     #windows = new Map();
-    #ownerMeta = new Map();
     #violating = new Set();
     #unsubscribe = null;
     #active = false;
@@ -56,22 +56,36 @@ class UpdateBudgetMonitor {
     }
 
     #onEvent(event) {
-        if (!this.#active || event.type !== RuntimeEventType.UPDATE_COMPLETED) return;
+        if (!this.#active) return;
         const ownerId = event.owner?.id;
+        if (event.type === RuntimeEventType.OWNER_DESTROYED) {
+            this.#windows.delete(ownerId);
+            this.#violating.delete(ownerId);
+            return;
+        }
+        if (event.type !== RuntimeEventType.UPDATE_COMPLETED) return;
         if (!ownerId) return;
 
         const tag = event.owner?.name ?? ownerId;
-        this.#ownerMeta.set(ownerId, { tag });
 
         const budget = this.#tagBudgets.get(tag) ?? this.#defaultBudget;
         const now = event.timestamp ?? Date.now();
         const windowStart = now - budget.windowMs;
 
-        if (!this.#windows.has(ownerId)) this.#windows.set(ownerId, []);
+        if (!this.#windows.has(ownerId)) {
+            if (this.#windows.size >= MAX_TRACKED_OWNERS) {
+                const oldest = this.#windows.keys().next().value;
+                this.#windows.delete(oldest);
+                this.#violating.delete(oldest);
+            }
+            this.#windows.set(ownerId, []);
+        }
         const entries = this.#windows.get(ownerId);
         entries.push({ timestamp: now });
 
-        const pruned = entries.filter(e => e.timestamp > windowStart);
+        // Only the newest budget+1 timestamps are needed to detect an episode.
+        // This preserves the threshold while bounding a single-owner burst.
+        const pruned = entries.filter(e => e.timestamp > windowStart).slice(-(budget.countPerWindow + 1));
         this.#windows.set(ownerId, pruned);
 
         if (pruned.length > budget.countPerWindow) {

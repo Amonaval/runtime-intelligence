@@ -17,11 +17,6 @@ import {
 } from '../../core/evidence-protocol.js';
 
 let _instanceSequence = 0;
-const _owners = new WeakMap();
-const _physicalInstances = new WeakMap();
-const _lifecycleGenerations = new WeakMap();
-const _pendingUpdateEvents = new WeakMap();
-const _updateStarts = new WeakMap();
 const _stateChangeInterceptors = new WeakMap(); // LitAdapter instance → interceptor[]
 const _renderStacks = new WeakMap();            // LitAdapter instance → { el, ownerId, startEventId }[]
 
@@ -35,6 +30,11 @@ function _tag(el) {
 }
 
 class LitAdapter extends FrameworkAdapter {
+    #owners = new WeakMap();
+    #physicalInstances = new WeakMap();
+    #lifecycleGenerations = new WeakMap();
+    #pendingUpdateEvents = new WeakMap();
+    #updateStarts = new WeakMap();
     constructor(options = {}) {
         super({
             ...options,
@@ -72,17 +72,17 @@ class LitAdapter extends FrameworkAdapter {
 
     connect(el, { source = null, parentId = null } = {}) {
         if (!this.isManaged(el)) return null;
-        const existing = _owners.get(el);
+        const existing = this.#owners.get(el);
         if (existing?.connected) return existing;
 
-        let instanceId = _physicalInstances.get(el);
+        let instanceId = this.#physicalInstances.get(el);
         if (!instanceId) {
             instanceId = ++_instanceSequence;
-            _physicalInstances.set(el, instanceId);
+            this.#physicalInstances.set(el, instanceId);
         }
 
-        const lifecycleGeneration = (_lifecycleGenerations.get(el) || 0) + 1;
-        _lifecycleGenerations.set(el, lifecycleGeneration);
+        const lifecycleGeneration = (this.#lifecycleGenerations.get(el) || 0) + 1;
+        this.#lifecycleGenerations.set(el, lifecycleGeneration);
 
         const owner = {
             id: `lit-${instanceId}-life-${lifecycleGeneration}`,
@@ -94,7 +94,7 @@ class LitAdapter extends FrameworkAdapter {
             connected: true,
             source,
         };
-        _owners.set(el, owner);
+        this.#owners.set(el, owner);
         this.emit(RuntimeEventType.OWNER_CREATED, {
             owner,
             source,
@@ -109,11 +109,11 @@ class LitAdapter extends FrameworkAdapter {
     }
 
     disconnect(el, { source = null } = {}) {
-        const owner = _owners.get(el);
+        const owner = this.#owners.get(el);
         if (!owner?.connected) return null;
         owner.connected = false;
-        _pendingUpdateEvents.delete(el);
-        _updateStarts.delete(el);
+        this.#pendingUpdateEvents.delete(el);
+        this.#updateStarts.delete(el);
         const disconnStack = _renderStacks.get(this);
         if (disconnStack) {
             const idx = disconnStack.findLastIndex ? disconnStack.findLastIndex(e => e.el === el)
@@ -138,7 +138,7 @@ class LitAdapter extends FrameworkAdapter {
      * state.changed -> component.update.requested -> started -> completed.
      */
     recordUpdateRequested(el, name, oldValue, { source = null } = {}) {
-        const owner = _owners.get(el);
+        const owner = this.#owners.get(el);
         if (!owner?.connected) return null;
         const newValue = name == null ? undefined : el[name];
 
@@ -214,14 +214,14 @@ class LitAdapter extends FrameworkAdapter {
                 sameReference: oldValue === newValue && oldValue != null && typeof oldValue === 'object',
             },
         });
-        _pendingUpdateEvents.set(el, updateEvent.id);
+        this.#pendingUpdateEvents.set(el, updateEvent.id);
         return updateEvent;
     }
 
     recordUpdateStarted(el, { source = null } = {}) {
-        const owner = _owners.get(el);
+        const owner = this.#owners.get(el);
         if (!owner?.connected) return null;
-        const requestEventId = _pendingUpdateEvents.get(el) || null;
+        const requestEventId = this.#pendingUpdateEvents.get(el) || null;
         const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const event = this.emit(RuntimeEventType.UPDATE_STARTED, {
             owner,
@@ -237,18 +237,18 @@ class LitAdapter extends FrameworkAdapter {
             },
             payload: {},
         });
-        _updateStarts.set(el, { startedAt, eventId: event.id });
+        this.#updateStarts.set(el, { startedAt, eventId: event.id });
         // Push onto render stack so child requestUpdate calls can detect cascade
         _getStack(this).push({ el, ownerId: owner.id, startEventId: event.id });
         return event;
     }
 
     recordUpdateCompleted(el, { source = null } = {}) {
-        const owner = _owners.get(el);
+        const owner = this.#owners.get(el);
         if (!owner?.connected) return null;
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        const start = _updateStarts.get(el);
-        const requestEventId = _pendingUpdateEvents.get(el) || null;
+        const start = this.#updateStarts.get(el);
+        const requestEventId = this.#pendingUpdateEvents.get(el) || null;
         const durationMs = Number.isFinite(start?.startedAt) ? Math.max(0, now - start.startedAt) : null;
         const event = this.emit(RuntimeEventType.UPDATE_COMPLETED, {
             owner,
@@ -264,8 +264,8 @@ class LitAdapter extends FrameworkAdapter {
             },
             payload: { durationMs },
         });
-        _updateStarts.delete(el);
-        _pendingUpdateEvents.delete(el);
+        this.#updateStarts.delete(el);
+        this.#pendingUpdateEvents.delete(el);
         // Pop from render stack
         const stack = _renderStacks.get(this);
         if (stack) {
@@ -277,7 +277,7 @@ class LitAdapter extends FrameworkAdapter {
     }
 
     ownerOf(el) {
-        return _owners.get(el) || null;
+        return this.#owners.get(el) || null;
     }
 
     // ----- v1 Lit compatibility surface -----

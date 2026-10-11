@@ -1,5 +1,7 @@
+import { stopLitPageTools } from '../LitDebugMixin.js';
 import {
   RUNTIME_TOOL_KEYS,
+  _runtimeEnabled,
   _clearProgrammaticDebugFlag,
   _setProgrammaticDebugFlag,
 } from '../core/gate.js';
@@ -41,7 +43,9 @@ function configureLitRuntimeIntelligence({
     stop() {
       if (!active) return false;
       active = false;
-      return _clearProgrammaticDebugFlag(owner);
+      const cleared = _clearProgrammaticDebugFlag(owner);
+      if (cleared && !_runtimeEnabled()) stopLitPageTools();
+      return cleared;
     },
   });
 }

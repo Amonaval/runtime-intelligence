@@ -61,12 +61,24 @@ function recordLegacyNetworkEntry(entry, { store = evidenceStore } = {}) {
     });
 }
 
-let _unsubscribe = null;
+const _bridges = new WeakMap();
 function installLegacyNetworkEvidenceBridge({ network = LdsNetwork, store = evidenceStore } = {}) {
-    if (_unsubscribe) return _unsubscribe;
-    if (!network || typeof network.subscribe !== 'function') return null;
-    _unsubscribe = network.subscribe(entry => recordLegacyNetworkEntry(entry, { store }));
-    return _unsubscribe;
+    if (!network || typeof network.subscribe !== 'function' || !store || typeof store.emit !== 'function') return null;
+    let stores = _bridges.get(network);
+    if (!stores) { stores = new WeakMap(); _bridges.set(network, stores); }
+    if (stores.has(store)) return stores.get(store);
+    let active = true;
+    const unsubscribe = network.subscribe(entry => {
+        if (active) recordLegacyNetworkEntry(entry, { store });
+    });
+    const cleanup = () => {
+        if (!active) return;
+        active = false;
+        stores.delete(store);
+        unsubscribe?.();
+    };
+    stores.set(store, cleanup);
+    return cleanup;
 }
 
 export { installLegacyNetworkEvidenceBridge, recordLegacyNetworkEntry };

@@ -72,13 +72,13 @@ Known limits: no exact uninstrumented child render source; no original JSX sourc
 
 On 2026-10-11 UTC the user directed stopping TrustWeave after the running browser item and proceeding to R8. Installation/source gate/TypeScript, Playground load and timeline filtering passed. Directory profile QA timed out at its selector; later flows and connected API acceptance were not executed. This closes the work item, not overall P0 acceptance. No synthetic faults or generic runtime implementation were added to TrustWeave.
 
-## R8 — Multi-framework Product Hardening — HIGH — IN PROGRESS
+## R8 — Multi-framework Product Hardening — COMPLETE WITH BOUNDED COVERAGE
 
-R8.1 shared browser lifecycle is complete: overlapping page-flag ownership, best-effort startup/teardown, stale callback isolation, in-flight fetch generation isolation and XHR listener release. See [R8-HARDENING.md](R8-HARDENING.md).
+R8.1 lifecycle plus coordinated R8.2–R8.4 compatibility/contracts, broader teardown/retention, measured Node evidence throughput, disabled production, packed installation and export/privacy validation are complete. See [R8-HARDENING.md](R8-HARDENING.md) and machine receipts. Final release gate: 316 unit tests and 14 production checks PASS.
 
-Remaining: React/Lit/Vue compatibility/version matrix, adapter/provenance contracts, broader runtime teardown stress, overhead budgets, production-disable behavior, repeated package/loader installation and report privacy regression. Existing evidence limits remain explicit.
+Tested exact rows: React18.3.1/Vue3.3.13/Lit3.0.2 and React19.0.0/Vue3.5.13/Lit3.3.3. This does not claim full peer-range/browser coverage, browser heap-leak proof or production React profiling. TrustWeave P0 consumer acceptance remains partial by user direction.
 
-## R9 — Adoption / Product Experience — MEDIUM
+## R9 — Adoption / Product Experience — NEXT — MEDIUM
 
 Improve installation, Level 0 → Level 1 → Level 2 guidance, framework recipes, troubleshooting, finding/provenance explanations, “why this source?” and “what next?” workflows, and demo integrations.
 

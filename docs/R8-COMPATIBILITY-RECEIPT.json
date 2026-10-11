@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-11T21:03:24.805Z",
+  "scope": "Exact-version packed-artifact build and optional Chromium lifecycle smoke; no full framework range or browser matrix claim",
+  "rows": [
+    {
+      "requested": {
+        "react": "18.3.1",
+        "vue": "3.3.13",
+        "lit": "3.0.2"
+      },
+      "installed": {
+        "react": "18.3.1",
+        "react-dom": "18.3.1",
+        "vue": "3.3.13",
+        "lit": "3.0.2",
+        "vite": "5.4.21",
+        "runtime-intelligence": "0.1.3"
+      },
+      "build": "PASS",
+      "disabledBundle": "PASS",
+      "browser": "PASS",
+      "disabledStaticChunks": 2,
+      "evidence": {
+        "react": {
+          "events": 3,
+          "created": 1
+        },
+        "vue": {
+          "events": 3,
+          "created": 1
+        },
+        "lit": {
+          "events": 7,
+          "created": 1
+        }
+      },
+      "exportPrivacy": "PASS (export-only URL and raw-stack canaries)",
+      "browserModes": {
+        "lifecycle": "Vite development (React Profiler development API)",
+        "disabled": "Vite production build"
+      }
+    },
+    {
+      "requested": {
+        "react": "19.0.0",
+        "vue": "3.5.13",
+        "lit": "3.3.3"
+      },
+      "installed": {
+        "react": "19.0.0",
+        "react-dom": "19.0.0",
+        "vue": "3.5.13",
+        "lit": "3.3.3",
+        "vite": "5.4.21",
+        "runtime-intelligence": "0.1.3"
+      },
+      "build": "PASS",
+      "disabledBundle": "PASS",
+      "browser": "PASS",
+      "disabledStaticChunks": 2,
+      "evidence": {
+        "react": {
+          "events": 3,
+          "created": 1
+        },
+        "vue": {
+          "events": 3,
+          "created": 1
+        },
+        "lit": {
+          "events": 7,
+          "created": 1
+        }
+      },
+      "exportPrivacy": "PASS (export-only URL and raw-stack canaries)",
+      "browserModes": {
+        "lifecycle": "Vite development (React Profiler development API)",
+        "disabled": "Vite production build"
+      }
+    }
+  ],
+  "peerIsolation": {
+    "result": "PASS",
+    "missingPeers": [
+      "react",
+      "vue"
+    ],
+    "imported": [
+      "loader (disabled)",
+      "core",
+      "lit"
+    ]
+  }
+}

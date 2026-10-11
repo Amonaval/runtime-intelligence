@@ -51,19 +51,7 @@ function mountRuntimeIntelligencePanel({
     });
   }
 
-  const bridge = bridgeRuntimeEvidenceToPanel({ store, windowTarget });
-  const bridgeSourceResolver = typeof windowTarget.__LDS_TAG_TO_FILE__ === 'function'
-    ? windowTarget.__LDS_TAG_TO_FILE__
-    : null;
-  if (bridgeSourceResolver) {
-    windowTarget.__LDS_TAG_TO_FILE__ = tag => {
-      const resolved = bridgeSourceResolver(tag);
-      const syntheticFallback = `src/components/${tag}/${tag}.js`;
-      return resolved === syntheticFallback || resolved === 'src/components//.js'
-        ? ''
-        : resolved;
-    };
-  }
+  const bridge = bridgeRuntimeEvidenceToPanel({ store, windowTarget, syntheticFallback: false });
   const element = documentTarget.createElement('lds-debug-panel');
   element.setAttribute('data-runtime-intelligence-panel', 'canonical');
   documentTarget.body.appendChild(element);

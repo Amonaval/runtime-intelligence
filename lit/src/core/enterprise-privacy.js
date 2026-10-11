@@ -21,7 +21,7 @@ const _sensitiveHeaders = new Set([
   'x-api-key', 'x-auth-token', 'x-access-token',
 ]);
 const _urlKeys = new Set([
-  'url', 'uri', 'href', 'endpoint', 'requesturl', 'responseurl', 'sourceurl',
+  'url', 'uri', 'href', 'endpoint', 'requesturl', 'responseurl', 'sourceurl', 'fullurl', 'path',
 ]);
 const _headerKeys = new Set(['headers', 'requestheaders', 'responseheaders']);
 const _bodyKeys = new Set([
@@ -140,9 +140,11 @@ function _redactedValue() {
   return '[REDACTED]';
 }
 
-function _scrubString(input, policy, audit) {
+function _scrubString(input, policy, audit, scanUrls = true) {
   let value = String(input);
   let changed = false;
+  // Console/error prose may contain URLs outside a structured URL field.
+  if (scanUrls) value = value.replace(/https?:\/\/[^\s<>"')]+/g, url => maskUrlQuery(url, policy, audit));
 
   const bearer = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
   if (bearer.test(value)) {
@@ -184,13 +186,13 @@ function maskUrlQuery(value, policy = ENTERPRISE_SAFE_PRIVACY_POLICY, audit = nu
   if (typeof value !== 'string') return value;
   const localAudit = audit || _newAudit(policy, 'url');
   if (policy.urlQuery === PrivacyAction.KEEP) {
-    return _scrubString(value.split('#', 1)[0], policy, localAudit);
+    return _scrubString(value.split('#', 1)[0], policy, localAudit, false);
   }
 
   const hashIndex = value.indexOf('#');
   const withoutFragment = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
   const queryIndex = withoutFragment.indexOf('?');
-  if (queryIndex < 0) return _scrubString(withoutFragment, policy, localAudit);
+  if (queryIndex < 0) return _scrubString(withoutFragment, policy, localAudit, false);
 
   const base = withoutFragment.slice(0, queryIndex);
   const query = withoutFragment.slice(queryIndex + 1);

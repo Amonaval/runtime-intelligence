@@ -1,3 +1,4 @@
+import { ownBrowserProperty } from '../shared/owned-browser-properties.js';
 import { html } from 'lit';
 
 const INTELLIGENCE_TAB_KEY = 'intelligence';
@@ -445,21 +446,18 @@ function _patchPanelClass(target) {
  * Adds Runtime Intelligence as a dedicated tab in the mature LDS panel.
  * Existing tabs remain unchanged. No global/banner UI is injected into them.
  */
-function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null } = {}) {
-    if (!target?.customElements) return false;
-
-    if (!target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__) {
-        target.__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__ = true;
-        target.addEventListener?.('lds-intelligence-updated', () => {
+const presentationBridges = new WeakMap();
+function installLitIntelligencePanelPresentation({ target = typeof window !== 'undefined' ? window : null, managed = false } = {}) {
+    if (!target?.customElements) return managed ? () => {} : false;
+    let bridge = presentationBridges.get(target);
+    if (!bridge) {
+        const update = () => {
             const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
             for (const panel of panels) {
-                // Update Intelligence tab AND Falcor tab (hosts Sequential Opportunities section)
-                if (panel._tab === INTELLIGENCE_TAB_KEY || panel._tab === 'falcor') {
-                    panel.requestUpdate?.();
-                }
+                if (panel._tab === INTELLIGENCE_TAB_KEY || panel._tab === 'falcor') panel.requestUpdate?.();
             }
-        });
-        target.addEventListener?.('lds-replay-complete', (e) => {
+        };
+        const replay = e => {
             const { comparison, status } = e.detail || {};
             if (status === 'done' && comparison) {
                 target.__LDS_INTELLIGENCE_PIPELINE__?.recordVerification?.({
@@ -470,16 +468,34 @@ function installLitIntelligencePanelPresentation({ target = typeof window !== 'u
                     comparedAt: comparison.comparedAt || new Date().toISOString(),
                 });
             }
-        });
+        };
+        bridge = { clients: 0, persistent: false, active: true, update, replay,
+            flag: ownBrowserProperty(target, '__LDS_INTELLIGENCE_PANEL_BRIDGE_INSTALLED__', true) };
+        presentationBridges.set(target, bridge);
+        target.addEventListener?.('lds-intelligence-updated', update);
+        target.addEventListener?.('lds-replay-complete', replay);
+        if (!_patchPanelClass(target) && typeof target.customElements.whenDefined === 'function') {
+            const pendingBridge = bridge;
+            target.customElements.whenDefined('lds-debug-panel')
+                .then(() => { if (pendingBridge.active) _patchPanelClass(target); })
+                .catch(() => {});
+        }
     }
-
-    if (!_patchPanelClass(target) && typeof target.customElements.whenDefined === 'function') {
-        target.customElements.whenDefined('lds-debug-panel')
-            .then(() => _patchPanelClass(target))
-            .catch(() => {});
-    }
+    if (!managed) bridge.persistent = true; // Legacy callers intentionally install a page bridge.
+    else bridge.clients++;
     _syncAll(target);
-    return true;
+    if (!managed) return true;
+    let active = true;
+    return () => {
+        if (!active) return;
+        active = false;
+        if (--bridge.clients || bridge.persistent) return;
+        bridge.active = false;
+        target.removeEventListener?.('lds-intelligence-updated', bridge.update);
+        target.removeEventListener?.('lds-replay-complete', bridge.replay);
+        bridge.flag.release();
+        presentationBridges.delete(target);
+    };
 }
 
 export { installLitIntelligencePanelPresentation };

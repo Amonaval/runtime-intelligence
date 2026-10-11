@@ -1,3 +1,4 @@
+import { ownBrowserProperty } from './owned-browser-properties.js';
 import { EvidenceGraph } from '../../core/evidence-graph.js';
 import { RootCauseGrouper } from '../../core/root-cause.js';
 import { IncidentFlightRecorder } from '../../core/incident-flight-recorder.js';
@@ -62,6 +63,8 @@ class RuntimeIntelligencePipeline {
   #latestCapsule = null;
   #analysisContext = null;
   #sequence = 0;
+  #properties = new Map();
+  #releasePanel = null;
 
   constructor({
     store,
@@ -108,9 +111,9 @@ class RuntimeIntelligencePipeline {
     this.#budgetMonitor.start?.();
 
     if (this.#windowTarget) {
-      this.#windowTarget.__LDS_INTELLIGENCE_PIPELINE__ = this;
-      this.#windowTarget.__LDS_INTELLIGENCE_ENABLED__ = true;
-      installRuntimeIntelligencePanelPresentation({ target: this.#windowTarget });
+      this.#properties.set('__LDS_INTELLIGENCE_PIPELINE__', ownBrowserProperty(this.#windowTarget, '__LDS_INTELLIGENCE_PIPELINE__', this));
+      this.#properties.set('__LDS_INTELLIGENCE__', ownBrowserProperty(this.#windowTarget, '__LDS_INTELLIGENCE__', this.#latest));
+      this.#releasePanel = installRuntimeIntelligencePanelPresentation({ target: this.#windowTarget, managed: true });
     }
 
     this.#publish();
@@ -124,6 +127,10 @@ class RuntimeIntelligencePipeline {
     this.#navigationBridge?.stop();
     this.#networkCorrelator.stop();
     this.#budgetMonitor.stop?.();
+    this.#releasePanel?.();
+    this.#releasePanel = null;
+    for (const property of this.#properties.values()) property.release();
+    this.#properties.clear();
     return this;
   }
 
@@ -145,6 +152,7 @@ class RuntimeIntelligencePipeline {
   }
 
   resume({ clear = true } = {}) {
+    if (!this.#unsubscribe) return this;
     this.#recorder.resume({ clear });
     this.#analysisContext = null;
     this.#latestCapsule = null;
@@ -332,7 +340,8 @@ class RuntimeIntelligencePipeline {
 
   #publish() {
     if (!this.#windowTarget) return;
-    this.#windowTarget.__LDS_INTELLIGENCE__ = this.#latest;
+    if (!this.#unsubscribe) return;
+    this.#properties.get('__LDS_INTELLIGENCE__')?.update(this.#latest);
     this.#dispatchPanelUpdate();
   }
 }

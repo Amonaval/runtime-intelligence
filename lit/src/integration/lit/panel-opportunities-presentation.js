@@ -1,3 +1,4 @@
+import { ownBrowserProperty } from '../shared/owned-browser-properties.js';
 import { html } from 'lit';
 
 const OPPORTUNITIES_TAB_KEY = 'opportunities';
@@ -376,25 +377,41 @@ function _patchPanelClass(target) {
     return true;
 }
 
+const bridges = new WeakMap();
 function installLitOpportunitiesPanelPresentation({
     target = typeof window !== 'undefined' ? window : null,
+    managed = false,
 } = {}) {
-    if (!target?.customElements) return false;
-
-    if (!target.__LDS_OPPORTUNITIES_PANEL_BRIDGE_INSTALLED__) {
-        target.__LDS_OPPORTUNITIES_PANEL_BRIDGE_INSTALLED__ = true;
-        target.addEventListener?.('lds-intelligence-updated', () => {
+    if (!target?.customElements) return managed ? () => {} : false;
+    let bridge = bridges.get(target);
+    if (!bridge) {
+        const update = () => {
             const panels = target.document?.querySelectorAll?.('lds-debug-panel') || [];
-            for (const panel of panels) {
-                if (panel._tab === OPPORTUNITIES_TAB_KEY) panel.requestUpdate?.();
-            }
-        });
+            for (const panel of panels) if (panel._tab === OPPORTUNITIES_TAB_KEY) panel.requestUpdate?.();
+        };
+        bridge = { clients: 0, persistent: false, active: true, update,
+            flag: ownBrowserProperty(target, '__LDS_OPPORTUNITIES_PANEL_BRIDGE_INSTALLED__', true) };
+        bridges.set(target, bridge);
+        target.addEventListener?.('lds-intelligence-updated', update);
+        if (target.customElements.get('lds-debug-panel')) _patchPanelClass(target);
+        else {
+            const pendingBridge = bridge;
+            target.customElements.whenDefined?.('lds-debug-panel')
+                .then(() => { if (pendingBridge.active) _patchPanelClass(target); }).catch(() => {});
+        }
     }
-
-    if (target.customElements.get('lds-debug-panel')) return _patchPanelClass(target);
-
-    target.customElements.whenDefined?.('lds-debug-panel').then(() => _patchPanelClass(target));
-    return false;
+    if (!managed) { bridge.persistent = true; return !!target.customElements.get('lds-debug-panel'); }
+    bridge.clients++;
+    let active = true;
+    return () => {
+        if (!active) return;
+        active = false;
+        if (--bridge.clients || bridge.persistent) return;
+        bridge.active = false;
+        target.removeEventListener?.('lds-intelligence-updated', bridge.update);
+        bridge.flag.release();
+        bridges.delete(target);
+    };
 }
 
 export { installLitOpportunitiesPanelPresentation };

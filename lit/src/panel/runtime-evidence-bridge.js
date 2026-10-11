@@ -1,3 +1,4 @@
+import { ownBrowserProperty } from '../integration/shared/owned-browser-properties.js';
 import {
   AttributionQuality,
   EvidenceLevel,
@@ -61,18 +62,22 @@ class RuntimePanelEvidenceBridge {
   #unsubscribe = null;
   #processed = new Set();
   #startedAt = null;
+  #generation = 0;
   #sourceByOwner = new Map();
   #previousTagResolver = null;
+  #leases = [];
+  #syntheticFallback;
   #resourcesByOwner = new Map();
   #stateHistory = new Map();
   #lastThrashAt = new Map();
 
-  constructor({ store, windowTarget = typeof window !== 'undefined' ? window : null } = {}) {
+  constructor({ store, windowTarget = typeof window !== 'undefined' ? window : null, syntheticFallback = true } = {}) {
     if (!store || typeof store.snapshot !== 'function' || typeof store.subscribe !== 'function') {
       throw new TypeError('RuntimePanelEvidenceBridge requires an EvidenceStore-compatible store.');
     }
     this.#store = store;
     this.#windowTarget = _safeWindow(windowTarget);
+    this.#syntheticFallback = syntheticFallback;
   }
 
   get started() {
@@ -95,30 +100,34 @@ class RuntimePanelEvidenceBridge {
     _ensureObject(win, '__LDS_RENDER_REASONS__');
     _ensureArray(win, '__LDS_THRASH__');
 
-    win.__LDS_EVIDENCE_STORE__ = this.#store;
-    win.__LDS_EVIDENCE__ = () => this.#store.snapshot();
+    this.#leases.push(ownBrowserProperty(win, '__LDS_EVIDENCE_STORE__', this.#store));
+    this.#leases.push(ownBrowserProperty(win, '__LDS_EVIDENCE__', () => this.#store.snapshot()));
 
     this.#previousTagResolver = typeof win.__LDS_TAG_TO_FILE__ === 'function'
       ? win.__LDS_TAG_TO_FILE__
       : null;
-    win.__LDS_TAG_TO_FILE__ = tag => this.#sourceByOwner.get(tag)
-      || this.#previousTagResolver?.(tag)
-      || `src/components/${tag}/${tag}.js`;
+    const previousResolver = this.#previousTagResolver;
+    this.#leases.push(ownBrowserProperty(win, '__LDS_TAG_TO_FILE__', tag => {
+      const fallback = `src/components/${tag}/${tag}.js`;
+      const resolved = this.#sourceByOwner.get(tag) || previousResolver?.(tag) || fallback;
+      return !this.#syntheticFallback && (resolved === fallback || resolved === 'src/components//.js') ? '' : resolved;
+    }));
 
     for (const event of this.#store.snapshot()) this.#consume(event);
-    this.#unsubscribe = this.#store.subscribe(event => this.#consume(event));
+    const generation = ++this.#generation;
+    this.#unsubscribe = this.#store.subscribe(event => { if (generation === this.#generation) this.#consume(event); });
     return this;
   }
 
   stop() {
+    this.#generation += 1;
     this.#unsubscribe?.();
     this.#unsubscribe = null;
-    const win = this.#windowTarget;
-    if (win && win.__LDS_TAG_TO_FILE__) {
-      if (this.#previousTagResolver) win.__LDS_TAG_TO_FILE__ = this.#previousTagResolver;
-      else delete win.__LDS_TAG_TO_FILE__;
-    }
+    for (const lease of this.#leases.reverse()) lease.release();
+    this.#leases = [];
     this.#previousTagResolver = null;
+    this.#processed.clear(); this.#sourceByOwner.clear(); this.#resourcesByOwner.clear();
+    this.#stateHistory.clear(); this.#lastThrashAt.clear();
     return this;
   }
 
@@ -237,6 +246,10 @@ class RuntimePanelEvidenceBridge {
   #consume(event) {
     if (!event?.id || this.#processed.has(event.id) || !this.#windowTarget) return;
     this.#processed.add(event.id);
+    if (this.#processed.size > 2000) this.#processed.delete(this.#processed.values().next().value);
+    for (const map of [this.#sourceByOwner, this.#resourcesByOwner, this.#stateHistory, this.#lastThrashAt]) {
+      while (map.size >= 1000) map.delete(map.keys().next().value);
+    }
 
     const win = this.#windowTarget;
     const frameworkName = _frameworkNameFromEvent(event);

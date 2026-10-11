@@ -7,6 +7,9 @@ import {
   RuntimeEventType,
 } from '../../core/evidence-protocol.js';
 
+// IDs must remain unique when multiple adapter instances share one store.
+let _instanceSequence = 0;
+
 function _now() {
   return typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
@@ -42,7 +45,6 @@ class VueAdapter extends FrameworkAdapter {
   #physicalInstances = new WeakMap();
   #lifecycleGenerations = new WeakMap();
   #updateStarts = new WeakMap();
-  #instanceSequence = 0;
 
   constructor(options = {}) {
     super({
@@ -93,7 +95,7 @@ class VueAdapter extends FrameworkAdapter {
 
     let instanceId = this.#physicalInstances.get(target);
     if (!instanceId) {
-      instanceId = ++this.#instanceSequence;
+      instanceId = ++_instanceSequence;
       this.#physicalInstances.set(target, instanceId);
     }
 

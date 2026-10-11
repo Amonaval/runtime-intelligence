@@ -8,6 +8,9 @@ import {
   summarizeRuntimeValue,
 } from '../../core/evidence-protocol.js';
 
+// IDs must remain unique when multiple adapter instances share one store.
+let _instanceSequence = 0;
+
 function _now() {
   return typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
@@ -45,7 +48,6 @@ class ReactAdapter extends FrameworkAdapter {
   #physicalInstances = new WeakMap();
   #lifecycleGenerations = new WeakMap();
   #pendingRequests = new WeakMap();
-  #instanceSequence = 0;
 
   constructor(options = {}) {
     const profilingEnabled = options.profilingEnabled === true;
@@ -109,7 +111,7 @@ class ReactAdapter extends FrameworkAdapter {
 
     let instanceId = this.#physicalInstances.get(target);
     if (!instanceId) {
-      instanceId = ++this.#instanceSequence;
+      instanceId = ++_instanceSequence;
       this.#physicalInstances.set(target, instanceId);
     }
 
@@ -323,8 +325,11 @@ class ReactAdapter extends FrameworkAdapter {
     source = null,
     sourceProvenance = null,
   } = {}) {
+    let lifecycle = this.#owners.get(target) || null;
     return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
       try {
+        lifecycle ||= this.#owners.get(target) || null;
+        if (!lifecycle?.connected || this.#owners.get(target) !== lifecycle) return null;
         return this.recordProfilerRender(target, {
           id,
           phase,
@@ -432,17 +437,22 @@ class ReactAdapter extends FrameworkAdapter {
     sourceProvenance = null,
     kind = 'effect',
   } = {}) {
+    let lifecycle = this.#owners.get(target) || null;
+    const current = () => {
+      lifecycle ||= this.#owners.get(target) || null;
+      return lifecycle && this.#owners.get(target) === lifecycle;
+    };
     return Object.freeze({
-      start: () => this.recordEffectStarted(target, effectId, {
+      start: () => current() ? this.recordEffectStarted(target, effectId, {
         source,
         sourceProvenance,
         kind,
-      }),
-      cleanup: () => this.recordEffectCleanup(target, effectId, {
+      }) : null,
+      cleanup: () => current() ? this.recordEffectCleanup(target, effectId, {
         source,
         sourceProvenance,
         kind,
-      }),
+      }) : null,
     });
   }
 

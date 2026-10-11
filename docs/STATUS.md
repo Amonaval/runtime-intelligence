@@ -106,3 +106,9 @@ R8.1 fixes overlapping surface flag ownership, throwing cleanup that skipped rem
 Validation: **294/294 unit tests**, **14/14 production checks**, full `validate:release` PASS; Chromium hostile browser/export regression PASS. Dedicated stress cases cover 100 surface restarts and 100 XHR reuse cycles. These are listener/subscriber retention checks, not proof of every browser heap leak or framework version.
 
 See [R8-HARDENING.md](R8-HARDENING.md). R8 remains IN PROGRESS; next are broader adapter/version compatibility and runtime lifecycle contracts. R9 adoption and R10 Angular remain deferred.
+
+## R8 coordinated closure — COMPLETE WITH BOUNDED COVERAGE
+
+R8.2–R8.4 independently reviewed and implemented: exact-version packed/browser compatibility, adapter isolation and stale-callback contracts, managed pipeline/panel teardown and Lit page stop/restart, navigation and bounded adviser retention, Node throughput budgets and complete export privacy. Full release PASS: **316/316 unit tests, 14/14 production checks**. Two exact React/Vue/Lit browser rows, peer-absent imports, disabled production bundle/patch checks and actual hostile JSON/HTML downloads pass. All 31 R8-focused tests pass.
+
+Coverage and receipts: [R8-HARDENING.md](R8-HARDENING.md). No full-range/browser-heap/production React profiling claim. R9 adoption is next (MEDIUM), R10 Angular deferred, TrustWeave parked with consumer acceptance partial. This entry supersedes the earlier R8 IN PROGRESS entry.

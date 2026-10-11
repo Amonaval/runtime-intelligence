@@ -45,6 +45,15 @@ export interface RuntimeExportReport {
   evidenceCapsule: unknown;
   evidence: unknown[];
   legacyReport: Record<string, unknown>;
+  exportPrivacy?: {
+    enforced: boolean;
+    boundary: string;
+    redacted: number;
+    dropped: number;
+    shaped: number;
+    maskedUrls: number;
+    truncated: number;
+  };
 }
 
 export function bridgeRuntimeEvidenceToPanel(options: {

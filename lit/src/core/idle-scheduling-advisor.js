@@ -1,5 +1,7 @@
 import { EvidenceLevel, AttributionQuality, RuntimeEventType } from './evidence-protocol.js';
 
+const MAX_TRACKED_OWNERS = 1000;
+
 class IdleSchedulingAdvisor {
     #store;
     #active = false;
@@ -44,6 +46,10 @@ class IdleSchedulingAdvisor {
     }
 
     #onEvent(event) {
+        if (event.type === RuntimeEventType.OWNER_DESTROYED) {
+            this.#ownerHistory.delete(event.owner?.id);
+            return;
+        }
         if (event.type !== RuntimeEventType.UPDATE_COMPLETED) return;
         const durationMs = event.payload?.actualDurationMs ?? event.payload?.durationMs;
         if (!Number.isFinite(durationMs) || durationMs < this.#minUpdateDurationMs) return;
@@ -52,7 +58,10 @@ class IdleSchedulingAdvisor {
         const ownerTag = event.owner?.name ?? event.owner?.id ?? event.payload?.tag ?? ownerId ?? 'unknown';
         const ts = event.timestamp ?? Date.now();
 
-        if (!this.#ownerHistory.has(ownerId)) this.#ownerHistory.set(ownerId, []);
+        if (!this.#ownerHistory.has(ownerId)) {
+            if (this.#ownerHistory.size >= MAX_TRACKED_OWNERS) this.#ownerHistory.delete(this.#ownerHistory.keys().next().value);
+            this.#ownerHistory.set(ownerId, []);
+        }
         const history = this.#ownerHistory.get(ownerId);
         history.push({ timestamp: ts, durationMs });
         if (history.length > this.#HISTORY_CAP) history.shift();
