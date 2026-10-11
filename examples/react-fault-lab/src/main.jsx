@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import {
   RuntimeIntelligenceProfiler,
   RuntimeIntelligenceProvider,
+  useRuntimeEffect,
   useRuntimeIntelligence,
   useRuntimeOwner,
   useRuntimeTrackedState,
@@ -12,7 +13,8 @@ import { mountRuntimeIntelligencePanel } from 'runtime-intelligence/panel';
 import { injectFullCoveragePack } from './injected-scenarios.js';
 import './styles.css';
 
-const store = new EvidenceStore({ maxEntries: 3000, privacyPolicy: false });
+const store = new EvidenceStore({ maxEntries: 6000, privacyPolicy: false });
+const SOURCE = 'examples/react-fault-lab/src/main.jsx';
 
 function burn(ms) {
   const start = performance.now();
@@ -21,17 +23,31 @@ function burn(ms) {
   }
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function clickFault(id) {
+  const element = document.querySelector(`[data-fault-action="${id}"]`);
+  if (!element) throw new Error(`Fault Lab action not found: ${id}`);
+  element.click();
+}
+
 function PanelMount() {
   const context = useRuntimeIntelligence();
   useEffect(() => {
     if (!context?.store) return undefined;
     const panel = mountRuntimeIntelligencePanel({ store: context.store, collapsed: false });
-    return () => panel.destroy();
+    window.__FAULT_LAB_PANEL__ = panel;
+    return () => {
+      if (window.__FAULT_LAB_PANEL__ === panel) delete window.__FAULT_LAB_PANEL__;
+      panel.destroy();
+    };
   }, [context?.store]);
   return null;
 }
 
-function Scenario({ name, source, title, kind = 'behavioral', description, children }) {
+function Scenario({ name, source = SOURCE, title, kind = 'behavioral', description, children }) {
   return (
     <RuntimeIntelligenceProfiler name={name} source={source}>
       <article className="scenario-card">
@@ -54,14 +70,11 @@ function SlowRenderScenario() {
   useEffect(() => {
     if (slow) setSlow(false);
   }, [slow]);
-  return <button onClick={() => setSlow(true)}>Trigger ~620 ms React render</button>;
+  return <button data-fault-action="slow-render" onClick={() => setSlow(true)}>Trigger ~620 ms React render</button>;
 }
 
 function RenderStormScenario() {
-  const [value, setValue] = useRuntimeTrackedState(0, {
-    key: 'stormTick',
-    source: 'examples/react-fault-lab/src/main.jsx',
-  });
+  const [value, setValue] = useRuntimeTrackedState(0, { key: 'stormTick', source: SOURCE });
   const timer = useRef(null);
   const run = () => {
     let count = 0;
@@ -73,15 +86,41 @@ function RenderStormScenario() {
     }, 10);
   };
   useEffect(() => () => clearInterval(timer.current), []);
-  return <button onClick={run}>Run 8 updates / ~80 ms (value {value})</button>;
+  return <button data-fault-action="render-storm" onClick={run}>Run 8 updates / ~80 ms (value {value})</button>;
+}
+
+function EffectLoopScenario() {
+  const [enabled, setEnabled] = useState(false);
+  const [tick, setTick] = useRuntimeTrackedState(0, { key: 'effectLoopTick', source: SOURCE });
+  useRuntimeEffect(() => {
+    if (!enabled || tick >= 7) return undefined;
+    setTick(value => value + 1);
+    return undefined;
+  }, [enabled, tick], { id: 'bounded-effect-loop', source: SOURCE });
+
+  const run = () => {
+    setTick(0);
+    setEnabled(false);
+    queueMicrotask(() => setEnabled(true));
+  };
+  return <button data-fault-action="effect-loop" onClick={run}>Run bounded effect/state feedback loop ({tick})</button>;
 }
 
 function BrowserErrorScenario() {
   return (
-    <button onClick={() => Promise.reject(new Error('Fault Lab unhandled rejection'))}>
+    <button data-fault-action="browser-error" onClick={() => Promise.reject(new Error('Fault Lab unhandled rejection'))}>
       Trigger unhandled rejection
     </button>
   );
+}
+
+function ConsoleNoiseScenario() {
+  const run = () => {
+    console.warn('Fault Lab warning: repeated runtime warning');
+    console.error('Fault Lab console error: validation signal');
+    console.warn('Fault Lab warning: repeated runtime warning');
+  };
+  return <button data-fault-action="console-noise" onClick={run}>Emit console warnings + error</button>;
 }
 
 function NetworkScenario() {
@@ -112,10 +151,26 @@ function NetworkScenario() {
   };
   return (
     <>
-      <button onClick={runSlow}>Slow API &gt;2s</button>
-      <button onClick={runError}>HTTP 503</button>
-      <button onClick={runSequential}>3 sequential APIs</button>
-      <button onClick={runWorkerCandidate}>Large response + 180 ms task</button>
+      <button data-fault-action="slow-api" onClick={runSlow}>Slow API &gt;2s</button>
+      <button data-fault-action="http-503" onClick={runError}>HTTP 503</button>
+      <button data-fault-action="sequential-api" onClick={runSequential}>3 sequential APIs</button>
+      <button data-fault-action="worker-candidate" onClick={runWorkerCandidate}>Large response + 180 ms task</button>
+      <span className="inline-status">{status}</span>
+    </>
+  );
+}
+
+function XhrScenario() {
+  const [status, setStatus] = useState('idle');
+  const run = () => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/fault-lab/error');
+    xhr.addEventListener('loadend', () => setStatus(`XHR status ${xhr.status}`));
+    xhr.send();
+  };
+  return (
+    <>
+      <button data-fault-action="xhr-error" onClick={run}>XHR 503 failure</button>
       <span className="inline-status">{status}</span>
     </>
   );
@@ -125,7 +180,7 @@ function DuplicateDomScenario() {
   const [visible, setVisible] = useState(false);
   return (
     <>
-      <button onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Create'} 4 duplicate dialogs</button>
+      <button data-fault-action="dom-duplication" onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Create'} 4 duplicate dialogs</button>
       {visible && (
         <div className="fault-stage compact-stage">
           {[0, 1, 2, 3].map(i => (
@@ -141,12 +196,37 @@ function VirtualizationScenario() {
   const [visible, setVisible] = useState(false);
   return (
     <>
-      <button onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Render'} 120 unvirtualized rows</button>
+      <button data-fault-action="virtualization" onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Render'} 120 unvirtualized rows</button>
       {visible && (
         <div className="fault-stage long-list">
           {Array.from({ length: 120 }, (_, i) => <div className="lab-row" key={i}>Row {i + 1}</div>)}
         </div>
       )}
+    </>
+  );
+}
+
+function LargeDomScenario() {
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <button data-fault-action="large-dom" onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Create'} ~1800 extra DOM nodes</button>
+      {visible && <div className="large-dom-stage">{Array.from({ length: 1800 }, (_, i) => <span key={i}>.</span>)}</div>}
+    </>
+  );
+}
+
+function ExpensiveCssScenario() {
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <button data-fault-action="expensive-css" onClick={() => setVisible(v => !v)}>{visible ? 'Remove' : 'Create'} 20 heavy box shadows</button>
+      {visible && (
+        <div className="paint-grid">
+          {Array.from({ length: 20 }, (_, i) => <div className="paint-card" key={i}>Paint {i + 1}</div>)}
+        </div>
+      )}
+      <span className="inline-status">Behavioral paint scan may be periodic; injected coverage guarantees this finding immediately.</span>
     </>
   );
 }
@@ -159,7 +239,7 @@ function LeakyResourceChild() {
     owner.adapter.recordResourceAcquired(owner.token, {
       resourceId,
       resourceType: 'interval',
-      source: 'examples/react-fault-lab/src/main.jsx',
+      source: SOURCE,
     });
     const timer = setInterval(() => {}, 10000);
     return () => {
@@ -175,15 +255,33 @@ function ResourceLifetimeScenario() {
   const [mounted, setMounted] = useState(false);
   return (
     <>
-      <button onClick={() => setMounted(v => !v)}>{mounted ? 'Unmount leaked owner' : 'Mount tracked resource'}</button>
+      <button data-fault-action="resource-lifetime" onClick={() => setMounted(v => !v)}>{mounted ? 'Unmount leaked owner' : 'Mount tracked resource'}</button>
       {mounted && (
-        <RuntimeIntelligenceProfiler
-          name="FaultLab.LeakyResource"
-          source="examples/react-fault-lab/src/main.jsx"
-        >
+        <RuntimeIntelligenceProfiler name="FaultLab.LeakyResource" source={SOURCE}>
           <LeakyResourceChild />
         </RuntimeIntelligenceProfiler>
       )}
+    </>
+  );
+}
+
+function RetainedChild({ index }) {
+  return <div className="retained-child">Retained child {index + 1}</div>;
+}
+
+function MountStormScenario() {
+  const [count, setCount] = useState(0);
+  const run = () => setCount(6);
+  return (
+    <>
+      <button data-fault-action="mount-storm" onClick={run}>Mount 6 retained component owners</button>
+      <div className="retained-grid">
+        {Array.from({ length: count }, (_, i) => (
+          <RuntimeIntelligenceProfiler key={i} name="FaultLab.RetainedChild" source={SOURCE}>
+            <RetainedChild index={i} />
+          </RuntimeIntelligenceProfiler>
+        ))}
+      </div>
     </>
   );
 }
@@ -194,6 +292,7 @@ function InjectedCoverageScenario() {
   return (
     <>
       <button
+        data-fault-action="injected-pack"
         className="injected-button"
         onClick={() => setLast(injectFullCoveragePack(context.store))}
       >
@@ -201,6 +300,92 @@ function InjectedCoverageScenario() {
       </button>
       {last && <span className="inline-status">Expected: {last.expected.join(' · ')}</span>}
     </>
+  );
+}
+
+async function runAllFaults(store, { exportAfter = false, setStatus = () => {} } = {}) {
+  setStatus('Starting all behavioral faults…');
+  const immediate = [
+    'slow-render',
+    'render-storm',
+    'effect-loop',
+    'browser-error',
+    'console-noise',
+    'slow-api',
+    'http-503',
+    'sequential-api',
+    'worker-candidate',
+    'xhr-error',
+    'dom-duplication',
+    'virtualization',
+    'large-dom',
+    'expensive-css',
+    'resource-lifetime',
+    'mount-storm',
+  ];
+  for (const id of immediate) {
+    try { clickFault(id); } catch (error) { console.warn(error.message); }
+  }
+
+  setStatus('Behavioral faults running; waiting for async/network/resource evidence…');
+  await wait(450);
+  try { clickFault('resource-lifetime'); } catch {}
+  await wait(3200);
+
+  setStatus('Injecting deterministic rare-signal coverage…');
+  injectFullCoveragePack(store);
+  await wait(900);
+
+  window.__FAULT_LAB_PANEL__?.refresh?.();
+  setStatus('All faults triggered. Reports are ready.');
+
+  if (exportAfter) {
+    const names = window.__FAULT_LAB_PANEL__?.downloadBoth?.();
+    setStatus(`All faults complete. Export requested: ${names?.json || 'JSON'} + ${names?.html || 'HTML'}.`);
+    return names;
+  }
+  return null;
+}
+
+function LabControls() {
+  const context = useRuntimeIntelligence();
+  const [status, setStatus] = useState('Ready');
+  const [running, setRunning] = useState(false);
+
+  const run = async exportAfter => {
+    if (running) return;
+    setRunning(true);
+    try {
+      await runAllFaults(context.store, { exportAfter, setStatus });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const exportJson = () => {
+    const name = window.__FAULT_LAB_PANEL__?.downloadJson?.();
+    setStatus(name ? `Downloaded ${name}` : 'Panel/report export is not ready yet.');
+  };
+  const exportHtml = () => {
+    const name = window.__FAULT_LAB_PANEL__?.downloadHtml?.();
+    setStatus(name ? `Downloaded ${name}` : 'Panel/report export is not ready yet.');
+  };
+
+  return (
+    <section className="lab-controls">
+      <div>
+        <strong>One-pass validation</strong>
+        <div className="control-note">Run every supported behavioral fault, inject rare deterministic evidence, refresh the mature panel, then export the normalized report.</div>
+      </div>
+      <div className="control-actions">
+        <button disabled={running} onClick={() => run(false)}>{running ? 'Running…' : 'Run all faults'}</button>
+        <button className="primary" disabled={running} onClick={() => run(true)}>{running ? 'Running…' : 'Run all + export JSON + HTML'}</button>
+        <button className="secondary" disabled={running} onClick={exportJson}>Export JSON</button>
+        <button className="secondary" disabled={running} onClick={exportHtml}>Export HTML</button>
+        <button className="ghost" disabled={running} onClick={() => location.reload()}>Reset lab</button>
+      </div>
+      <div className="control-status">{status}</div>
+    </section>
   );
 }
 
@@ -243,12 +428,14 @@ function App() {
           <span className="eyebrow">Runtime Intelligence validation harness</span>
           <h1>React Fault Lab</h1>
           <p>
-            Deliberate faults live only in this example app. Behavioral scenarios test real React/browser
-            detection. Injected scenarios test deterministic panel/intelligence coverage and are labeled as synthetic.
+            Deliberate faults live only in this example app. Behavioral scenarios test real React/browser detection.
+            Injected scenarios test deterministic rare-signal coverage. Use the one-pass runner when you want to send
+            the resulting JSON + HTML reports without checking each card manually.
           </p>
         </div>
       </header>
 
+      <LabControls />
       <LiveEvidenceSummary />
 
       <section className="section-heading">
@@ -256,41 +443,33 @@ function App() {
         <p>These create actual runtime behavior and should be detected by adapters/collectors.</p>
       </section>
       <div className="scenario-grid">
-        <Scenario name="FaultLab.SlowRender" source="examples/react-fault-lab/src/main.jsx" title="Slow React render" description="Profiler-observed render over both the 100 ms Intelligence threshold and 500 ms mature slow-render threshold.">
-          <SlowRenderScenario />
-        </Scenario>
-        <Scenario name="FaultLab.RenderStorm" source="examples/react-fault-lab/src/main.jsx" title="Render storm + state thrash" description="Eight tracked state updates inside ~100 ms should exercise update-budget and render-reason/thrash logic.">
-          <RenderStormScenario />
-        </Scenario>
-        <Scenario name="FaultLab.BrowserError" source="examples/react-fault-lab/src/main.jsx" title="Unhandled browser rejection" description="Tests browser error capture without crashing the React tree.">
-          <BrowserErrorScenario />
-        </Scenario>
-        <Scenario name="FaultLab.Network" source="examples/react-fault-lab/src/main.jsx" title="Network intelligence" description="Slow, failed, sequential and large-response calls exercise Network, Slow API, sequential-call and worker-opportunity paths.">
-          <NetworkScenario />
-        </Scenario>
-        <Scenario name="FaultLab.DomDuplication" source="examples/react-fault-lab/src/main.jsx" title="Duplicate singleton DOM" description="Four dialog-role elements should be flagged as a likely duplicated singleton pattern.">
-          <DuplicateDomScenario />
-        </Scenario>
-        <Scenario name="FaultLab.Virtualization" source="examples/react-fault-lab/src/main.jsx" title="Missing virtualization" description="120 sibling rows create a high off-screen ratio and should trigger the virtualization adviser.">
-          <VirtualizationScenario />
-        </Scenario>
-        <Scenario name="FaultLab.ResourceLifetime" source="examples/react-fault-lab/src/main.jsx" title="Resource lifetime violation" description="Acquires a tracked resource and deliberately omits the release evidence before owner destruction; the actual timer is safely cleared.">
-          <ResourceLifetimeScenario />
-        </Scenario>
+        <Scenario name="FaultLab.SlowRender" title="Slow React render" description="Profiler-observed render over both the Intelligence and mature slow-render thresholds."><SlowRenderScenario /></Scenario>
+        <Scenario name="FaultLab.RenderStorm" title="Render storm + state thrash" description="Eight tracked state updates inside ~100 ms exercise update-budget, render-reason and thrash logic."><RenderStormScenario /></Scenario>
+        <Scenario name="FaultLab.EffectLoop" title="Bounded effect/state feedback loop" description="A safe seven-step effect loop exercises tracked state + effect lifecycle without leaving the app stuck."><EffectLoopScenario /></Scenario>
+        <Scenario name="FaultLab.BrowserError" title="Unhandled browser rejection" description="Tests browser error capture without permanently crashing the React tree."><BrowserErrorScenario /></Scenario>
+        <Scenario name="FaultLab.ConsoleNoise" title="Console warnings + error" description="Exercises page-level console capture and error/warning presentation."><ConsoleNoiseScenario /></Scenario>
+        <Scenario name="FaultLab.Network" title="Fetch/network intelligence" description="Slow, failed, sequential and large-response calls exercise Network, Slow API and opportunity paths."><NetworkScenario /></Scenario>
+        <Scenario name="FaultLab.XHR" title="XHR failure" description="Exercises the XMLHttpRequest interception path separately from fetch."><XhrScenario /></Scenario>
+        <Scenario name="FaultLab.DomDuplication" title="Duplicate singleton DOM" description="Four dialog-role elements should be flagged as a likely duplicated singleton pattern."><DuplicateDomScenario /></Scenario>
+        <Scenario name="FaultLab.Virtualization" title="Missing virtualization" description="120 sibling rows create a high off-screen ratio and should trigger the virtualization adviser."><VirtualizationScenario /></Scenario>
+        <Scenario name="FaultLab.LargeDOM" title="Oversized DOM" description="Adds ~1800 nodes so mature health scoring and DOM guidance can be exercised."><LargeDomScenario /></Scenario>
+        <Scenario name="FaultLab.ExpensiveCSS" title="Expensive paint pattern" description="Creates repeated box shadows for paint analysis; deterministic injection guarantees immediate coverage too."><ExpensiveCssScenario /></Scenario>
+        <Scenario name="FaultLab.ResourceLifetime" title="Resource lifetime violation" description="Acquires a tracked resource and deliberately omits release evidence before owner destruction; the actual timer is safely cleared."><ResourceLifetimeScenario /></Scenario>
+        <Scenario name="FaultLab.MountStorm" title="Retained owner/mount spike" description="Mounts six same-name component owners and leaves them active to exercise memory/mount-spike heuristics."><MountStormScenario /></Scenario>
       </div>
 
       <section className="section-heading synthetic-heading">
         <h2>Deterministic evidence injection</h2>
-        <p>Use this to verify every mature panel path even when a browser cannot naturally reproduce a rare signal.</p>
+        <p>Use this to verify rare product paths even when a browser cannot naturally reproduce a signal on demand.</p>
       </section>
       <div className="scenario-grid">
-        <Scenario name="FaultLab.Injected" source="examples/react-fault-lab/src/injected-scenarios.js" title="Full panel coverage pack" kind="injected" description="Synthetic UREP only. It must never be confused with a detected application defect.">
+        <Scenario name="FaultLab.Injected" source="examples/react-fault-lab/src/injected-scenarios.js" title="Full normalized coverage pack" kind="injected" description="Synthetic UREP only. It is explicitly labeled and must never be confused with a detected application defect.">
           <InjectedCoverageScenario />
         </Scenario>
       </div>
 
       <footer>
-        Open the mature Runtime Intelligence panel and compare Summary → Intelligence → Pinpoint → Perf → Network → Errors → Events → Slow API → Memory.
+        Recommended fast path: <strong>Run all + export JSON + HTML</strong>, then send both files. The report now includes raw mature-panel data plus UREP evidence, diagnostics, normalized findings, opportunities, Intelligence and the evidence capsule.
       </footer>
     </main>
   );
@@ -301,7 +480,7 @@ createRoot(document.getElementById('root')).render(
     <RuntimeIntelligenceProvider
       store={store}
       name="FaultLab.Root"
-      source="examples/react-fault-lab/src/main.jsx"
+      source={SOURCE}
       profilingEnabled
       profileRoot={false}
     >

@@ -1,55 +1,85 @@
 # React Fault Lab
 
-A deterministic validation harness for Runtime Intelligence's React integration.
+Controlled React/browser validation harness for Runtime Intelligence.
 
-This app is intentionally separate from TrustWeave and from the shipped package surface. Deliberate defects belong here, never in consumer applications.
+The lab is intentionally outside the published package surface. It creates deliberate defects only inside `examples/react-fault-lab`; TrustWeave and normal consumers remain clean.
 
-## Why two kinds of scenarios
+## Fast validation path
 
-**Behavioral** scenarios create real React/browser behavior. These validate that the adapter and collectors actually observe a problem.
-
-**Injected** scenarios emit clearly labeled synthetic UREP evidence. These validate rare panel/intelligence workflows deterministically without pretending that the browser detected the issue.
-
-The two layers prevent a common testing mistake: synthetic evidence can prove presentation plumbing, but it cannot prove detection; real faults can prove detection, but they are not deterministic enough to cover every product path.
-
-## Run
+From the repository root:
 
 ```bash
-cd examples/react-fault-lab
-npm install
-npm run dev
+npm run lab:react:install
+npm run lab:react
 ```
 
-Open the Vite URL (default `http://127.0.0.1:4178`). The canonical mature panel opens automatically.
+Open `http://127.0.0.1:4178` and use **Run all + export JSON + HTML**.
 
-## Behavioral scenarios
+That one action:
 
-| Scenario | Expected product surface |
-| --- | --- |
-| ~620 ms React render | Perf, slow-render evidence, Intelligence |
-| 8 updates / ~80 ms | Perf, render reasons, property thrash, update-budget finding |
-| Unhandled rejection | Errors, Intelligence |
-| Slow API >2s | Network, Slow API |
-| HTTP 503 | Network error |
-| 3 sequential APIs | Network, sequential API opportunity, Intelligence |
-| Large response + 180 ms main-thread task | Network and Worker opportunity where Long Task API is supported |
-| 4 dialog-role elements | DOM duplication opportunity |
-| 120 rows | Virtualization opportunity |
-| tracked resource destroyed without release evidence | Memory/Pinpoint lifetime violation, Intelligence |
+1. triggers every behavioral fault,
+2. waits for async/network/resource evidence,
+3. injects deterministic rare-signal UREP coverage,
+4. refreshes the mature panel,
+5. exports normalized JSON and HTML reports.
 
-Some browser APIs (notably Long Task) are Chromium-dependent. That is why deterministic injected coverage also exists.
+If Chrome blocks multiple automatic downloads, use the adjacent **Export JSON** and **Export HTML** buttons after the run completes.
 
-## Injected full-coverage pack
+## Behavioral faults
 
-The injected pack exercises the bridge/presentation with synthetic evidence for slow render, state thrash, slow API, DOM duplication, virtualization, expensive paint, worker opportunity, sequential APIs, update budget, runtime error and resource lifetime violation.
+These create real runtime behavior rather than synthetic events:
 
-Injected evidence uses framework name `fault-lab-injected` and source `injected-scenarios.js`. It is a validation fixture, not an application finding.
+- slow React Profiler render
+- rapid tracked-state render storm/update-budget pressure
+- bounded effect/state feedback loop
+- unhandled Promise rejection
+- console warnings + error
+- slow fetch
+- HTTP 503 fetch
+- sequential fetch calls
+- large response followed by CPU/long-task work
+- XHR 503 failure
+- duplicate singleton/dialog DOM
+- large unvirtualized list
+- oversized DOM (~1800 extra nodes)
+- repeated expensive box-shadow paint pattern
+- tracked resource outliving its owner
+- retained same-name component-owner/mount spike
 
-## Validation rule
+## Deterministic full-coverage injection
 
-A capability is considered React-ready only when:
+Some browser signals are timing/browser dependent. The injected pack is explicitly labeled `fault-lab-injected` and covers:
 
-1. its behavioral scenario is detected where browser support makes that possible;
-2. its deterministic UREP scenario renders correctly in the mature panel;
-3. evidence wording preserves observation/correlation/attribution semantics;
-4. TrustWeave dogfood does not require any test-only code.
+- interaction + update correlation
+- slow render
+- repeated state changes/property thrash
+- slow + failed network evidence
+- DOM duplication
+- virtualization
+- expensive paint
+- worker opportunity
+- sequential API opportunity
+- update-budget violation
+- idle scheduling opportunity
+- slow paint timing
+- network correlation and orphan-suspect diagnostics
+- runtime error
+- resource lifetime violation
+- retained-owner/mount spike
+
+Synthetic evidence is never intended to be interpreted as a defect in a real application.
+
+## What to send for review
+
+Prefer both exported files. The normalized report contains:
+
+- legacy mature-panel report
+- complete UREP evidence
+- diagnostics
+- normalized findings
+- optimization/reliability opportunities
+- Intelligence summary
+- evidence capsule
+- evidence counts by event type
+
+This makes report review possible without manually checking every panel tab.

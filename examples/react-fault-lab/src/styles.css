@@ -9,9 +9,18 @@ button { font: inherit; }
 main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 120px; }
 .hero { padding: 28px; border: 1px solid #d9e1dd; border-radius: 18px; background: white; box-shadow: 0 10px 35px rgba(20, 40, 30, 0.06); }
 .hero h1 { margin: 6px 0 8px; font-size: 38px; }
-.hero p { max-width: 850px; margin: 0; color: #52635a; line-height: 1.6; }
+.hero p { max-width: 900px; margin: 0; color: #52635a; line-height: 1.6; }
 .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 800; color: #4e7966; }
-.evidence-summary { margin: 18px 0 30px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; border: 1px solid #d9e1dd; background: #eef4f1; border-radius: 12px; }
+.lab-controls { margin: 18px 0 12px; padding: 16px; border: 1px solid #bfd3c8; border-radius: 14px; background: #eaf4ef; display: grid; gap: 10px; }
+.control-note { margin-top: 3px; color: #577066; font-size: 12px; }
+.control-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.control-actions button { border: 0; border-radius: 8px; padding: 10px 13px; background: #315f4b; color: white; cursor: pointer; }
+.control-actions button.primary { background: #173f2e; font-weight: 800; }
+.control-actions button.secondary { background: #617269; }
+.control-actions button.ghost { background: white; color: #456154; border: 1px solid #b8c9c0; }
+.control-actions button:disabled { opacity: .55; cursor: progress; }
+.control-status { color: #466257; font-size: 12px; font-weight: 650; }
+.evidence-summary { margin: 12px 0 30px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; border: 1px solid #d9e1dd; background: #eef4f1; border-radius: 12px; }
 .evidence-summary strong { font-size: 22px; margin-right: 6px; }
 .summary-detail { margin-left: 10px; color: #607168; font-size: 12px; }
 .section-heading { margin: 30px 0 12px; }
@@ -19,7 +28,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 120px; }
 .section-heading p { margin: 0; color: #64756c; }
 .synthetic-heading { margin-top: 40px; }
 .scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-.scenario-card { min-height: 190px; padding: 18px; border-radius: 14px; border: 1px solid #d9e1dd; background: white; box-shadow: 0 6px 18px rgba(20, 40, 30, 0.04); }
+.scenario-card { min-height: 190px; padding: 18px; border-radius: 14px; border: 1px solid #d9e1dd; background: white; box-shadow: 0 6px 18px rgba(20, 40, 30, 0.04); overflow: hidden; }
 .scenario-heading { display: flex; justify-content: space-between; gap: 10px; }
 .scenario-card h3 { margin: 6px 0 0; }
 .scenario-card p { margin: 10px 0 18px; color: #63746c; line-height: 1.45; min-height: 42px; }
@@ -36,6 +45,11 @@ main { max-width: 1180px; margin: 0 auto; padding: 36px 24px 120px; }
 .fake-dialog { padding: 5px 7px; margin: 3px 0; border: 1px solid #d6ded9; background: #fff; }
 .long-list { height: 220px; overflow: visible; }
 .lab-row { height: 28px; padding: 4px 8px; border-bottom: 1px solid #edf0ee; background: white; }
+.large-dom-stage { max-height: 75px; overflow: hidden; opacity: .45; flex-basis: 100%; font-size: 8px; line-height: 8px; word-break: break-all; }
+.paint-grid { flex-basis: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px; }
+.paint-card { padding: 8px 4px; background: white; border-radius: 6px; text-align: center; font-size: 10px; box-shadow: 0 8px 24px rgba(20, 30, 25, .35); }
+.retained-grid { flex-basis: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.retained-child { padding: 5px; border-radius: 5px; background: #fff3d9; color: #7a5a13; font-size: 10px; }
 footer { margin-top: 42px; padding: 18px; color: #607168; border-top: 1px solid #d9e1dd; line-height: 1.55; }
 @media (max-width: 700px) {
   main { padding: 20px 14px 100px; }
@@ -43,4 +57,5 @@ footer { margin-top: 42px; padding: 18px; color: #607168; border-top: 1px solid 
   .hero h1 { font-size: 30px; }
   .summary-detail { display: block; margin: 4px 0 0; }
   .evidence-summary { align-items: flex-start; }
+  .paint-grid { grid-template-columns: repeat(2, 1fr); }
 }

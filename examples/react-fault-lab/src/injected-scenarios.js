@@ -12,7 +12,7 @@ function owner(name, id = `fault-lab-${name.toLowerCase().replaceAll(/[^a-z0-9]+
 
 function emit(store, input) {
   return store.emit({
-    framework: { name: 'fault-lab-injected', adapterVersion: '1' },
+    framework: { name: 'fault-lab-injected', adapterVersion: '2' },
     source: SOURCE,
     evidence: {
       level: EvidenceLevel.OBSERVATION,
@@ -28,30 +28,47 @@ export function injectFullCoveragePack(store) {
   const created = emit(store, {
     type: RuntimeEventType.OWNER_CREATED,
     owner: syntheticOwner,
-    payload: { scenario: 'injected-full-coverage' },
+    payload: { scenario: 'injected-full-coverage', synthetic: true },
+  });
+
+  emit(store, {
+    type: RuntimeEventType.INTERACTION,
+    owner: syntheticOwner,
+    correlation: { interactionId: 'fault-lab-injected-interaction' },
+    payload: { kind: 'click', scenario: 'injected-interaction', synthetic: true },
+  });
+
+  emit(store, {
+    type: RuntimeEventType.UPDATE_REQUESTED,
+    owner: syntheticOwner,
+    correlation: { parentEventId: created.id, interactionId: 'fault-lab-injected-interaction' },
+    payload: { reason: 'fault-lab-injected', stateKey: 'query', synthetic: true },
   });
 
   emit(store, {
     type: RuntimeEventType.UPDATE_COMPLETED,
     owner: syntheticOwner,
-    correlation: { parentEventId: created.id },
+    correlation: { parentEventId: created.id, interactionId: 'fault-lab-injected-interaction' },
     payload: {
       actualDurationMs: 640,
       baseDurationMs: 650,
       phase: 'update',
       scenario: 'injected-slow-render',
+      synthetic: true,
     },
   });
 
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < 8; i += 1) {
     emit(store, {
       type: RuntimeEventType.STATE_CHANGED,
       owner: syntheticOwner,
+      correlation: { interactionId: 'fault-lab-injected-interaction' },
       payload: {
         property: 'query',
         oldValue: { type: 'string', summary: `q${i}` },
         newValue: { type: 'string', summary: `q${i + 1}` },
         sameReference: false,
+        synthetic: true,
       },
     });
   }
@@ -59,6 +76,7 @@ export function injectFullCoveragePack(store) {
   emit(store, {
     type: RuntimeEventType.NETWORK_COMPLETED,
     owner: syntheticOwner,
+    correlation: { interactionId: 'fault-lab-injected-interaction', traceId: 'fault-lab-injected-net' },
     payload: {
       path: '/api/fault-lab/injected-slow',
       method: 'GET',
@@ -67,16 +85,36 @@ export function injectFullCoveragePack(store) {
       responseSizeKB: 8,
       isSlow: true,
       scenario: 'injected-slow-api',
+      synthetic: true,
+    },
+  });
+
+  emit(store, {
+    type: RuntimeEventType.NETWORK_COMPLETED,
+    owner: syntheticOwner,
+    payload: {
+      path: '/api/fault-lab/injected-error',
+      method: 'POST',
+      status: 503,
+      durationMs: 180,
+      responseSizeKB: 2,
+      isError: true,
+      scenario: 'injected-network-error',
+      synthetic: true,
     },
   });
 
   const diagnosticPayloads = [
-    { diagnostic: 'lab.dom-duplication', domDuplication: true, duplicateTag: 'div', instanceCount: 4, strength: 'high' },
-    { diagnostic: 'lab.virtualization', virtualizationOpportunity: true, childTag: 'div', childCount: 120, offScreenRatio: 0.92, parentTag: 'section', strength: 'high' },
-    { diagnostic: 'lab.expensive-paint', expensivePaint: true, property: 'boxShadow', elementCount: 14 },
-    { diagnostic: 'lab.worker-opportunity', workerOpportunity: true, durationMs: 180, trigger: 'longtask-only', strength: 'high' },
-    { diagnostic: 'lab.sequential-api', sequentialApiOpportunity: true, callCount: 3, totalMs: 280, estimatedSavingsMs: 180, callerFn: 'injectFullCoveragePack' },
-    { diagnostic: 'lab.budget', budgetViolation: true, ownerId: syntheticOwner.id, tag: syntheticOwner.name, updateCount: 8, windowMs: 100, countPerWindow: 5, totalMs: 82 },
+    { diagnostic: 'lab.dom-duplication', domDuplication: true, duplicateTag: 'div', instanceCount: 4, commonAncestorTag: 'section', identicalContent: true, strength: 'high', synthetic: true },
+    { diagnostic: 'lab.virtualization', virtualizationOpportunity: true, childTag: 'div', childCount: 120, offScreenRatio: 0.92, parentTag: 'section', strength: 'high', synthetic: true },
+    { diagnostic: 'lab.expensive-paint', expensivePaint: true, property: 'boxShadow', elementCount: 20, exampleTag: 'div', synthetic: true },
+    { diagnostic: 'lab.worker-opportunity', workerOpportunity: true, durationMs: 180, trigger: 'longtask-only', strength: 'high', synthetic: true },
+    { diagnostic: 'lab.sequential-api', sequentialApiOpportunity: true, callCount: 3, totalMs: 280, estimatedSavingsMs: 180, callerFn: 'injectFullCoveragePack', synthetic: true },
+    { diagnostic: 'lab.budget', budgetViolation: true, ownerId: syntheticOwner.id, tag: syntheticOwner.name, updateCount: 8, windowMs: 100, countPerWindow: 5, totalMs: 82, synthetic: true },
+    { diagnostic: 'lab.idle', idleOpportunity: true, ownerTag: syntheticOwner.name, durationMs: 180, trigger: 'non-urgent', strength: 'medium', synthetic: true },
+    { diagnostic: 'lab.paint-timing', paintTiming: true, metric: 'first-contentful-paint', valueMs: 3400, synthetic: true },
+    { diagnostic: 'lab.network-correlation', networkCorrelation: true, ownerId: syntheticOwner.id, traceId: 'fault-lab-injected-net', synthetic: true },
+    { diagnostic: 'lab.orphan-suspect', orphanSuspect: true, ownerId: syntheticOwner.id, synthetic: true },
   ];
 
   for (const payload of diagnosticPayloads) {
@@ -104,31 +142,43 @@ export function injectFullCoveragePack(store) {
       phase: 'fault-lab-injected',
       message: 'Injected Runtime Intelligence validation error',
       stack: 'at InjectedScenario (examples/react-fault-lab/src/injected-scenarios.js:1:1)',
+      synthetic: true,
     },
   });
 
   emit(store, {
     type: RuntimeEventType.RESOURCE_ACQUIRED,
     owner: syntheticOwner,
-    payload: { resourceId: 'fault-lab-resource', resourceType: 'interval' },
+    payload: { resourceId: 'fault-lab-resource', resourceType: 'interval', synthetic: true },
   });
   emit(store, {
     type: RuntimeEventType.OWNER_DESTROYED,
     owner: syntheticOwner,
-    payload: { scenario: 'injected-resource-lifetime' },
+    payload: { scenario: 'injected-resource-lifetime', synthetic: true },
   });
 
+  for (let i = 0; i < 6; i += 1) {
+    emit(store, {
+      type: RuntimeEventType.OWNER_CREATED,
+      owner: owner('InjectedRetainedChild', `fault-lab-retained-${i}`),
+      payload: { scenario: 'injected-retained-owner', synthetic: true },
+    });
+  }
+
   return {
-    label: 'Injected full coverage pack',
+    label: 'Injected full normalized coverage pack',
     expected: [
-      'Perf entry + slow render evidence',
-      'render reasons/property thrash',
-      'slow API',
-      'DOM/virtualization/paint/worker/sequential opportunities',
+      'slow render + interaction correlation',
+      'tracked state/property thrash',
+      'slow + failed network evidence',
+      'DOM duplication + virtualization + expensive paint',
+      'worker + sequential API + idle scheduling opportunities',
       'update-budget finding',
+      'paint timing + network correlation diagnostics',
       'runtime error',
       'resource lifetime violation',
-      'Intelligence finding',
+      'retained owner/mount spike',
+      'Intelligence finding + evidence capsule',
     ],
   };
 }
