@@ -105,6 +105,31 @@ try {
   receipt.scenarios.push({ scenario: 'Resource leak ownership', category: 'C', reason: 'No resource registration or child ownership evidence' },
     { scenario: 'Stale async business race', category: 'C', reason: 'Requests are observable; state-write ordering and business intent are not' });
   receipt.performance = { renderCount: renders.length, maxRootActualDurationMs: Math.max(...renders.map(event => event.payload.actualDurationMs)), opportunityKinds: [...new Set(performanceReport.opportunities.map(event => event.kind))] };
+  // R9: exercise visible developer guidance against real, uninstrumented faults.
+  const sourceLimited = final.normalizedFindings.find(item => item.kind === 'slow-render' && !item.source);
+  assert.equal(sourceLimited.developerGuidance.adoptionLevel, 1);
+  assert.match(sourceLimited.developerGuidance.whatNext, /RuntimeIntelligenceProfiler/);
+  const attributed = final.normalizedFindings.find(item => item.kind === 'runtime-error' && item.source);
+  assert.match(attributed.developerGuidance.whySource, /error stack/);
+  await page.evaluate(() => {
+    const panel = window.__UNINSTRUMENTED_LAB_PANEL__;
+    panel.setCollapsed(false);
+    panel.element._setTab('pinpoint');
+  });
+  const panelElement = page.locator('lds-debug-panel');
+  await panelElement.locator('.issue-header').first().click();
+  await panelElement.locator('.finding-guidance').first().waitFor();
+  assert.match(await panelElement.locator('.finding-guidance').first().innerText(), /Why this source\?/);
+  assert.match(await panelElement.locator('.finding-guidance').first().innerText(), /What next\?/);
+  await page.evaluate(() => window.__UNINSTRUMENTED_LAB_PANEL__.element._setTab('opportunities'));
+  const guidance = panelElement.locator('details.finding-guidance').first();
+  await guidance.locator('summary').click();
+  assert.match(await guidance.innerText(), /Adoption level/);
+  assert.match(await guidance.innerText(), /do not by themselves prove/);
+  await mkdir(output, { recursive: true });
+  await page.screenshot({ path: path.join(output, 'r9-guidance.png') });
+  receipt.r9Adoption = { pinpointGuidanceVisible: true, opportunitiesGuidanceVisible: true, rootOnlyRenderRecommendsLevel1: true, errorOriginExplained: true };
+  await page.evaluate(() => window.__UNINSTRUMENTED_LAB_PANEL__.setCollapsed(true));
   receipt.reactDevMetadata = await page.evaluate(() => {
     const host = document.querySelector('.result-row');
     const key = Object.keys(host).find(key => key.startsWith('__reactFiber$'));
@@ -176,6 +201,11 @@ try {
   const htmlText = await readFile(htmlPath, 'utf8');
   assert.doesNotMatch(htmlText, /D:\/private-user|\/Users\/private-user/);
   assert.match(htmlText, /console-call-stack/);
+  assert.match(htmlText, /Why this source\?/);
+  assert.match(htmlText, /What next\?/);
+  assert.ok(exportedReport.normalizedFindings.every(item => item.developerGuidance?.whySource && item.developerGuidance?.whatNext));
+  receipt.r9Adoption.jsonGuidanceRetained = true;
+  receipt.r9Adoption.htmlGuidanceRetained = true;
   receipt.checks.exportHtmlRawStacksOmitted = true;
   await writeFile(path.join(output, 'hostile-report.json'), JSON.stringify(final, null, 2));
   await writeFile(path.join(output, 'acceptance.json'), JSON.stringify(receipt, null, 2));

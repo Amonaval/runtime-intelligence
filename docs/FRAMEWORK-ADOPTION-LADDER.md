@@ -1,154 +1,28 @@
-# Framework Adoption Ladder — How Much Instrumentation Is Needed?
+# Framework Adoption Ladder
 
-Runtime Intelligence is designed so framework adoption starts with a very small integration and deeper instrumentation is optional. The product should not require developers to rewrite components just to obtain useful diagnostics.
+Use [the integration guide](NEW-PROJECT-INTEGRATION-GUIDE.md) for installable React, Vue and Lit recipes. All frameworks feed one evidence store, intelligence pipeline, panel and report format.
 
-## Level 0 — Runtime root: required, low effort
+| Level | React | Vue 3 | Lit | Decision to advance |
+| --- | --- | --- | --- | --- |
+| 0 — application shell | Development gate, provider/root profiler, shared panel | Install plugin before mount, shared panel | Activate before connect; choose shared base, shared panel | Reproduce one real interaction and inspect browser/network/error evidence first |
+| 1 — component ownership | One named Profiler/HOC around a suspected subtree | Lifecycle observation is already broad; check filters and trustworthy component file metadata | Instrument a selected component family through the shared base | Advance only when missing ownership/source prevents answering a specific question |
+| 2 — targeted operations | Selected tracked state, effect or resource hooks | Explicit application/domain evidence when justified | Focused property/resource evidence when justified | Advance only when invocation, registration or lifetime evidence is needed |
 
-### React
+Level 2 includes the older React ladder's separate state/effect/resource stages (previously Levels 2–4). These are independent options, not required sequential migrations. A custom governed UREP extension is an advanced option, not an onboarding prerequisite.
 
-Wrap the application once with `RuntimeIntelligenceProvider` and mount the canonical panel in development.
+## What the shell provides
 
-This starts the shared browser/runtime surface and gives useful data with no per-component changes:
+Enabled browser collectors can observe fetch/XHR, errors/rejections, console, interactions and browser-supported vitals/long tasks. Shared advisers, Intelligence, Pinpoint and Opportunities interpret available evidence. No business-component rewrite is required for React or Vue. Lit lifecycle evidence requires an instrumented base; page/browser evidence alone does not observe every element lifecycle.
 
-- fetch/XHR Network and Slow API
-- Core Web Vitals / long tasks where the browser exposes them
-- browser errors and unhandled rejections
-- console capture
-- user interaction capture
-- DOM duplication adviser
-- virtualization adviser
-- paint adviser
-- worker opportunity adviser
-- idle scheduling adviser
-- EvidenceStore / EvidenceGraph / root-cause grouping
-- incident flight recorder
-- Intelligence summary / evidence capsule
-- mature Runtime Intelligence panel
+Start with one component boundary when a render investigation needs it. Do not wrap every component or mechanically replace every state/effect hook. Vue source resolution must use trustworthy metadata; Lit must not be globally prototype patched.
 
-Effort: typically one integration component plus dev-only activation.
+## Choosing the next step
 
-## Level 1 — Strategic component boundaries: recommended
+- An invocation source identifies where an operation was called; inspect that location and reproduce it.
+- A registration source identifies where a resource/effect was registered; inspect cleanup and matched lifetime evidence.
+- A component boundary identifies ownership, not the definition or cause of every child render.
+- A missing React child source is expected at root-only profiling depth. Add one strategic boundary if that question matters.
+- A related/common source is context until stronger evidence establishes its role.
+- Generated module/runtime coordinates must not be advertised as original JSX/TypeScript lines.
 
-React Profiler only reports useful component attribution where a boundary exists. Add `RuntimeIntelligenceProfiler` or `withRuntimeIntelligence()` around meaningful product surfaces, not every component.
-
-Good candidates:
-
-- page/root content surfaces
-- large grids/lists
-- editors/forms
-- dashboards
-- heavy modals/drawers
-- expensive widgets
-
-A typical application should start with roughly 3–10 strategic boundaries and add more only when dogfood proves a blind spot.
-
-Provides:
-
-- named React render timing
-- source/file attribution supplied by the app
-- structural parent/child ownership
-- component-aware Perf/Pinpoint evidence
-
-## Level 2 — Tracked state: targeted, optional
-
-Use `useRuntimeTrackedState` for state whose update reason matters during investigation.
-
-Do **not** replace every `useState` mechanically. Use it for:
-
-- high-frequency state
-- query/filter state
-- state suspected of render churn
-- critical workflow state where before/after evidence is valuable
-
-Provides instrumented `UPDATE_REQUESTED` and `STATE_CHANGED` evidence and can power render-reason/property-thrash/update-budget analysis.
-
-## Level 3 — Effect lifecycle: targeted, optional
-
-Use `useRuntimeEffect` around important effects when lifecycle/error evidence matters.
-
-Useful for:
-
-- subscriptions
-- data synchronization
-- timers
-- observers
-- event buses
-- effects suspected of feedback loops
-
-Provides effect-start/effect-cleanup evidence and captures effect-thrown errors without inventing dependency causality.
-
-## Level 4 — Resource ownership: targeted, highest diagnostic value for leaks
-
-Use `useRuntimeResource` for resources with explicit ownership/lifetime, or call the adapter resource APIs for custom resources.
-
-Examples:
-
-- timers
-- DOM/event-bus listeners
-- observers
-- sockets
-- subscriptions
-- workers
-- application-specific handles
-
-A matching acquire/release lets Runtime Intelligence prove a lifetime violation when an owner dies with an unreleased tracked resource.
-
-## What React still does not claim automatically
-
-Runtime Intelligence deliberately keeps these unsupported unless stronger evidence exists:
-
-- arbitrary React `UPDATE_CAUSE`
-- arbitrary hook/reactive dependency causality
-
-Temporal proximity remains correlation, not proof.
-
-## Lit adoption
-
-Lit currently has a stronger automatic instrumentation surface because `LitDebugMixin` can wrap the framework lifecycle directly.
-
-Typical integration:
-
-```js
-class RufElement extends LitDebugMixin(LitElement) {}
-```
-
-Every component inheriting that base automatically receives owner lifecycle, update request/start/complete instrumentation plus enabled memory/perf/error/property/cycle/event/slow-api tools. Page-level network, vitals and Intelligence initialize once.
-
-For an application that already has a common Lit base element, the incremental developer effort can therefore be close to one base-class change plus tool activation.
-
-## Vue / Angular / future frameworks
-
-The intended architecture is the same, not a new product per framework:
-
-```text
-Framework plugin/adapter
-        ↓
-UREP EvidenceStore
-        ↓
-shared browser collectors + advisers
-        ↓
-EvidenceGraph / Intelligence
-        ↓
-canonical mature panel + normalized report
-```
-
-A future adapter should provide:
-
-1. one root/plugin integration,
-2. automatic lifecycle/render hooks where the framework exposes them safely,
-3. strategic component boundaries only where automatic attribution is insufficient,
-4. optional state/effect/resource instrumentation for semantics the framework does not expose reliably.
-
-The Fault Lab pattern should also be cloned per framework: `react-fault-lab`, `vue-fault-lab`, `angular-fault-lab`, each running the same normalized scenario contract and producing the same JSON/HTML report schema.
-
-## Practical effort summary
-
-| Integration depth | React developer effort | Value |
-| --- | --- | --- |
-| Root runtime only | Very low | broad browser/network/vitals/error/DOM/adviser/intelligence coverage |
-| + strategic profiler boundaries | Low | strong component/source performance attribution |
-| + selected tracked state | Low–medium, targeted | render-reason/thrash/update-budget evidence |
-| + selected tracked effects | Low–medium, targeted | effect lifecycle/error evidence |
-| + tracked resources | Medium, only where valuable | strongest leak/lifetime evidence |
-
-The design goal is **not** “instrument everything.” Start at Levels 0–1, dogfood, then add Levels 2–4 only where the diagnostic value justifies the few lines of code.
+The panel's **Why this source? / What next?** guidance recommends the cheapest useful step and preserves evidence limitations. Observation, attribution and correlation alone do not prove business causality. Unsupported React update-cause/reactive-dependency semantics remain unsupported. Angular is deferred to a separately authorized R10 mission.

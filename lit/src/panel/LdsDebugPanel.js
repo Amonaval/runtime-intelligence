@@ -1630,6 +1630,12 @@ class LdsDebugPanel extends LitElement {
                     <div class="issue-body">
                         <div class="issue-details">${issue.details}</div>
                         <div class="issue-rec">💡 ${issue.recommendation}</div>
+                        ${issue.developerGuidance ? html`
+                            <div class="finding-guidance" style="margin-top:8px;font-size:11px;line-height:1.5;overflow-wrap:anywhere">
+                                <strong>Why this source?</strong> ${issue.developerGuidance.whySource}<br>
+                                <strong>What next?</strong> ${issue.developerGuidance.whatNext}<br>
+                                <span>Adoption level ${issue.developerGuidance.adoptionLevel} · ${issue.developerGuidance.evidenceLimit}</span>
+                            </div>` : ''}
                         ${related.length ? html`
                             <div style="margin-top:8px;font-size:10px;color:#6c7086">Event-related components:</div>
                             <div style="margin-top:2px">${related.map(t => html`<span class="tag-pill">${t}</span>`)}</div>

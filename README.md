@@ -55,7 +55,9 @@ const loaded = await loadRuntimeIntelligence({
   panel: true,
 });
 
-if (loaded.enabled) {
+if (!loaded.enabled) {
+  root.render(<App />);
+} else {
   const {
     createReactIntelligenceRuntime,
     RuntimeIntelligenceProvider,
@@ -71,7 +73,10 @@ if (loaded.enabled) {
     </RuntimeIntelligenceProvider>,
   );
 
-  // panel.destroy(); runtime.stop(); // HMR/tests
+  import.meta.hot?.dispose(() => {
+    panel.destroy();
+    runtime.stop();
+  });
 }
 ```
 
@@ -233,3 +238,9 @@ See [`docs/STATUS.md`](docs/STATUS.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), an
 ## R8 hardening validation
 
 Run `npm run validate:release`, `npm run overhead:validate` and `npm run compatibility:validate`. The compatibility validator tests two exact packed-artifact framework rows; enable its browser checks with RI_PLAYWRIGHT_MODULE and RI_CHROMIUM_EXECUTABLE. Without browser configuration those checks remain NOT EXECUTED. See [R8-HARDENING.md](docs/R8-HARDENING.md) for tested versions, receipts, reproduction and explicit coverage limits. Canonical and legacy reports now include exportPrivacy audit metadata and scrub every exported branch.
+
+## Finding to fix
+
+Expand a Pinpoint finding or an Opportunities card to read **Why this source? / What next?**. The explanation preserves source/evidence limits and suggests the smallest useful adoption step. The same guidance appears in normalized JSON and HTML reports. Installed packages include the integration guide and adoption ladder under `node_modules/runtime-intelligence/docs/`.
+
+R9 adoption/product experience is complete; see [R9-ADOPTION.md](https://github.com/Amonaval/runtime-intelligence/blob/main/docs/R9-ADOPTION.md) for validation and scope.

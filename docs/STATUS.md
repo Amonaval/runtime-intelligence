@@ -111,4 +111,11 @@ See [R8-HARDENING.md](R8-HARDENING.md). R8 remains IN PROGRESS; next are broader
 
 R8.2–R8.4 independently reviewed and implemented: exact-version packed/browser compatibility, adapter isolation and stale-callback contracts, managed pipeline/panel teardown and Lit page stop/restart, navigation and bounded adviser retention, Node throughput budgets and complete export privacy. Full release PASS: **316/316 unit tests, 14/14 production checks**. Two exact React/Vue/Lit browser rows, peer-absent imports, disabled production bundle/patch checks and actual hostile JSON/HTML downloads pass. All 31 R8-focused tests pass.
 
-Coverage and receipts: [R8-HARDENING.md](R8-HARDENING.md). No full-range/browser-heap/production React profiling claim. R9 adoption is next (MEDIUM), R10 Angular deferred, TrustWeave parked with consumer acceptance partial. This entry supersedes the earlier R8 IN PROGRESS entry.
+Coverage and receipts: [R8-HARDENING.md](R8-HARDENING.md). No full-range/browser-heap/production React profiling claim. R9 adoption subsequently completed (see below), R10 Angular deferred, TrustWeave parked with consumer acceptance partial. This entry supersedes the earlier R8 IN PROGRESS entry.
+
+
+## R9 — Adoption / Product Experience — COMPLETE
+
+Pinpoint and Opportunities now explain why a source is shown and suggest the next targeted adoption step. Normalized JSON/HTML carry the same guidance. Generated coordinates, latest matching event selection and unavailable source are explicit; evidence strength is unchanged. The installed artifact includes the React/Vue/Lit integration guide and unified Level 0/1/2 ladder. The README disabled React path renders the application normally; troubleshooting and guided demo steps cover opt-in, teardown and source limits.
+
+Validation: full release gate **319/319 unit tests, 14/14 production checks PASS**; packed installation/public imports and both installed guides PASS; real Chromium hostile lab validates visible Pinpoint/Opportunities guidance and JSON/HTML downloads. See [R9-ADOPTION.md](R9-ADOPTION.md) and [R9-ADOPTION-RECEIPT.json](R9-ADOPTION-RECEIPT.json). TrustWeave remains parked, consumer P0 acceptance partial, R10 deferred. No framework expansion or new telemetry.

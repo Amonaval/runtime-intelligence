@@ -38,6 +38,16 @@ Do not deep-import repository paths such as `runtime-intelligence/lit/src/...`.
 
 ---
 
+## First useful session
+
+1. Install the authorized tarball and choose the framework's shell recipe below.
+2. In the development application's browser console, run `localStorage.setItem('runtime-intelligence', 'on')`, then reload. The example gates require both a development build and this explicit opt-in.
+3. Reproduce one interaction. Open Pinpoint or Opportunities and read **Why this source? / What next?** before changing code.
+4. Follow one suggested ownership/operation step only if the source remains insufficient. Export JSON/HTML, make one change and repeat the same interaction.
+5. Run `localStorage.removeItem('runtime-intelligence')` and reload to return to the normal application.
+
+The installed package includes this guide and the adoption ladder under `node_modules/runtime-intelligence/docs/`. No credentials, registry or service setup is needed for the authorized local tarball workflow.
+
 ## 2. Safe enablement
 
 Diagnostics should be **off by default** and activated only by an application-owned development/authorization gate plus explicit opt-in.
@@ -477,7 +487,9 @@ Treat the location and its meaning together.
 - **Correlated / related** — useful contextual location, not causal proof.
 - **Unknown / source unavailable** — Runtime Intelligence could not prove an exact source.
 
-A file/line without provenance meaning is incomplete.
+A file/line without provenance meaning is incomplete. Expanded Pinpoint cards and Opportunities explain **Why this source?** and suggest **What next?** with adoption level 0, 1 or 2. Normalized JSON findings/opportunities retain the same `developerGuidance` fields; HTML reports render them for sharing. These fields are guidance, not extra causal evidence.
+
+A Pinpoint location selected from the latest matching owner/event is explicitly contextual: it may not explain every occurrence in an aggregate finding. Generated coordinates require verification against original sources. Unknown locations remain unavailable.
 
 ---
 
@@ -549,6 +561,18 @@ Verify:
 - `enabled` is literal `true`;
 - `componentFilter` did not exclude the component.
 
+## Application disappears when diagnostics are off
+
+Always render/mount the application outside the enabled diagnostics branch, or supply the disabled React render branch shown above. Diagnostics activation must not be the condition for starting the product.
+
+## Browser storage, SSR and bootstrap failures
+
+The Vite recipes run in a browser and assume storage is available. In restricted contexts, treat a failed storage read as opt-out. For SSR, perform browser activation only after client mount. If the optional diagnostics import/setup fails, clean up any partially created panel/runtime and continue the application's normal bootstrap; do not hide the application behind a failed diagnostics dependency.
+
+## Duplicate events after HMR
+
+Retain the panel and runtime/activation controllers and dispose both as shown in the recipes. Mount one panel against the same store as the active runtime. Repeat mount/unmount before diagnosing resource leaks.
+
 ## 17. Original TypeScript/JSX/Vue source is unavailable
 
 Development stacks, framework file metadata, and source maps may provide original-source information depending on the environment.
@@ -575,6 +599,12 @@ npm run lab:react:hostile:install
 npm run lab:react:hostile:validate
 npm run lab:react:hostile
 ```
+
+### Guided demo route
+
+React: run the hostile lab, trigger **HTTP 503**, expand its Pinpoint finding and read the invocation explanation. Then trigger **Generate heavy report** and compare the unavailable child source and recommended Level 1 step. In Opportunities, expand **Why this source? / What next?**, inspect the evidence badge and export JSON/HTML. This deliberately demonstrates both useful automatic provenance and its limits.
+
+Vue: `npm run lab:vue:install` then `npm run lab:vue`; compare lifecycle ownership with browser errors in the same panel. Lit consumers should use the shared-base recipe above; the packed compatibility harness validates activation/lifecycle rather than claiming a new Lit demo application.
 
 The hostile lab is the correct place to judge whether automatic source pinpointing feels valuable without application-specific help.
 

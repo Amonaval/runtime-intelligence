@@ -10,7 +10,7 @@ const failures = [];
 const requiredExports = [
   './loader', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
 ];
-const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/', 'docs/'];
+const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/'];
 
 function exportTargets(value) {
   if (typeof value === 'string') return [value];
@@ -74,6 +74,13 @@ for (const subpath of requiredExports) {
     const packedTarget = target.replace(/^\.\//, '');
     if (packedFiles.length && !packedFiles.includes(packedTarget)) failures.push(`Pack output is missing exported file ${packedTarget}.`);
   }
+}
+const onboardingDocs = ['docs/NEW-PROJECT-INTEGRATION-GUIDE.md', 'docs/FRAMEWORK-ADOPTION-LADDER.md'];
+for (const file of packedFiles.filter(file => file.startsWith('docs/'))) {
+  if (!onboardingDocs.includes(file)) failures.push(`Unexpected packed document ${file}.`);
+}
+for (const file of onboardingDocs) {
+  if (!packedFiles.includes(file)) failures.push(`Missing packed onboarding document ${file}.`);
 }
 for (const prefix of forbiddenPackedPrefixes) {
   if (packedFiles.some((file) => file.startsWith(prefix))) failures.push(`Pack output unexpectedly contains ${prefix}.`);

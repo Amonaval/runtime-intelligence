@@ -16,7 +16,7 @@
     "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
     "./package.json": "./package.json"
   },
-  "files": ["lit/src"],
+  "files": ["lit/src", "docs/NEW-PROJECT-INTEGRATION-GUIDE.md", "docs/FRAMEWORK-ADOPTION-LADDER.md"],
   "scripts": {
     "test": "npm --prefix lit test",
     "test:smoke": "npm --prefix lit run test:smoke",

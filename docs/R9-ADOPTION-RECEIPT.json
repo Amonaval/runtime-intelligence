@@ -1,0 +1,24 @@
+{
+  "browser": "153.0.8010.0",
+  "framework": "React 18.3.1",
+  "checkedAt": "2026-10-11T21:15:03.456Z",
+  "r9Adoption": {
+    "pinpointGuidanceVisible": true,
+    "opportunitiesGuidanceVisible": true,
+    "rootOnlyRenderRecommendsLevel1": true,
+    "errorOriginExplained": true,
+    "jsonGuidanceRetained": true,
+    "htmlGuidanceRetained": true
+  },
+  "release": {
+    "result": "PASS",
+    "unitTests": 319,
+    "productionChecks": 14,
+    "packedOnboarding": "PASS"
+  },
+  "limits": [
+    "Hostile browser acceptance uses React root-only instrumentation; Vue and Lit guidance are unit validated and packed imports validated.",
+    "No new normal-flow TrustWeave acceptance; consumer remains parked.",
+    "R8 exact-version matrix remains the compatibility receipt; R9 does not claim a fresh full matrix or new source precision."
+  ]
+}

@@ -71,6 +71,11 @@ console.log('consumer smoke passed');
   if (!consumerPackage.exports?.['./extension']) throw new Error('Packed package is missing ./extension export.');
   if (!consumerPackage.exports?.['./vue']) throw new Error('Packed package is missing ./vue export.');
 
+  for (const guide of ['NEW-PROJECT-INTEGRATION-GUIDE.md', 'FRAMEWORK-ADOPTION-LADDER.md']) {
+    const text = readFileSync(path.join(consumerDir, 'node_modules/runtime-intelligence/docs', guide), 'utf8');
+    if (!text.includes('React') || !text.includes('Vue') || !text.includes('Lit')) throw new Error(`Installed guide incomplete: ${guide}`);
+  }
+
   console.log(`Runtime Intelligence onboarding validation passed using ${filename}.`);
   console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit, /vue.');
   console.log('Verified extension contract plus default-off loader, React/Lit/Vue dynamic loading, and public Lit programmatic activation from the packed artifact.');

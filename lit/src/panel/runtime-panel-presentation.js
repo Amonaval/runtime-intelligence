@@ -1,3 +1,4 @@
+import { findingDeveloperGuidance } from './finding-developer-guidance.js';
 import { shapeLegacyRuntimeReport, sanitizeRuntimeReport } from './legacy-report-privacy.js';
 
 const OPPORTUNITY_FLAGS = Object.freeze([
@@ -88,6 +89,7 @@ function enhanceRuntimeIssueForFramework(issue, { framework = 'unknown' } = {}) 
   if (['browser', '(network)', '(main thread)', '(page load)', '(multiple)', '(runtime)'].includes(next.component)) {
     if (!next.callStacks?.length) next.filePath = '';
   }
+  next.developerGuidance = findingDeveloperGuidance(next, { framework });
   return next;
 }
 
@@ -134,7 +136,7 @@ function _normalizedFinding(event, framework) {
         owner: event.owner || null,
         source: event.source || null,
         evidence: event.evidence || null,
-        message: `${event.owner?.name || 'React boundary'} rendered in ${Math.round(durationMs)}ms`,
+        message: `${event.owner?.name || 'Component boundary'} rendered in ${Math.round(durationMs)}ms`,
         recommendation: _recommendation('slow-render', framework),
         payload: event.payload || {},
         synthetic: event.payload?.synthetic === true,
@@ -210,8 +212,9 @@ function createRuntimeReport({
   const diagnostics = evidence.filter(event => event.type === 'diagnostic');
   const rawOpportunities = diagnostics.map(event => _opportunityFromDiagnostic(event, fw)).filter(Boolean);
   const rawFindings = evidence.map(event => _normalizedFinding(event, fw)).filter(Boolean);
-  const opportunities = _dedupeSemantic(rawOpportunities);
-  const normalizedFindings = _dedupeSemantic(rawFindings);
+  const withGuidance = item => Object.freeze({ ...item, developerGuidance: findingDeveloperGuidance(item, { framework: fw }) });
+  const opportunities = _dedupeSemantic(rawOpportunities).map(withGuidance);
+  const normalizedFindings = _dedupeSemantic(rawFindings).map(withGuidance);
   const byType = {};
   for (const event of evidence) byType[event.type] = (byType[event.type] || 0) + 1;
 
@@ -251,12 +254,17 @@ function _originBadge(item) {
   return item?.synthetic === true || item?.payload?.synthetic === true ? 'synthetic' : 'observed';
 }
 
+function _guidanceHtml(item, framework) {
+  const guidance = findingDeveloperGuidance(item, { framework });
+  return `<strong>Why this source?</strong> ${_escapeHtml(guidance.whySource)}<br><strong>What next?</strong> ${_escapeHtml(guidance.whatNext)}<br>Adoption level ${guidance.adoptionLevel}<br>${_escapeHtml(guidance.evidenceLimit)}`;
+}
+
 function buildRuntimeReportHtml(report) {
   report = sanitizeRuntimeReport(report);
   const findingRows = (report.normalizedFindings || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td>${_escapeHtml(item.message || item.payload?.diagnostic || '')}</td><td>${_escapeHtml(item.recommendation || '')}<br>${_guidanceHtml(item, report.framework)}</td></tr>`).join('');
   const opportunityRows = (report.opportunities || []).map(item => `
-    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}</td></tr>`).join('');
+    <tr><td>${_escapeHtml(item.kind)}</td><td>${_escapeHtml(item.owner?.name || item.owner?.id || 'runtime')}</td><td>${_escapeHtml(item.source?.file || '')}</td><td>${_escapeHtml(item.evidence?.level || '')}</td><td>${_escapeHtml(_originBadge(item))}</td><td>${_escapeHtml(item.occurrenceCount || 1)}</td><td><pre>${_escapeHtml(JSON.stringify(item.payload, null, 2))}</pre></td><td>${_escapeHtml(item.recommendation || '')}<br>${_guidanceHtml(item, report.framework)}</td></tr>`).join('');
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Runtime Intelligence Report</title>

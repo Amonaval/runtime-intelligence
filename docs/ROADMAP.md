@@ -78,9 +78,11 @@ R8.1 lifecycle plus coordinated R8.2–R8.4 compatibility/contracts, broader tea
 
 Tested exact rows: React18.3.1/Vue3.3.13/Lit3.0.2 and React19.0.0/Vue3.5.13/Lit3.3.3. This does not claim full peer-range/browser coverage, browser heap-leak proof or production React profiling. TrustWeave P0 consumer acceptance remains partial by user direction.
 
-## R9 — Adoption / Product Experience — NEXT — MEDIUM
+## R9 — Adoption / Product Experience — COMPLETE — MEDIUM
 
-Improve installation, Level 0 → Level 1 → Level 2 guidance, framework recipes, troubleshooting, finding/provenance explanations, “why this source?” and “what next?” workflows, and demo integrations.
+Implemented shared developer guidance in Pinpoint, Opportunities and normalized JSON/HTML exports, packaged install/adoption guides, current React/Vue/Lit Level 0 → Level 1 → Level 2 recipes, troubleshooting and a guided real-browser demo route. Release and hostile-browser acceptance pass; see [R9-ADOPTION.md](R9-ADOPTION.md).
+
+TrustWeave remains parked. R10 remains deferred pending an explicit roadmap decision and P0 consumer acceptance; R9 does not grant Angular expansion.
 
 ## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
 

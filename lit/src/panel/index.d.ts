@@ -9,6 +9,13 @@ export interface RuntimePanelEvidenceBridge {
   stop(): RuntimePanelEvidenceBridge;
 }
 
+export interface RuntimeFindingDeveloperGuidance {
+  whySource: string;
+  whatNext: string;
+  adoptionLevel: 0 | 1 | 2;
+  evidenceLimit: string;
+}
+
 export interface RuntimeNormalizedFinding {
   id: string;
   kind: string;
@@ -17,6 +24,7 @@ export interface RuntimeNormalizedFinding {
   evidence?: unknown;
   message?: string;
   recommendation?: string | null;
+  developerGuidance?: RuntimeFindingDeveloperGuidance;
   payload?: unknown;
 }
 
@@ -64,7 +72,7 @@ export function bridgeRuntimeEvidenceToPanel(options: {
 export function enhanceRuntimeIssueForFramework<T extends Record<string, unknown>>(
   issue: T,
   options?: { framework?: string },
-): T;
+): T & { developerGuidance: RuntimeFindingDeveloperGuidance };
 
 export function createRuntimeReport(options?: {
   baseReport?: Record<string, unknown>;

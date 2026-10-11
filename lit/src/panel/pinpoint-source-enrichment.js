@@ -98,6 +98,7 @@ function enrichPinpointIssueSource(issue, store) {
     details,
     sourceProvenance: provenance,
     sourceLocation: event.source,
+    sourceMatch: 'latest-matching-event',
     evidenceLevel: event.evidence?.level === 'attribution' ? 'attribution' : issue.evidenceLevel,
   });
 }

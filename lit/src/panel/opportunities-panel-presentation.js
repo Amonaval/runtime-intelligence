@@ -1,4 +1,5 @@
 import { html } from 'lit';
+import { findingDeveloperGuidance } from './finding-developer-guidance.js';
 import { createRuntimeReport } from './runtime-panel-presentation.js';
 import { buildRuntimeOpportunitiesModel, CATEGORY_LABELS } from './runtime-opportunities-model.js';
 
@@ -109,6 +110,7 @@ function _navigate(panel, item) {
 function _renderOpportunityCard(panel, item) {
   const priorityColor = _priorityColor(item.priority);
   const evidenceColor = _evidenceColor(item.evidenceLevel);
+  const guidance = item.developerGuidance || findingDeveloperGuidance(item);
   return html`
     <div style="background:#181825;border:1px solid #313244;border-left:3px solid ${priorityColor};border-radius:7px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;gap:8px;align-items:flex-start">
@@ -140,6 +142,11 @@ function _renderOpportunityCard(panel, item) {
         </div>
       </div>
 
+      <details class="finding-guidance" style="margin-top:8px;font-size:10px;line-height:1.5;color:#bac2de">
+        <summary style="cursor:pointer">Why this source? / What next?</summary>
+        <p>${guidance.whySource}</p><p>${guidance.whatNext}</p>
+        <p>Adoption level ${guidance.adoptionLevel} · ${guidance.evidenceLimit}</p>
+      </details>
       ${item.recommendation ? html`
         <div style="margin-top:8px;padding:7px 9px;background:#0d1f0d;border-left:2px solid #a6e3a1;border-radius:4px;color:#a6e3a1;font-size:10px;line-height:1.45">
           ${item.recommendation}
