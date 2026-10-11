@@ -125,3 +125,7 @@ Post-P0.4 hostile browser console source/lifecycle and actual JSON/HTML export a
 The ten-scenario matrix is 4 automatically actionable, 4 detected/source-limited, and 2 Level-0 unobservable. Development Fiber metadata did not expose child source in this Vite baseline. Keep those limitations honest. Full release validation passed (14 production checks and 285 unit tests).
 
 See [P0.4-HOSTILE-ACCEPTANCE.md](P0.4-HOSTILE-ACCEPTANCE.md). This does not close the real-consumer acceptance requirement above: a post-P0.4 TrustWeave browser run remains NOT EXECUTED. After that gate, the roadmap is R8 hardening → R9 adoption → R10 Angular.
+
+## Consumer gate disposition — 2026-10-11 UTC
+
+The user stopped further TrustWeave work after its running normal-flow item. Playground load/timeline filtering passed; directory profile QA timed out at a locator. Later steps and connected API acceptance were NOT EXECUTED. The work item is closed partial; overall P0 acceptance remains incomplete. R8 proceeds at the user's explicit direction; see R8-HARDENING.md.

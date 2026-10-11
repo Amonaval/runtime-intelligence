@@ -68,13 +68,15 @@ Console invocation attribution is browser-verified without modifying business co
 
 Known limits: no exact uninstrumented child render source; no original JSX source-map mapping; resource ownership and stale state-write cause remain unobservable at Level 0.
 
-### P0 real-consumer closure — NEXT — MEDIUM
+### P0 real-consumer check — CLOSED PARTIAL / DEFERRED
 
-Perform the post-P0.4 TrustWeave normal-flow source/provenance acceptance required by the P0 contract. Do not introduce synthetic faults or generic runtime code in TrustWeave. The hostile gate is closed; this consumer gate has not been executed in this mission.
+On 2026-10-11 UTC the user directed stopping TrustWeave after the running browser item and proceeding to R8. Installation/source gate/TypeScript, Playground load and timeline filtering passed. Directory profile QA timed out at its selector; later flows and connected API acceptance were not executed. This closes the work item, not overall P0 acceptance. No synthetic faults or generic runtime implementation were added to TrustWeave.
 
-## R8 — Multi-framework Product Hardening — HIGH
+## R8 — Multi-framework Product Hardening — HIGH — IN PROGRESS
 
-After P0 consumer closure, harden React/Lit/Vue compatibility, adapter/provenance contracts, start/stop/restart, teardown stress, overhead budgets, production-disable behavior, package/loader installation and report privacy regressions. Make existing framework coverage reliably shippable.
+R8.1 shared browser lifecycle is complete: overlapping page-flag ownership, best-effort startup/teardown, stale callback isolation, in-flight fetch generation isolation and XHR listener release. See [R8-HARDENING.md](R8-HARDENING.md).
+
+Remaining: React/Lit/Vue compatibility/version matrix, adapter/provenance contracts, broader runtime teardown stress, overhead budgets, production-disable behavior, repeated package/loader installation and report privacy regression. Existing evidence limits remain explicit.
 
 ## R9 — Adoption / Product Experience — MEDIUM
 
@@ -82,4 +84,4 @@ Improve installation, Level 0 → Level 1 → Level 2 guidance, framework recipe
 
 ## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
 
-Begin only after P0 and multi-framework hardening. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.
+Begin only after multi-framework hardening and an explicit roadmap decision; P0 consumer acceptance remains incomplete. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.

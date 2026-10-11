@@ -15,6 +15,8 @@ const MAX_ENTRIES = 200;
 const _log = [];
 const _subscribers = new Set();
 let _initialized = false;
+let _generation = 0;
+const _pendingXhrListeners = new Set();
 let _clients = 0;
 let _decoder = null;
 let _windowTarget = null;
@@ -71,6 +73,7 @@ function init() {
 
     const win = window;
     _initialized = true;
+    const generation = ++_generation;
     _windowTarget = win;
     win.__LDS_NETWORK_LOG__ = _log;
 
@@ -87,6 +90,7 @@ function init() {
 
             return _origFetch.apply(this, args).then(
                 response => {
+                    if (!_initialized || generation !== _generation) return response;
                     const ms = Math.round(_now(win) - t0);
                     const endedAt = Date.now();
                     const kb = Math.round(parseInt(response.headers.get('content-length') || '0', 10) / 1024);
@@ -110,6 +114,7 @@ function init() {
                     return response;
                 },
                 err => {
+                    if (!_initialized || generation !== _generation) throw err;
                     const endedAt = Date.now();
                     _push({
                         url:            _shortUrl(rawUrl, win),
@@ -153,14 +158,23 @@ function init() {
             const startedAt = Date.now();
             const callStack = (win.__LDS_DEBUG__ || win.__LDS_FALCOR_VIEW__ || win.__LDS_INTELLIGENCE_ENABLED__)
                 ? new Error().stack : undefined;
-            this.addEventListener('loadend', () => {
+            const url = this.__lds_url || '';
+            const method = this.__lds_method || 'GET';
+            const body = this.__lds_body;
+            const cleanup = () => {
+                _pendingXhrListeners.delete(cleanup);
+                try { this.removeEventListener('loadend', onLoadEnd); } catch {}
+            };
+            const onLoadEnd = () => {
+                cleanup();
+                if (!_initialized || generation !== _generation) return;
                 const ms = Math.round(_now(win) - t0);
                 const endedAt = Date.now();
                 const kb = Math.round(parseInt(this.getResponseHeader?.('content-length') || '0', 10) / 1024);
                 _push({
-                    url:            _shortUrl(this.__lds_url || '', win),
-                    fullUrl:        String(this.__lds_url || ''),
-                    method:         (this.__lds_method || 'GET').toUpperCase(),
+                    url:            _shortUrl(url, win),
+                    fullUrl:        String(url),
+                    method:         method.toUpperCase(),
                     status:         this.status,
                     durationMs:     ms,
                     responseSizeKB: kb || null,
@@ -171,11 +185,15 @@ function init() {
                     isSlow:         ms > SLOW_MS,
                     isLarge:        kb > LARGE_KB,
                     type:           'xhr',
-                    decoded:        _resolveDecoded(this.__lds_url || '', this.__lds_body),
+                    decoded:        _resolveDecoded(url, body),
                     callStack,
                 });
-            });
-            return _origSend.apply(this, args);
+            };
+            _pendingXhrListeners.add(cleanup);
+            try { this.addEventListener('loadend', onLoadEnd, { once: true }); }
+            catch { cleanup(); }
+            try { return _origSend.apply(this, args); }
+            catch (error) { cleanup(); throw error; }
         };
 
         _xhrPrototype.open = _patchedOpen;
@@ -188,6 +206,9 @@ function init() {
 function detach() {
     if (_clients > 0) _clients -= 1;
     if (!_initialized || _clients > 0) return;
+
+    _generation += 1;
+    for (const cleanup of _pendingXhrListeners) cleanup();
 
     if (_windowTarget && _patchedFetch && _windowTarget.fetch === _patchedFetch) {
         _windowTarget.fetch = _origFetch;

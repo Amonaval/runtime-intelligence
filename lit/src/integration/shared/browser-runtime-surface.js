@@ -9,6 +9,31 @@ import { LdsConsole } from '../../core/console.js';
 import { SequentialApiDetector } from '../../core/sequential-api-detector.js';
 import { captureSourceProvenance, SourceProvenanceKind } from '../../core/source-provenance.js';
 
+// One page flag lease shared by all framework surfaces; release order is arbitrary.
+const _intelligenceLeases = new WeakMap();
+function _acquireIntelligenceFlag(win) {
+  const existing = _intelligenceLeases.get(win);
+  if (existing) { existing.clients += 1; return existing; }
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(win, '__LDS_INTELLIGENCE_ENABLED__');
+    win.__LDS_INTELLIGENCE_ENABLED__ = true;
+    const lease = { clients: 1, descriptor };
+    _intelligenceLeases.set(win, lease);
+    return lease;
+  } catch { return null; }
+}
+function _releaseIntelligenceFlag(win, lease) {
+  if (!lease || --lease.clients > 0) return;
+  _intelligenceLeases.delete(win);
+  try {
+    // Preserve a host replacement made while diagnostics were active.
+    if (win.__LDS_INTELLIGENCE_ENABLED__ !== true) return;
+    if (lease.descriptor) Object.defineProperty(win, '__LDS_INTELLIGENCE_ENABLED__', lease.descriptor);
+    else delete win.__LDS_INTELLIGENCE_ENABLED__;
+  } catch {}
+}
+function _cleanup(callback) { try { callback(); } catch {} }
+
 let _networkTraceSequence = 0;
 let _interactionSequence = 0;
 
@@ -73,8 +98,8 @@ class BrowserRuntimeSurface {
   #networkAttached = false;
   #vitalsAttached = false;
   #consoleAttached = false;
-  #hadIntelligenceFlag = false;
-  #previousIntelligenceFlag;
+  #intelligenceLease = null;
+  #generation = 0;
 
   constructor({
     store,
@@ -107,9 +132,11 @@ class BrowserRuntimeSurface {
     if (this.#started || !this.#windowTarget) return this;
     this.#started = true;
     const win = this.#windowTarget;
-    this.#hadIntelligenceFlag = Object.prototype.hasOwnProperty.call(win, '__LDS_INTELLIGENCE_ENABLED__');
-    this.#previousIntelligenceFlag = win.__LDS_INTELLIGENCE_ENABLED__;
-    win.__LDS_INTELLIGENCE_ENABLED__ = true;
+    this.#intelligenceLease = _acquireIntelligenceFlag(win);
+    const generation = ++this.#generation;
+    const active = callback => (...args) => {
+      if (this.#started && generation === this.#generation) return callback(...args);
+    };
 
     try {
       if (typeof this.#network?.init === 'function') {
@@ -132,27 +159,30 @@ class BrowserRuntimeSurface {
 
     if (typeof this.#consoleCapture?.subscribe === 'function') {
       try {
-        this.#consoleUnsubscribe = this.#consoleCapture.subscribe(entry => this.#recordConsole(entry));
+        this.#consoleUnsubscribe = this.#consoleCapture.subscribe(active(entry => this.#recordConsole(entry)));
       } catch {
         this.#consoleUnsubscribe = null;
       }
     }
 
     if (typeof this.#network?.subscribe === 'function') {
-      this.#networkUnsubscribe = this.#network.subscribe(entry => this.#recordNetwork(entry));
+      try {
+        this.#networkUnsubscribe = this.#network.subscribe(active(entry => this.#recordNetwork(entry)));
+      } catch { this.#networkUnsubscribe = null; }
       try {
         this.#sequential = this.#sequentialFactory({
           network: this.#network,
-          onOpportunity: opportunity => this.#recordSequentialOpportunity(opportunity),
+          onOpportunity: active(opportunity => this.#recordSequentialOpportunity(opportunity)),
         });
         this.#sequential?.start?.();
       } catch {
+        _cleanup(() => this.#sequential?.stop?.());
         this.#sequential = null;
       }
     }
 
     if (typeof win.addEventListener === 'function') {
-      this.#onError = event => {
+      this.#onError = active(event => {
         const captured = captureSourceProvenance({
           source: _errorSource(event),
           stack: event?.error?.stack || null,
@@ -172,8 +202,8 @@ class BrowserRuntimeSurface {
             ..._provenancePayload(captured.provenance),
           },
         });
-      };
-      this.#onUnhandledRejection = event => {
+      });
+      this.#onUnhandledRejection = active(event => {
         const captured = captureSourceProvenance({
           stack: event?.reason?.stack || null,
           kind: SourceProvenanceKind.ERROR_ORIGIN,
@@ -192,29 +222,30 @@ class BrowserRuntimeSurface {
             ..._provenancePayload(captured.provenance),
           },
         });
-      };
-      win.addEventListener('error', this.#onError);
-      win.addEventListener('unhandledrejection', this.#onUnhandledRejection);
+      });
+      _cleanup(() => win.addEventListener('error', this.#onError));
+      _cleanup(() => win.addEventListener('unhandledrejection', this.#onUnhandledRejection));
     }
 
-    this.#installInteractionCapture();
+    this.#installInteractionCapture(active);
     return this;
   }
 
   stop() {
     if (!this.#started) return this;
     this.#started = false;
-    this.#networkUnsubscribe?.();
+    this.#generation += 1;
+    _cleanup(() => this.#networkUnsubscribe?.());
     this.#networkUnsubscribe = null;
-    this.#consoleUnsubscribe?.();
+    _cleanup(() => this.#consoleUnsubscribe?.());
     this.#consoleUnsubscribe = null;
     try { this.#sequential?.stop?.(); } catch {}
     this.#sequential = null;
 
     const win = this.#windowTarget;
     if (win?.removeEventListener) {
-      if (this.#onError) win.removeEventListener('error', this.#onError);
-      if (this.#onUnhandledRejection) win.removeEventListener('unhandledrejection', this.#onUnhandledRejection);
+      if (this.#onError) _cleanup(() => win.removeEventListener('error', this.#onError));
+      if (this.#onUnhandledRejection) _cleanup(() => win.removeEventListener('unhandledrejection', this.#onUnhandledRejection));
     }
     this.#onError = null;
     this.#onUnhandledRejection = null;
@@ -237,14 +268,8 @@ class BrowserRuntimeSurface {
       this.#networkAttached = false;
     }
 
-    if (win?.__LDS_INTELLIGENCE_ENABLED__ === true) {
-      if (this.#hadIntelligenceFlag) win.__LDS_INTELLIGENCE_ENABLED__ = this.#previousIntelligenceFlag;
-      else {
-        try { delete win.__LDS_INTELLIGENCE_ENABLED__; } catch { win.__LDS_INTELLIGENCE_ENABLED__ = undefined; }
-      }
-    }
-    this.#hadIntelligenceFlag = false;
-    this.#previousIntelligenceFlag = undefined;
+    _releaseIntelligenceFlag(win, this.#intelligenceLease);
+    this.#intelligenceLease = null;
     return this;
   }
 
@@ -349,12 +374,12 @@ class BrowserRuntimeSurface {
     });
   }
 
-  #installInteractionCapture() {
+  #installInteractionCapture(active) {
     const doc = this.#documentTarget;
     if (!doc?.addEventListener) return;
 
     for (const type of ['click', 'change', 'submit']) {
-      const handler = event => {
+      const handler = active(event => {
         const target = event?.target;
         const interactionId = `interaction-${Date.now()}-${++_interactionSequence}`;
         const emitted = this.#store.emit({
@@ -372,9 +397,11 @@ class BrowserRuntimeSurface {
           interactionId,
           emitted?.timestamp ?? Date.now(),
         );
-      };
-      doc.addEventListener(type, handler, true);
-      this.#interactionHandlers.push([type, handler]);
+      });
+      try {
+        doc.addEventListener(type, handler, true);
+        this.#interactionHandlers.push([type, handler]);
+      } catch {}
     }
   }
 }

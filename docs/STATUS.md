@@ -97,8 +97,12 @@ Full `npm run validate:release`: **PASS**, production checks 14/14 and unit suit
 
 See [P0.4-HOSTILE-ACCEPTANCE.md](P0.4-HOSTILE-ACCEPTANCE.md) and its machine receipt for evidence and reproduction.
 
-## Next — P0 real-consumer acceptance, then R8 hardening
+## R8.1 — Shared browser lifecycle hardening — COMPLETE
 
-The current mission closes P0.4's hostile browser gate. It does not claim a new TrustWeave browser run or complete original JSX/child source resolution.
+TrustWeave's current item is closed partial at the user's direction. Canonical pin installation, source gate, app TypeScript, Playground load and timeline filtering passed. Directory profile QA hit a selector timeout; remaining normal flows and connected API acceptance were NOT EXECUTED. Overall P0 acceptance is not claimed. TrustWeave closure commit: `4bea344eddae023a20f05b6dbf212bcaa9e9884a` on its runtime-observability branch.
 
-Run post-P0.4 TrustWeave normal-flow acceptance before claiming overall P0 closure (**MEDIUM**). Keep all generic code canonical. After that: **R8 multi-framework hardening (HIGH)** → **R9 adoption (MEDIUM)** → **R10 Angular (MEDIUM-HIGH/HIGH)**.
+R8.1 fixes overlapping surface flag ownership, throwing cleanup that skipped remaining resources, callbacks from prior start generations, in-flight network completion contamination after restart and retained/repeated XHR listeners. Transport results/rejections remain unchanged.
+
+Validation: **294/294 unit tests**, **14/14 production checks**, full `validate:release` PASS; Chromium hostile browser/export regression PASS. Dedicated stress cases cover 100 surface restarts and 100 XHR reuse cycles. These are listener/subscriber retention checks, not proof of every browser heap leak or framework version.
+
+See [R8-HARDENING.md](R8-HARDENING.md). R8 remains IN PROGRESS; next are broader adapter/version compatibility and runtime lifecycle contracts. R9 adoption and R10 Angular remain deferred.
