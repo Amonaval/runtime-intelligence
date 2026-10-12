@@ -1,4 +1,8 @@
-import { EvidenceLevel, RuntimeEventType } from './evidence-protocol.js';
+import {
+  EvidenceLevel,
+  RuntimeEventType,
+  validateEvidenceEvent,
+} from './evidence-protocol.js';
 
 const WORKFLOW_SCHEMA_VERSION = '1.0';
 
@@ -59,6 +63,31 @@ function _customMetric(events, definition) {
 
 function _sortedObject(entries) {
   return Object.fromEntries([...entries].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function _causalEvidenceReference(causalEvidence) {
+  if (causalEvidence == null) return null;
+  if (!causalEvidence || typeof causalEvidence !== 'object') {
+    throw new TypeError('causalEvidence must be a UREP evidence event.');
+  }
+
+  const validation = validateEvidenceEvent(causalEvidence);
+  if (!validation.valid) {
+    throw new TypeError(`causalEvidence must be a valid UREP evidence event: ${validation.errors.join(', ')}`);
+  }
+  if (causalEvidence.evidence?.level !== EvidenceLevel.CAUSALITY_CONFIRMED
+      || !causalEvidence.correlation?.causedByEventId) {
+    throw new TypeError(
+      'Causal verification requires an existing causality-confirmed UREP event with causedByEventId.',
+    );
+  }
+
+  return Object.freeze({
+    eventId: causalEvidence.id,
+    eventType: causalEvidence.type,
+    causedByEventId: causalEvidence.correlation.causedByEventId,
+    framework: causalEvidence.framework?.name || null,
+  });
 }
 
 function createWorkflowRun(input, {
@@ -177,6 +206,7 @@ function verifyFix({
   after,
   intervention,
   target,
+  causalEvidence = null,
   verifiedAt = Date.now(),
 } = {}) {
   if (!target?.metricId) throw new TypeError('Verification target requires metricId.');
@@ -190,6 +220,7 @@ function verifyFix({
     ? Math.max(0, target.minimumAbsoluteImprovement) : 0;
   const minRelative = Number.isFinite(target.minimumRelativeImprovement)
     ? Math.max(0, target.minimumRelativeImprovement) : 0;
+  const causalEvidenceRef = _causalEvidenceReference(causalEvidence);
 
   const base = {
     schemaVersion: WORKFLOW_SCHEMA_VERSION,
@@ -206,22 +237,30 @@ function verifyFix({
       minimumRelativeImprovement: minRelative,
     },
     metric: metric || null,
+    causalEvidence: causalEvidenceRef,
   };
 
-  const inconclusive = reason => _deepFreeze({
+  const unresolved = (outcome, reason, extra = {}) => _deepFreeze({
     ...base,
-    outcome: VerificationOutcome.INCONCLUSIVE,
+    outcome,
     evidenceLevel: EvidenceLevel.CORRELATION,
     confirmed: false,
+    verificationConfirmed: false,
+    causalityConfirmed: false,
     improvement: null,
     relativeImprovement: null,
     reason,
+    ...extra,
   });
 
-  if (!comparison.sameWorkflow) return inconclusive('workflow-mismatch');
-  if (!comparison.distinctRuns) return inconclusive('same-run');
-  if (intervention?.applied !== true) return inconclusive('intervention-not-confirmed-applied');
-  if (!metric || !Number.isFinite(metric.before) || !Number.isFinite(metric.after)) return inconclusive('target-metric-unavailable');
+  if (!comparison.sameWorkflow) return unresolved(VerificationOutcome.INCONCLUSIVE, 'workflow-mismatch');
+  if (!comparison.distinctRuns) return unresolved(VerificationOutcome.INCONCLUSIVE, 'same-run');
+  if (intervention?.applied !== true) {
+    return unresolved(VerificationOutcome.INCONCLUSIVE, 'intervention-not-confirmed-applied');
+  }
+  if (!metric || !Number.isFinite(metric.before) || !Number.isFinite(metric.after)) {
+    return unresolved(VerificationOutcome.INCONCLUSIVE, 'target-metric-unavailable');
+  }
 
   const improvement = target.direction === MetricDirection.DECREASE
     ? metric.before - metric.after
@@ -237,6 +276,8 @@ function verifyFix({
       outcome: VerificationOutcome.REGRESSED,
       evidenceLevel: EvidenceLevel.CORRELATION,
       confirmed: false,
+      verificationConfirmed: false,
+      causalityConfirmed: false,
       improvement,
       relativeImprovement,
       reason: 'target-regressed-after-intervention',
@@ -249,20 +290,29 @@ function verifyFix({
       outcome: VerificationOutcome.NOT_CONFIRMED,
       evidenceLevel: EvidenceLevel.CORRELATION,
       confirmed: false,
+      verificationConfirmed: false,
+      causalityConfirmed: false,
       improvement,
       relativeImprovement,
       reason: improvement === 0 ? 'no-target-improvement' : 'improvement-below-threshold',
     });
   }
 
+  const causalityConfirmed = causalEvidenceRef != null;
   return _deepFreeze({
     ...base,
     outcome: VerificationOutcome.CONFIRMED,
-    evidenceLevel: EvidenceLevel.CAUSALITY_CONFIRMED,
+    evidenceLevel: causalityConfirmed
+      ? EvidenceLevel.CAUSALITY_CONFIRMED
+      : EvidenceLevel.CORRELATION,
     confirmed: true,
+    verificationConfirmed: true,
+    causalityConfirmed,
     improvement,
     relativeImprovement,
-    reason: 'applied-intervention-followed-by-meaningful-improvement-on-replayed-workflow',
+    reason: causalityConfirmed
+      ? 'meaningful-improvement-with-governed-causal-evidence'
+      : 'meaningful-improvement-verified-after-applied-intervention-without-causal-proof',
   });
 }
 
