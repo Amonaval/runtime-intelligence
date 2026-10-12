@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0",
+  "mission": "R9.4A",
+  "studyId": "replace-with-study-id",
+  "participant": {
+    "id": "replace-with-participant-id",
+    "role": "senior-frontend-engineer",
+    "yearsExperience": null,
+    "runtimeIntelligenceFamiliarity": "none|some|author",
+    "nativeToolFamiliarity": "low|medium|high"
+  },
+  "environment": {
+    "commit": "record-the-tested-main-sha",
+    "browser": "record-browser-and-version",
+    "os": "record-os",
+    "notes": ""
+  },
+  "protocol": {
+    "readOracleOnlyAfterAllModesForFault": true,
+    "resetApplicationBetweenRuns": true,
+    "useDeclaredRunOrder": true,
+    "humanTimingOnly": true
+  },
+  "recordTemplate": {
+    "faultId": "replace-from-faults.json",
+    "mode": "native|ri-level-0|ri-targeted",
+    "orderIndex": 1,
+    "status": "completed|aborted",
+    "humanMeasured": true,
+    "elapsedToRelevantSourceMs": null,
+    "relevantSourceNotReachedReason": null,
+    "elapsedToActionableDiagnosisMs": null,
+    "actionableDiagnosisNotReachedReason": null,
+    "sourceOutcome": "exact-original|exact-generated|file-only|boundary-only|contextual|unavailable|wrong",
+    "diagnosisOutcome": "actionable-correct|useful-direction|symptom-only|wrong|none",
+    "actionOutcome": "specific-change|targeted-investigation|generic|none",
+    "verificationOutcome": "supported-useful|manual-useful|unsupported-honest|misleading|not-applicable",
+    "findings": {
+      "shown": 0,
+      "useful": 0,
+      "irrelevant": 0,
+      "falsePositive": 0
+    },
+    "instrumentation": {
+      "filesChanged": 0,
+      "linesChanged": 0,
+      "description": ""
+    },
+    "trustViolation": "none|wrong-source-presented-as-exact|generated-source-presented-as-original|correlation-presented-as-causality|unsupported-ownership-presented-as-proven|other",
+    "wouldUseAgain": "yes|maybe|no",
+    "participantNotes": "",
+    "oracleReview": {
+      "performedAfterRun": true,
+      "matched": null,
+      "notes": ""
+    }
+  },
+  "runs": []
+}

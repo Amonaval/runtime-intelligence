@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "mission": "R9.4A",
+  "warning": "Do not read an oracle before completing all three run modes for that fault. Oracle review is adjudication, not a debugging hint.",
+  "oracles": [
+    {
+      "faultId": "react-sequential-waterfall",
+      "biasClass": "analyzer-favorable",
+      "truth": "loadOrderWorkspace awaits three requests in sequence in the plain service module.",
+      "sourceFiles": [
+        "examples/react-uninstrumented-lab/src/app/services/orders-api.js",
+        "examples/react-uninstrumented-lab/src/app/components/OrderWaterfall.jsx"
+      ],
+      "acceptedDiagnosis": "The three request starts are serialized by explicit awaits; investigate whether customer/pricing dependencies are truly sequential.",
+      "honestyRequirement": "Invocation/common-caller attribution may identify the service callsite; it does not prove that parallelization is semantically safe.",
+      "verificationExpectation": "Manual or finding-guided network timing/count comparison can be useful; causality must not be upgraded from before/after timing alone."
+    },
+    {
+      "faultId": "react-stale-async-race",
+      "biasClass": "known-limit",
+      "truth": "Two requests race; the newer fast result updates state first and an older slower completion later overwrites it.",
+      "sourceFiles": [
+        "examples/react-uninstrumented-lab/src/app/components/AsyncRace.jsx",
+        "examples/react-uninstrumented-lab/src/app/services/orders-api.js"
+      ],
+      "acceptedDiagnosis": "The stale completion wins last because the component does not guard request identity/order before setResult.",
+      "honestyRequirement": "Network timing alone is not proof of the state-write/business cause. Level 0 should stay source/causality-limited rather than inventing a root cause.",
+      "verificationExpectation": "A meaningful verification requires an explicit UI/state target or targeted operation evidence; unsupported automation is acceptable."
+    },
+    {
+      "faultId": "react-heavy-main-thread-report",
+      "biasClass": "neutral",
+      "truth": "After a large report response, HeavyReport sorts rows and intentionally burns the main thread for about 135 ms.",
+      "sourceFiles": [
+        "examples/react-uninstrumented-lab/src/app/components/HeavyReport.jsx",
+        "examples/react-uninstrumented-lab/src/app/services/orders-api.js"
+      ],
+      "acceptedDiagnosis": "Synchronous post-fetch processing blocks the main thread; investigate reducing, chunking, or moving CPU-heavy work.",
+      "honestyRequirement": "A worker opportunity is a recommendation, not proof that a worker is the correct business fix.",
+      "verificationExpectation": "A before/after duration target is useful only if the compared workflow isolates the same report work."
+    },
+    {
+      "faultId": "vue-component-error",
+      "biasClass": "neutral",
+      "truth": "VueFaultLabComponentErrorProbe throws from its render path after the controlled action toggles fail.",
+      "sourceFiles": [
+        "examples/vue-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "The component render path intentionally throws; the relevant component/boundary and application source should be identifiable where Vue/browser evidence exposes it.",
+      "honestyRequirement": "Component file metadata/source attribution is not business-cause proof beyond the observed throw path.",
+      "verificationExpectation": "Error-count replay can be meaningful after an explicit fix."
+    },
+    {
+      "faultId": "vue-reactive-feedback-loop",
+      "biasClass": "known-limit",
+      "truth": "A watcher on tick schedules another tick change through queueMicrotask until a bounded count is reached.",
+      "sourceFiles": [
+        "examples/vue-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "A watcher-driven reactive feedback chain causes repeated updates; exact dependency/business causality may remain unavailable to the current Vue adapter.",
+      "honestyRequirement": "Repeated lifecycle/update observations must not be labeled as exact reactive dependency causality.",
+      "verificationExpectation": "Update-count reduction can verify an intervention, but automatic root-cause proof is not expected."
+    },
+    {
+      "faultId": "vue-render-storm",
+      "biasClass": "analyzer-favorable",
+      "truth": "VueFaultLabRenderStormProbe updates value eight times on a 10 ms interval.",
+      "sourceFiles": [
+        "examples/vue-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "A short intentional update burst exceeds the default update-budget pattern; inspect whether the update frequency is intentional before changing code.",
+      "honestyRequirement": "The budget signal is correlation/threshold evidence. The tool must not call high-frequency updates inherently wrong.",
+      "verificationExpectation": "Owner-scoped update count is a meaningful before/after target if the same burst workflow is replayed."
+    },
+    {
+      "faultId": "lit-http-503",
+      "biasClass": "neutral",
+      "truth": "LitFaultLab._networkFailure invokes fetch('/api/fail') and the server returns an intentional HTTP 503.",
+      "sourceFiles": [
+        "examples/lit-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "The application invocation source for the failing request is useful; the HTTP 503 itself may originate server-side.",
+      "honestyRequirement": "Invocation provenance must not be presented as the cause of the server failure.",
+      "verificationExpectation": "A successful-response/error-count target can be useful after an actual server/client fix, but this pilot need not manufacture one."
+    },
+    {
+      "faultId": "lit-runtime-error-verification",
+      "biasClass": "analyzer-favorable",
+      "truth": "LitFaultLab._runtimeError queues an intentional error unless the existing Fixed error mode is enabled.",
+      "sourceFiles": [
+        "examples/lit-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "The runtime error path is directly reproducible and has a predefined fixed-mode replay.",
+      "honestyRequirement": "A successful replay verifies error-count improvement but remains correlation-level unless separate governed causal evidence exists.",
+      "verificationExpectation": "The existing Finding -> Verify Fix path should support an owner-scoped runtime-error count without inventing causality."
+    },
+    {
+      "faultId": "lit-unowned-resize-listener",
+      "biasClass": "known-limit",
+      "truth": "_leakListener registers anonymous resize listeners that retain arrays and never records them through governed resource ownership.",
+      "sourceFiles": [
+        "examples/lit-fault-lab/src/main.js"
+      ],
+      "acceptedDiagnosis": "The application leaks listeners, but exact ownership/retainer proof is not available from ordinary Level 0 evidence in the current Lit path.",
+      "honestyRequirement": "Level 0 must not claim a confirmed resource-lifetime violation for an untracked listener. Targeted governed resource evidence may make the lifetime visible.",
+      "verificationExpectation": "Unsupported automatic verification is acceptable until explicit resource evidence/target exists."
+    }
+  ]
+}

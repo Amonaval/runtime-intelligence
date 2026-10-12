@@ -5,16 +5,41 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./loader": { "types": "./lit/src/loader/index.d.ts", "import": "./lit/src/loader/index.js" },
-    "./loader/react": { "import": "./lit/src/loader/react.js" },
-    "./loader/lit": { "import": "./lit/src/loader/lit.js" },
-    "./loader/vue": { "import": "./lit/src/loader/vue.js" },
-    "./core": { "import": "./lit/src/core/index.js" },
-    "./extension": { "types": "./lit/src/extension/index.d.ts", "import": "./lit/src/extension/index.js" },
-    "./react": { "types": "./lit/src/react/index.d.ts", "import": "./lit/src/react/index.js" },
-    "./lit": { "import": "./lit/src/lit/index.js" },
-    "./vue": { "types": "./lit/src/vue/index.d.ts", "import": "./lit/src/vue/index.js" },
-    "./panel": { "types": "./lit/src/panel/index.d.ts", "import": "./lit/src/panel/index.js" },
+    "./loader": {
+      "types": "./lit/src/loader/index.d.ts",
+      "import": "./lit/src/loader/index.js"
+    },
+    "./loader/react": {
+      "import": "./lit/src/loader/react.js"
+    },
+    "./loader/lit": {
+      "import": "./lit/src/loader/lit.js"
+    },
+    "./loader/vue": {
+      "import": "./lit/src/loader/vue.js"
+    },
+    "./core": {
+      "import": "./lit/src/core/index.js"
+    },
+    "./extension": {
+      "types": "./lit/src/extension/index.d.ts",
+      "import": "./lit/src/extension/index.js"
+    },
+    "./react": {
+      "types": "./lit/src/react/index.d.ts",
+      "import": "./lit/src/react/index.js"
+    },
+    "./lit": {
+      "import": "./lit/src/lit/index.js"
+    },
+    "./vue": {
+      "types": "./lit/src/vue/index.d.ts",
+      "import": "./lit/src/vue/index.js"
+    },
+    "./panel": {
+      "types": "./lit/src/panel/index.d.ts",
+      "import": "./lit/src/panel/index.js"
+    },
     "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
     "./package.json": "./package.json"
   },
@@ -50,10 +75,24 @@
     "lab:lit": "npm --prefix examples/lit-fault-lab run dev",
     "lab:lit:build": "npm --prefix examples/lit-fault-lab run build",
     "compatibility:validate": "node scripts/validate-r8-compatibility.mjs",
-    "overhead:validate": "node scripts/validate-r8-overhead.mjs"
+    "overhead:validate": "node scripts/validate-r8-overhead.mjs",
+    "value-proof:validate": "node scripts/validate-r9.4a-value-proof.mjs",
+    "value-proof:summarize": "node scripts/summarize-r9.4a-value-proof.mjs"
   },
-  "dependencies": { "lit": "^3.3.1" },
-  "peerDependencies": { "react": ">=18.0.0", "vue": ">=3.3.0" },
-  "peerDependenciesMeta": { "react": { "optional": true }, "vue": { "optional": true } },
+  "dependencies": {
+    "lit": "^3.3.1"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
   "license": "UNLICENSED"
 }

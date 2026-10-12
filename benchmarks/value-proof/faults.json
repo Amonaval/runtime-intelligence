@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "1.0",
+  "mission": "R9.4A",
+  "title": "Comparative Value Proof Pilot",
+  "frozenOn": "2026-10-12",
+  "purpose": "Compare native tooling, Runtime Intelligence minimal adoption, and one bounded targeted-instrumentation step without presuming Runtime Intelligence wins.",
+  "importantLimit": "This pilot uses existing real-behavior fault labs so it validates the study protocol and product value signals, not external generalization. A promising pilot must be followed by a non-lab/real-consumer or independent-developer study.",
+  "runModes": [
+    {
+      "id": "native",
+      "label": "Native tooling only",
+      "runtimeIntelligence": "off",
+      "instrumentation": "none"
+    },
+    {
+      "id": "ri-level-0",
+      "label": "Runtime Intelligence minimal adoption",
+      "runtimeIntelligence": "on",
+      "instrumentation": "framework minimum only"
+    },
+    {
+      "id": "ri-targeted",
+      "label": "Runtime Intelligence targeted instrumentation",
+      "runtimeIntelligence": "on",
+      "instrumentation": "one bounded Level 1/2 step only"
+    }
+  ],
+  "measurementContract": {
+    "humanTimingOnly": true,
+    "timerStart": "Immediately before triggering the fault from a clean/reset state.",
+    "timeToRelevantSourceStop": "When the participant can name the application file/boundary they would inspect next and record why.",
+    "timeToActionableDiagnosisStop": "When the participant can state a concrete code change or bounded next investigation; stop as not-reached when that never occurs.",
+    "noFabricatedSavings": true,
+    "oracleAfterRunOnly": true,
+    "trustViolationsAreCritical": [
+      "wrong-source-presented-as-exact",
+      "generated-source-presented-as-original",
+      "correlation-presented-as-causality",
+      "unsupported-ownership-presented-as-proven"
+    ]
+  },
+  "decisionGate": {
+    "pilotIsNotProductApproval": true,
+    "criticalTrustRule": "Any trust violation is a product defect and cannot be offset by speed.",
+    "continueSignal": "Proceed to proof-driven fixes/independent validation only if the pilot shows repeated concrete advantage on difficult cases without unacceptable false positives or instrumentation cost.",
+    "stopOrNarrowSignal": "If native tooling is preferred on most cases, RI adds steps without unique evidence/verification value, or useful Level 0/targeted outcomes remain below roughly half the corpus, narrow or simplify before expansion."
+  },
+  "faults": [
+    {
+      "id": "react-sequential-waterfall",
+      "framework": "react",
+      "category": "source-provenance",
+      "title": "Sequential API waterfall from a plain service path",
+      "lab": "examples/react-uninstrumented-lab",
+      "trigger": "In the Sequential API waterfall card, click Open order workspace once.",
+      "symptom": "The workflow loads order, customer and pricing through visibly sequential requests.",
+      "targetedLimit": "At most one React ownership boundary OR one targeted operation instrument; do not modify the service behavior.",
+      "runOrder": [
+        "native",
+        "ri-level-0",
+        "ri-targeted"
+      ]
+    },
+    {
+      "id": "react-stale-async-race",
+      "framework": "react",
+      "category": "cross-signal",
+      "title": "Stale async result overwrites a newer result",
+      "lab": "examples/react-uninstrumented-lab",
+      "trigger": "In the Stale async race card, click Run stale-result race once and wait for both requests.",
+      "symptom": "The newer fast result appears first, then the older slow result incorrectly overwrites it.",
+      "targetedLimit": "At most one targeted React state/effect/ownership instrument; do not fix the race before scoring.",
+      "runOrder": [
+        "ri-level-0",
+        "ri-targeted",
+        "native"
+      ]
+    },
+    {
+      "id": "react-heavy-main-thread-report",
+      "framework": "react",
+      "category": "action-verification",
+      "title": "Large response followed by expensive main-thread report processing",
+      "lab": "examples/react-uninstrumented-lab",
+      "trigger": "In the Large response + main-thread processing card, click Generate heavy report once.",
+      "symptom": "A report request completes and is followed by synchronous work that blocks the main thread for roughly 135 ms.",
+      "targetedLimit": "At most one ownership/profiling boundary around the report path; no worker conversion before scoring.",
+      "runOrder": [
+        "ri-targeted",
+        "native",
+        "ri-level-0"
+      ]
+    },
+    {
+      "id": "vue-component-error",
+      "framework": "vue",
+      "category": "source-provenance",
+      "title": "Controlled Vue component render error",
+      "lab": "examples/vue-fault-lab",
+      "trigger": "Click the controlled Vue component error action once.",
+      "symptom": "A component render path throws and the app-level Vue error handling path receives the failure.",
+      "targetedLimit": "Use app-level install first; targeted mode may add only one bounded component/domain evidence step.",
+      "runOrder": [
+        "native",
+        "ri-level-0",
+        "ri-targeted"
+      ]
+    },
+    {
+      "id": "vue-reactive-feedback-loop",
+      "framework": "vue",
+      "category": "cross-signal",
+      "title": "Bounded reactive feedback loop",
+      "lab": "examples/vue-fault-lab",
+      "trigger": "Click Run bounded reactive feedback loop once and let it settle.",
+      "symptom": "A watcher/microtask chain repeatedly changes reactive state before stopping.",
+      "targetedLimit": "At most one app/domain evidence extension; no blanket component instrumentation.",
+      "runOrder": [
+        "ri-level-0",
+        "ri-targeted",
+        "native"
+      ]
+    },
+    {
+      "id": "vue-render-storm",
+      "framework": "vue",
+      "category": "action-verification",
+      "title": "Eight updates in a short burst",
+      "lab": "examples/vue-fault-lab",
+      "trigger": "Click Run 8 updates / ~80 ms once and let the burst finish.",
+      "symptom": "A component performs eight updates in about 80 ms.",
+      "targetedLimit": "No more than one explicit budget/ownership configuration change; do not tune thresholds until after scoring.",
+      "runOrder": [
+        "ri-targeted",
+        "native",
+        "ri-level-0"
+      ]
+    },
+    {
+      "id": "lit-http-503",
+      "framework": "lit",
+      "category": "source-provenance",
+      "title": "Lit HTTP 503 with invocation provenance",
+      "lab": "examples/lit-fault-lab",
+      "trigger": "Click HTTP 503 once and wait for the request to complete.",
+      "symptom": "An application fetch returns an intentional HTTP 503.",
+      "targetedLimit": "Use the shared instrumented Lit base as the minimal baseline; targeted mode may add one bounded operation/source instrument.",
+      "runOrder": [
+        "native",
+        "ri-level-0",
+        "ri-targeted"
+      ]
+    },
+    {
+      "id": "lit-runtime-error-verification",
+      "framework": "lit",
+      "category": "action-verification",
+      "title": "Runtime error with an existing fix-toggle verification path",
+      "lab": "examples/lit-fault-lab",
+      "trigger": "With Fixed error mode OFF, click Intentional Error once. For verification scoring, use the existing fixed-mode toggle only after the baseline is captured.",
+      "symptom": "An async runtime error is emitted; the lab already provides an explicit fixed-mode replay path.",
+      "targetedLimit": "Do not add a custom metric unless the automatic finding-verification plan is honestly unsupported.",
+      "runOrder": [
+        "ri-level-0",
+        "ri-targeted",
+        "native"
+      ]
+    },
+    {
+      "id": "lit-unowned-resize-listener",
+      "framework": "lit",
+      "category": "cross-signal",
+      "title": "Unremoved resize listener without governed resource ownership",
+      "lab": "examples/lit-fault-lab",
+      "trigger": "Click Leak Resize Listener twice, then reproduce a resize.",
+      "symptom": "Resize listeners retain captured arrays and are intentionally never removed.",
+      "targetedLimit": "Targeted mode may add one explicit governed resource registration/release instrument; no global monkey patch.",
+      "runOrder": [
+        "ri-targeted",
+        "native",
+        "ri-level-0"
+      ]
+    }
+  ]
+}
