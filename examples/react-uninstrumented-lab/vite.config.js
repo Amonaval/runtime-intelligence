@@ -61,4 +61,10 @@ export default defineConfig({
   plugins: [uninstrumentedLabApi()],
   server: { port: 4181 },
   preview: { port: 4181 },
+  build: {
+    rollupOptions: {
+      // React owns React; Vue is the optional foreign peer of the linked package.
+      external: ['vue'],
+    },
+  },
 });
