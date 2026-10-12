@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     "./loader": { "types": "./lit/src/loader/index.d.ts", "import": "./lit/src/loader/index.js" },
+    "./loader/react": { "import": "./lit/src/loader/react.js" },
+    "./loader/lit": { "import": "./lit/src/loader/lit.js" },
     "./loader/vue": { "import": "./lit/src/loader/vue.js" },
     "./core": { "import": "./lit/src/core/index.js" },
     "./extension": { "types": "./lit/src/extension/index.d.ts", "import": "./lit/src/extension/index.js" },
@@ -26,7 +28,8 @@
     "test": "npm --prefix lit test",
     "test:smoke": "npm --prefix lit run test:smoke",
     "build": "npm --prefix lit run build",
-    "package:validate": "node scripts/validate-package-contract.mjs",
+    "loader-isolation:validate": "node scripts/validate-framework-loader-isolation.mjs",
+    "package:validate": "node scripts/validate-package-contract.mjs && npm run loader-isolation:validate",
     "api:validate": "node scripts/validate-public-api.mjs",
     "distribution:validate": "node scripts/validate-distribution-policy.mjs",
     "production:validate": "node --test lit/test/unit/production-safety.test.mjs lit/test/unit/browser-runtime-surface.test.mjs lit/test/unit/lit-public-activation.test.mjs",

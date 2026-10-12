@@ -1,12 +1,11 @@
 import { LitElement } from 'lit';
-import { loadRuntimeIntelligence } from 'runtime-intelligence/loader';
+import { loadLitRuntimeIntelligence } from 'runtime-intelligence/loader/lit';
 
 const enabled = import.meta.env.DEV
   && localStorage.getItem('runtime-intelligence') === 'on';
 
-const loaded = await loadRuntimeIntelligence({
+const loaded = await loadLitRuntimeIntelligence({
   enabled,
-  framework: 'lit',
   panel: true,
 });
 

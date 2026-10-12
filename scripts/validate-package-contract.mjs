@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
-  './loader', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
+  './loader', './loader/react', './loader/lit', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
 ];
 const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/'];
 
@@ -45,14 +45,6 @@ if (loaderTarget) {
   const loaderSource = readFileSync(path.join(root, loaderTarget.replace(/^\.\//, '')), 'utf8');
   if (/^\s*import\s.+from\s/m.test(loaderSource) || /^\s*import\s*['"]/m.test(loaderSource)) failures.push('The /loader entry must not statically import Runtime Intelligence modules.');
   if (!loaderSource.includes('import(')) failures.push('The /loader entry must preserve an explicit dynamic-import boundary.');
-}
-
-const vueLoaderTarget = importTarget(pkg.exports?.['./loader/vue']);
-if (vueLoaderTarget) {
-  const vueLoaderSource = readFileSync(path.join(root, vueLoaderTarget.replace(/^\.\//, '')), 'utf8');
-  if (!vueLoaderSource.includes("import('../vue/index.js')")) failures.push('The /loader/vue entry must dynamically import only the Vue integration.');
-  if (!vueLoaderSource.includes("import('../panel/index.js')")) failures.push('The /loader/vue entry must preserve optional panel loading.');
-  if (/react\/index\.js|\.\.\/lit\/index\.js/.test(vueLoaderSource)) failures.push('The /loader/vue entry must not reference React or Lit framework modules.');
 }
 
 const packageFiles = Array.isArray(pkg.files) ? pkg.files : [];
@@ -95,6 +87,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
-console.log('Public surfaces: runtime-intelligence/loader, /loader/vue, /core, /extension, /react, /lit, /vue, /panel, /panel/lit.');
-console.log('Conditional-loading boundary: /loader has no static Runtime Intelligence imports; /loader/vue is framework-isolated.');
+console.log('Public surfaces include generic and React/Lit/Vue isolated loaders plus core/framework/panel surfaces.');
+console.log('Framework-specific peer isolation is enforced by validate-framework-loader-isolation.mjs.');
 console.log('Publish safety: package remains private under R6.5; app-specific lit/custom is excluded.');
