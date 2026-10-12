@@ -2,6 +2,9 @@ const RUNTIME_INTELLIGENCE_API_VERSION = '0.1';
 
 const PUBLIC_PACKAGE_SURFACES = Object.freeze([
   'runtime-intelligence/loader',
+  'runtime-intelligence/loader/react',
+  'runtime-intelligence/loader/lit',
+  'runtime-intelligence/loader/vue',
   'runtime-intelligence/core',
   'runtime-intelligence/extension',
   'runtime-intelligence/react',
