@@ -56,4 +56,10 @@ function faultLabApi() {
 export default defineConfig({
   plugins: [faultLabApi()],
   server: { port: 4178 },
+  build: {
+    rollupOptions: {
+      // React owns React; Vue is the optional foreign peer of the linked package.
+      external: ['vue'],
+    },
+  },
 });
