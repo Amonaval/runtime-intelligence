@@ -5,7 +5,7 @@
 
 ## Canonical baseline
 
-Current `main` includes validated React R5.7.4, R6 productization, completed Vue R7, the P0 Source Pinpoint / Provenance program, bounded R8 hardening, completed R9 adoption, and implemented R9.1 verification/causality contract hardening.
+Current `main` includes validated React R5.7.4, R6 productization, completed Vue R7, the P0 Source Pinpoint / Provenance program, bounded R8 hardening, completed R9 adoption, implemented R9.1 verification/causality contract hardening, and implemented R9.2 diagnostic before/after experience.
 
 - Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
@@ -19,6 +19,7 @@ Current `main` includes validated React R5.7.4, R6 productization, completed Vue
 - R8 multi-framework hardening: complete with bounded coverage
 - R9 adoption/product experience: complete
 - R9.1 verification/causality semantics: implemented; focused validation passed, full release gate not rerun in connector environment
+- R9.2 diagnostic before/after experience: implemented in source; full release validation pending a normal checkout
 - Angular/framework expansion: **BLOCKED/DEFERRED until explicit roadmap decision and P0 value-proposition closure**
 
 ## Product direction
@@ -138,5 +139,19 @@ Focused isolated Node validation: **10/10 workflow-verification tests PASS** and
 Full `npm run validate:release` was **NOT EXECUTED in this connector environment** because the full checked-out repository/dependency tree could not be obtained. The prior R9 319/319 receipt is historical baseline and is not claimed as R9.1 proof.
 
 See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](R9.1-VERIFICATION-CAUSALITY-HARDENING.md) and [R9.1-VERIFICATION-CAUSALITY-RECEIPT.json](R9.1-VERIFICATION-CAUSALITY-RECEIPT.json).
+
+TrustWeave remains parked. R10 remains deferred.
+
+## R9.2 — Diagnostic Before/After Experience — IMPLEMENTED
+
+R9.2 wraps the existing workflow baseline/compare/verify primitives in a single developer session flow: **capture baseline → apply fix → capture replay → improved / unchanged / regressed / inconclusive**.
+
+The new framework-neutral `createDiagnosticBeforeAfterSession(...)` API reads the shared UREP EvidenceStore. The canonical panel mount exposes `startBeforeAfter(...)` and `getBeforeAfterState()`, and active state is included in normalized JSON plus a dedicated HTML report section.
+
+R9.1 remains authoritative: a successful before/after replay can verify improvement while remaining correlation-level; the experience explicitly reports whether causality is separately confirmed rather than inferring it.
+
+Focused unit coverage was added for state transitions, improvement/threshold/regression/inconclusive cases, reset/immutability and report rendering. Full `npm run validate:release` remains pending a normal checked-out environment and is not claimed here.
+
+See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](R9.2-DIAGNOSTIC-BEFORE-AFTER.md) and [R9.2-DIAGNOSTIC-BEFORE-AFTER-RECEIPT.json](R9.2-DIAGNOSTIC-BEFORE-AFTER-RECEIPT.json).
 
 TrustWeave remains parked. R10 remains deferred.
