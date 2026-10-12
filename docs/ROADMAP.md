@@ -118,10 +118,44 @@ Delivered:
 
 R9.1 remains authoritative: `improved` is verified target improvement, not causal proof unless separate governed causality-confirmed UREP evidence exists.
 
+R9.3 subsequently hardens this workflow to isolate baseline/replay evidence by sequence window rather than comparing cumulative store snapshots.
+
 See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](R9.2-DIAGNOSTIC-BEFORE-AFTER.md) and its receipt. Full release validation remains pending a normal checked-out environment.
 
-TrustWeave remains parked. R10 remains deferred.
+## R9.3 — Finding → Verify Fix + Lit Fault Lab + Developer Guide — IMPLEMENTED — HIGH
 
-## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
+Delivered:
 
-Begin only after multi-framework hardening and an explicit roadmap decision; P0 consumer acceptance remains incomplete. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.
+- `createFindingVerificationPlan(...)` and `createFindingVerificationSession(...)`;
+- canonical panel `startFindingVerification(...)`;
+- visible **Verify fix →** action on Pinpoint findings only when a safe automatic target exists;
+- conservative automatic mappings for owner-scoped errors, update storms/update budgets and observed render-duration fields;
+- explicit unsupported results for findings without a truthful default metric;
+- R9.2 sequence-window hardening so cumulative EvidenceStore history cannot contaminate replay metrics;
+- a runnable `examples/lit-fault-lab` with real Lit/browser faults and an end-to-end Finding → Verify Fix walkthrough;
+- `docs/DEVELOPER-GUIDE.md` covering install and minimal → targeted → full usage for React, Vue and Lit, ending with all three fault labs;
+- `docs/STRATEGIC-REVIEW-R9.3.md` challenging the product thesis and defining value/kill criteria.
+
+R9.1 evidence semantics remain unchanged. TrustWeave remains parked. Angular remains deferred.
+
+See [R9.3-FINDING-VERIFY-FIX-BRIDGE.md](R9.3-FINDING-VERIFY-FIX-BRIDGE.md).
+
+## R9.4 — Comparative Value Proof — RECOMMENDED NEXT — HIGH
+
+Do not add another framework yet. Compare Runtime Intelligence against native browser/framework tooling on 10–20 realistic faults not designed around current analyzers.
+
+Measure:
+
+- time to relevant application code;
+- Level 0/1 success rate;
+- irrelevant/noisy findings;
+- instrumentation required;
+- finding → action conversion;
+- verification usefulness;
+- whether the developer would choose the tool again.
+
+Use explicit kill criteria from [STRATEGIC-REVIEW-R9.3.md](STRATEGIC-REVIEW-R9.3.md). Product expansion should depend on evidence that difficult debugging is materially faster/better.
+
+## R10 — Angular Adapter + Angular Fault Lab — DEFERRED
+
+Angular is not the next priority. Begin only after comparative value proof justifies broader framework expansion. At that time re-check current official Angular APIs and zoneless behavior. Angular must remain a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.
