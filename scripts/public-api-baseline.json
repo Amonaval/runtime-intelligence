@@ -7,6 +7,14 @@
       "isRuntimeIntelligenceEnabled",
       "loadRuntimeIntelligence"
     ],
+    "./loader/react": [
+      "isReactRuntimeIntelligenceEnabled",
+      "loadReactRuntimeIntelligence"
+    ],
+    "./loader/lit": [
+      "isLitRuntimeIntelligenceEnabled",
+      "loadLitRuntimeIntelligence"
+    ],
     "./loader/vue": [
       "isVueRuntimeIntelligenceEnabled",
       "loadVueRuntimeIntelligence"
