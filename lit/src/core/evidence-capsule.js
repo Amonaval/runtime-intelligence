@@ -99,7 +99,10 @@ function buildEvidenceCapsuleAIPrompt(capsule) {
     ? `${capsule.source.file}${capsule.source.line ? `:${capsule.source.line}` : ''}${capsule.source.column ? `:${capsule.source.column}` : ''}`
     : 'unresolved source';
   const verification = capsule.verification?.outcome || 'not verified';
-  return `Investigate ${problem}. Likely root: ${root}. Source: ${source}. Verification: ${verification}. Use the evidence references and causal chain, preserve stated evidence levels, and do not promote correlation to causality without verification.`;
+  const causality = capsule.verification?.causalityConfirmed === true
+    ? 'confirmed by governed causal evidence'
+    : 'not confirmed';
+  return `Investigate ${problem}. Likely root: ${root}. Source: ${source}. Verification: ${verification}. Causality: ${causality}. Use the evidence references and causal chain, preserve stated evidence levels, and do not promote correlation to causality unless the capsule carries governed causality-confirmed evidence.`;
 }
 
 function createEvidenceCapsule({
