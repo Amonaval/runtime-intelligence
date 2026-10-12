@@ -1,0 +1,29 @@
+{
+  "mission": "R9.1",
+  "title": "Verification & Causality Contract Hardening",
+  "implementedAt": "2026-10-12",
+  "behavior": {
+    "replayImprovementEvidenceLevel": "correlation",
+    "verificationConfirmedIsSeparateFromCausality": true,
+    "causalUpgradeRequiresExistingUrepCausalityConfirmedEvent": true,
+    "requiresCausedByEventIdForCausalUpgrade": true,
+    "evidenceCapsulePromptDistinguishesCausality": true
+  },
+  "focusedValidation": {
+    "nodeHarness": "PASS",
+    "workflowVerificationTests": 10,
+    "workflowVerificationFailures": 0,
+    "syntaxChecks": "PASS"
+  },
+  "release": {
+    "result": "NOT_EXECUTED_IN_CONNECTOR_ENVIRONMENT",
+    "reason": "Repository checkout/full installed dependency tree unavailable; outbound git clone from the execution container could not resolve github.com.",
+    "previousR9ReceiptIsNotReusedAsR91Evidence": true
+  },
+  "limits": [
+    "No statistical causal inference was added.",
+    "verifyFix consumes existing governed causality-confirmed UREP evidence; it does not infer that evidence.",
+    "TrustWeave remains parked.",
+    "R10 Angular remains deferred."
+  ]
+}
