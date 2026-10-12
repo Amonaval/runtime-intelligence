@@ -66,4 +66,10 @@ export default defineConfig({
   },
   plugins: [faultLabApi()],
   server: { port: 4179 },
+  build: {
+    rollupOptions: {
+      // Vue owns Vue; React is an optional foreign peer of the linked package.
+      external: ['react', 'react-dom'],
+    },
+  },
 });
