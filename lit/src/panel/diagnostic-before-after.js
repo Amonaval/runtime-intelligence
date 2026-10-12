@@ -28,6 +28,18 @@ function _ensureStore(store) {
   return store;
 }
 
+function _latestSequence(events = []) {
+  let latest = 0;
+  for (const event of events) {
+    if (Number.isFinite(event?.sequence)) latest = Math.max(latest, event.sequence);
+  }
+  return latest;
+}
+
+function _windowAfter(store, sequence) {
+  return store.snapshot().filter(event => Number.isFinite(event?.sequence) && event.sequence > sequence);
+}
+
 function _statusFromVerification(verification) {
   if (!verification) return DiagnosticBeforeAfterStatus.AWAITING_REPLAY;
   if (verification.outcome === VerificationOutcome.CONFIRMED) return DiagnosticBeforeAfterStatus.IMPROVED;
@@ -42,13 +54,13 @@ function _presentation(status, verification) {
       return {
         headline: 'Capture the problem baseline',
         nextAction: 'Reproduce the target workflow, then capture the baseline.',
-        evidenceNote: 'No comparison exists until a baseline and replay are both captured.',
+        evidenceNote: 'Only evidence emitted after this diagnostic session started is included in the baseline window.',
       };
     case DiagnosticBeforeAfterStatus.AWAITING_REPLAY:
       return {
         headline: 'Baseline captured',
         nextAction: 'Apply the intended fix, replay the same workflow, then capture the replay.',
-        evidenceNote: 'The baseline is a measurement snapshot, not causal evidence.',
+        evidenceNote: 'Only evidence emitted after baseline capture is included in the replay window. The baseline remains a measurement snapshot, not causal evidence.',
       };
     case DiagnosticBeforeAfterStatus.IMPROVED:
       return {
@@ -99,6 +111,8 @@ function createDiagnosticBeforeAfterSession({
   let baseline = null;
   let replay = null;
   let verification = null;
+  let baselineStartSequence = _latestSequence(evidenceStore.snapshot());
+  let replayStartSequence = null;
 
   const snapshotState = () => {
     const status = baseline ? _statusFromVerification(verification) : DiagnosticBeforeAfterStatus.AWAITING_BASELINE;
@@ -116,6 +130,10 @@ function createDiagnosticBeforeAfterSession({
         description: intervention.description || null,
         applied: intervention.applied === true,
       } : null,
+      windows: {
+        baselineStartSequence,
+        replayStartSequence,
+      },
       baseline,
       replay,
       comparison: verification ? {
@@ -130,7 +148,9 @@ function createDiagnosticBeforeAfterSession({
   };
 
   const captureBaseline = ({ runId = null, label = 'before', capturedAt = clock(), baselineId = null } = {}) => {
-    const run = createWorkflowRun(evidenceStore.snapshot(), {
+    const all = evidenceStore.snapshot();
+    const events = all.filter(event => Number.isFinite(event?.sequence) && event.sequence > baselineStartSequence);
+    const run = createWorkflowRun(events, {
       workflowId,
       runId: runId || runIdFactory('before'),
       label,
@@ -144,12 +164,14 @@ function createDiagnosticBeforeAfterSession({
     });
     replay = null;
     verification = null;
+    replayStartSequence = _latestSequence(all);
     return snapshotState();
   };
 
   const captureReplay = ({ runId = null, label = 'after', capturedAt = clock(), causalEvidence = null } = {}) => {
     if (!baseline) throw new Error('Capture a diagnostic baseline before capturing the replay.');
-    replay = createWorkflowRun(evidenceStore.snapshot(), {
+    const events = _windowAfter(evidenceStore, replayStartSequence || 0);
+    replay = createWorkflowRun(events, {
       workflowId,
       runId: runId || runIdFactory('after'),
       label,
@@ -171,6 +193,8 @@ function createDiagnosticBeforeAfterSession({
     baseline = null;
     replay = null;
     verification = null;
+    baselineStartSequence = _latestSequence(evidenceStore.snapshot());
+    replayStartSequence = null;
     return snapshotState();
   };
 
