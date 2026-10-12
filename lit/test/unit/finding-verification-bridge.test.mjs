@@ -88,13 +88,9 @@ test('ambiguous opportunity is explicitly unsupported instead of inventing a tar
   assert.match(plan.evidenceNote, /will not invent/i);
 });
 
-test('finding session flows directly into R9.2 before-after verification', () => {
+test('finding session flows directly into isolated R9.2 before-after verification', () => {
   const owner = { id: 'owner-editor', name: 'Editor' };
-  const store = mutableStore([
-    event('e1', 1, 'error', owner, { message: 'boom' }),
-    event('e2', 2, 'error', owner, { message: 'boom again' }),
-    event('other', 3, 'error', { id: 'other', name: 'Other' }, { message: 'unrelated' }),
-  ]);
+  const store = mutableStore([event('historical', 1, 'error', owner, { message: 'old' })]);
   let now = 100;
   const session = createFindingVerificationSession({
     finding: { kind: 'runtime-error', owner },
@@ -104,12 +100,24 @@ test('finding session flows directly into R9.2 before-after verification', () =>
     runIdFactory: phase => `${phase}-${now}`,
   });
 
+  store.set([
+    event('historical', 1, 'error', owner, { message: 'old' }),
+    event('e1', 2, 'error', owner, { message: 'boom' }),
+    event('e2', 3, 'error', owner, { message: 'boom again' }),
+    event('other', 4, 'error', { id: 'other', name: 'Other' }, { message: 'unrelated' }),
+  ]);
   const before = session.captureBaseline();
   const metricId = before.target.metricId;
   assert.equal(before.baseline.run.metrics[metricId], 2);
 
   now = 200;
-  store.set([event('other-2', 1, 'error', { id: 'other', name: 'Other' }, { message: 'still unrelated' })]);
+  store.set([
+    event('historical', 1, 'error', owner, { message: 'old' }),
+    event('e1', 2, 'error', owner, { message: 'boom' }),
+    event('e2', 3, 'error', owner, { message: 'boom again' }),
+    event('other', 4, 'error', { id: 'other', name: 'Other' }, { message: 'unrelated' }),
+    event('other-2', 5, 'error', { id: 'other', name: 'Other' }, { message: 'still unrelated' }),
+  ]);
   const after = session.captureReplay();
   assert.equal(after.status, 'improved');
   assert.equal(after.replay.metrics[metricId], 0);
