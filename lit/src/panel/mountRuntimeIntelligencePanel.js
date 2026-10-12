@@ -1,6 +1,7 @@
 import './LdsDebugPanel.js';
 import { createDiagnosticBeforeAfterSession } from './diagnostic-before-after.js';
 import { installDiagnosticBeforeAfterPanel } from './diagnostic-before-after-panel.js';
+import { createFindingVerificationSession } from './finding-verification-bridge.js';
 import { enrichPinpointIssueSource } from './pinpoint-source-enrichment.js';
 import { bridgeRuntimeEvidenceToPanel } from './runtime-evidence-bridge.js';
 import { installRuntimeOpportunitiesPanel } from './opportunities-panel-presentation.js';
@@ -47,6 +48,15 @@ function mountRuntimeIntelligencePanel({
     element?.requestUpdate?.();
     return activeBeforeAfter;
   };
+  const startFindingVerification = (finding, options = {}) => {
+    activeBeforeAfter = createFindingVerificationSession({ finding, store, ...(options || {}) });
+    if (element) {
+      if (typeof element._setTab === 'function') element._setTab('before-after');
+      else element._tab = 'before-after';
+      element.requestUpdate?.();
+    }
+    return activeBeforeAfter;
+  };
   const getBeforeAfterSession = () => activeBeforeAfter;
   const getBeforeAfterState = () => activeBeforeAfter?.getState?.() || null;
 
@@ -57,6 +67,7 @@ function mountRuntimeIntelligencePanel({
       refresh() {},
       setCollapsed() {},
       startBeforeAfter,
+      startFindingVerification,
       getBeforeAfterState,
       createReport() {
         return createRuntimeReport({
@@ -153,6 +164,7 @@ function mountRuntimeIntelligencePanel({
       element.requestUpdate?.();
     },
     startBeforeAfter,
+    startFindingVerification,
     getBeforeAfterState,
     createReport,
     downloadJson,
