@@ -1,5 +1,6 @@
 import './LdsDebugPanel.js';
 import { createDiagnosticBeforeAfterSession } from './diagnostic-before-after.js';
+import { installDiagnosticBeforeAfterPanel } from './diagnostic-before-after-panel.js';
 import { enrichPinpointIssueSource } from './pinpoint-source-enrichment.js';
 import { bridgeRuntimeEvidenceToPanel } from './runtime-evidence-bridge.js';
 import { installRuntimeOpportunitiesPanel } from './opportunities-panel-presentation.js';
@@ -40,10 +41,13 @@ function mountRuntimeIntelligencePanel({
   }
 
   let activeBeforeAfter = null;
+  let element = null;
   const startBeforeAfter = options => {
     activeBeforeAfter = createDiagnosticBeforeAfterSession({ ...(options || {}), store });
+    element?.requestUpdate?.();
     return activeBeforeAfter;
   };
+  const getBeforeAfterSession = () => activeBeforeAfter;
   const getBeforeAfterState = () => activeBeforeAfter?.getState?.() || null;
 
   if (!documentTarget?.createElement || !documentTarget.body || !windowTarget) {
@@ -69,7 +73,7 @@ function mountRuntimeIntelligencePanel({
   }
 
   const bridge = bridgeRuntimeEvidenceToPanel({ store, windowTarget, syntheticFallback: false });
-  const element = documentTarget.createElement('lds-debug-panel');
+  element = documentTarget.createElement('lds-debug-panel');
   element.setAttribute('data-runtime-intelligence-panel', 'canonical');
   documentTarget.body.appendChild(element);
 
@@ -77,6 +81,11 @@ function mountRuntimeIntelligencePanel({
     panel: element,
     store,
     windowTarget,
+    documentTarget,
+  });
+  const beforeAfterPresentation = installDiagnosticBeforeAfterPanel({
+    panel: element,
+    getSession: getBeforeAfterSession,
     documentTarget,
   });
 
@@ -151,6 +160,7 @@ function mountRuntimeIntelligencePanel({
     downloadBoth,
     destroy() {
       activeBeforeAfter = null;
+      beforeAfterPresentation.destroy?.();
       opportunitiesPresentation.destroy?.();
       bridge.stop();
       element.remove();
