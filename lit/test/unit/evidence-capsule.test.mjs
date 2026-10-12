@@ -19,7 +19,12 @@ test('Evidence Capsule is portable, immutable and omits raw runtime payloads', (
     source:{file:'http://localhost/src/Editor.js?token=secret#x',line:10,column:2,attributionQuality:'source-attributed',confidence:.9},
     rootCause:{id:'cluster-1',strength:'attributed',rootEventId:'s',rootLabel:'Editor.value',score:12,symptoms:[{type:'error',count:1}],candidates:[]},
     causalChain:[{fromEventId:'s',toEventId:'err',relation:'causes',evidence:{level:'observation'}}],
-    verification:{outcome:'confirmed',evidenceLevel:'causality-confirmed'},
+    verification:{
+      outcome:'confirmed',
+      evidenceLevel:'causality-confirmed',
+      verificationConfirmed:true,
+      causalityConfirmed:true,
+    },
     environment:{framework:'lit'},
   });
   assert.equal(capsule.schema, 'RUF Evidence Capsule');
@@ -33,12 +38,25 @@ test('Evidence Capsule is portable, immutable and omits raw runtime payloads', (
   assert.equal(capsule.evidence.references[0].correlation.hasTraceContext, true);
   assert.equal(Object.isFrozen(capsule), true);
   assert.equal(Object.isFrozen(capsule.evidence.references), true);
+  assert.match(capsule.aiPrompt, /Causality: confirmed by governed causal evidence/i);
   assert.doesNotThrow(() => JSON.stringify(capsule));
 });
 
 test('Evidence Capsule prompt preserves evidence-honesty instruction', () => {
-  const capsule = createEvidenceCapsule({ id:'c', problem:{title:'slow edit'}, incident });
+  const capsule = createEvidenceCapsule({
+    id:'c',
+    problem:{title:'slow edit'},
+    incident,
+    verification:{
+      outcome:'confirmed',
+      evidenceLevel:'correlation',
+      verificationConfirmed:true,
+      causalityConfirmed:false,
+    },
+  });
+  assert.match(capsule.aiPrompt, /Causality: not confirmed/i);
   assert.match(capsule.aiPrompt, /do not promote correlation to causality/i);
+  assert.match(capsule.aiPrompt, /governed causality-confirmed evidence/i);
   assert.equal(capsule.trigger.eventId, 'err');
 });
 

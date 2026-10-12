@@ -1,5 +1,7 @@
 # Mission 05 — Generic Baseline + Compare + Verify + Evidence Capsule
 
+> **Historical semantic note:** R9.1 (`docs/R9.1-VERIFICATION-CAUSALITY-HARDENING.md`) supersedes Mission 05's original causality wording. A successful before/after replay now verifies the configured improvement target at correlation level; it does **not** by itself produce `causality-confirmed`. A causal upgrade requires pre-existing governed UREP causality-confirmed evidence.
+
 Status: COMPLETE
 
 ## Delivered
@@ -10,7 +12,7 @@ Status: COMPLETE
   - deterministic run comparison without causal interpretation;
   - built-in event-count metrics plus declarative custom numeric metrics;
   - fix verification with explicit target direction and absolute/relative thresholds;
-  - `causality-confirmed` only when an applied intervention is followed by meaningful improvement on a distinct replay of the same workflow;
+  - successful replay improvement verification, with causal upgrade governed by the stronger R9.1 evidence contract;
   - explicit inconclusive, not-confirmed and regressed outcomes;
   - custom metrics cannot overwrite built-in verification metrics.
 
@@ -39,19 +41,23 @@ measurement-only comparison
 explicit intervention + replay + target criterion
         ↓
 verify
-  ├─ confirmed
+  ├─ confirmed target improvement
   ├─ not-confirmed
   ├─ regressed
   └─ inconclusive
         ↓
+optional governed causal evidence
+        ↓
+causal upgrade only when already supported by UREP
+        ↓
 portable Evidence Capsule
 ```
 
-## Confirmation law
+## Verification law
 
 Comparison never proves causality by itself.
 
-`causality-confirmed` is emitted by verification only when all are true:
+A normal successful verification requires:
 
 1. the intervention is explicitly recorded as applied;
 2. before/after are distinct runs;
@@ -60,7 +66,9 @@ Comparison never proves causality by itself.
 5. the target changes in the declared improvement direction;
 6. the change meets configured absolute/relative significance thresholds.
 
-Metric improvement without these conditions remains correlation-level verification evidence.
+That verifies the configured improvement target and remains correlation-level evidence.
+
+Under R9.1, `causality-confirmed` is emitted by workflow verification only when the successful replay is accompanied by an existing valid UREP event that already carries `evidence.level = causality-confirmed` and `causedByEventId`. The verifier consumes stronger causal evidence; it does not manufacture it from temporal ordering.
 
 ## Baseline semantics
 
@@ -81,11 +89,9 @@ This is still not the planned enterprise privacy/redaction layer. Problem text, 
 
 ## Validation
 
-Focused Mission 05 tests were executed with Node's built-in test runner in an isolated ESM harness: 10 passed, 0 failed.
+Original Mission 05 focused tests were executed with Node's built-in test runner in an isolated ESM harness: 10 passed, 0 failed.
 
-Coverage includes deterministic snapshots/custom metrics, baseline comparison, successful verification, intervention/workflow/run guards, threshold failure, regression, metric collision protection, incident-to-verification flow, immutable JSON Capsule output, payload/identifier omission and AI evidence-honesty guidance.
-
-A full checked-out repository test execution is not claimed in the connector environment.
+R9.1 separately hardens the verification semantics; see its receipt for current focused validation and release-gate limitations.
 
 ## Known limits
 

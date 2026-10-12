@@ -5,7 +5,7 @@
 
 ## Canonical baseline
 
-Current `main` includes validated React R5.7.4, R6 productization, completed Vue R7, and the active P0 Source Pinpoint / Provenance program.
+Current `main` includes validated React R5.7.4, R6 productization, completed Vue R7, the P0 Source Pinpoint / Provenance program, bounded R8 hardening, completed R9 adoption, and implemented R9.1 verification/causality contract hardening.
 
 - Validated React R5.7.4 baseline: `0908f7c8d90d81745db788913a17e6292d2147a0`
 - Accepted source-resolver hardening: `b558e3a08c5f2aea18861a7ea1e1f1e62ad89ec1`
@@ -16,7 +16,10 @@ Current `main` includes validated React R5.7.4, R6 productization, completed Vue
 - P0.3A/B Hostile benchmark + browser acceptance: complete; source limitations recorded
 - P0.4 Zero-touch console source attribution: browser/lifecycle/JSON+HTML acceptance complete
 - Overall P0 real-consumer closure: pending post-P0.4 TrustWeave normal-flow acceptance
-- Angular/framework expansion: **BLOCKED/DEFERRED until P0 value-proposition closure**
+- R8 multi-framework hardening: complete with bounded coverage
+- R9 adoption/product experience: complete
+- R9.1 verification/causality semantics: implemented; focused validation passed, full release gate not rerun in connector environment
+- Angular/framework expansion: **BLOCKED/DEFERRED until explicit roadmap decision and P0 value-proposition closure**
 
 ## Product direction
 
@@ -113,9 +116,27 @@ R8.2–R8.4 independently reviewed and implemented: exact-version packed/browser
 
 Coverage and receipts: [R8-HARDENING.md](R8-HARDENING.md). No full-range/browser-heap/production React profiling claim. R9 adoption subsequently completed (see below), R10 Angular deferred, TrustWeave parked with consumer acceptance partial. This entry supersedes the earlier R8 IN PROGRESS entry.
 
-
 ## R9 — Adoption / Product Experience — COMPLETE
 
 Pinpoint and Opportunities now explain why a source is shown and suggest the next targeted adoption step. Normalized JSON/HTML carry the same guidance. Generated coordinates, latest matching event selection and unavailable source are explicit; evidence strength is unchanged. The installed artifact includes the React/Vue/Lit integration guide and unified Level 0/1/2 ladder. The README disabled React path renders the application normally; troubleshooting and guided demo steps cover opt-in, teardown and source limits.
 
 Validation: full release gate **319/319 unit tests, 14/14 production checks PASS**; packed installation/public imports and both installed guides PASS; real Chromium hostile lab validates visible Pinpoint/Opportunities guidance and JSON/HTML downloads. See [R9-ADOPTION.md](R9-ADOPTION.md) and [R9-ADOPTION-RECEIPT.json](R9-ADOPTION-RECEIPT.json). TrustWeave remains parked, consumer P0 acceptance partial, R10 deferred. No framework expansion or new telemetry.
+
+## R9.1 — Verification & Causality Contract Hardening — IMPLEMENTED
+
+R9.1 corrects the older workflow-verification semantic that treated an applied intervention followed by meaningful replay improvement as causal proof.
+
+`verifyFix(...)` now distinguishes:
+
+- **verification confirmed** — the configured metric improved on a distinct replay of the same workflow after an intervention recorded as applied;
+- **causality confirmed** — allowed only when verification is accompanied by an existing valid UREP event that already carries `causality-confirmed` evidence and `causedByEventId`.
+
+Ordinary successful replay verification remains `outcome: confirmed`/`confirmed: true` for public compatibility, but now reports `verificationConfirmed: true`, `causalityConfirmed: false` and `evidenceLevel: correlation`. The Evidence Capsule prompt makes the same distinction and refuses to promote correlation merely because a fix was followed by improvement.
+
+Focused isolated Node validation: **10/10 workflow-verification tests PASS** and changed JS/test syntax checks PASS.
+
+Full `npm run validate:release` was **NOT EXECUTED in this connector environment** because the full checked-out repository/dependency tree could not be obtained. The prior R9 319/319 receipt is historical baseline and is not claimed as R9.1 proof.
+
+See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](R9.1-VERIFICATION-CAUSALITY-HARDENING.md) and [R9.1-VERIFICATION-CAUSALITY-RECEIPT.json](R9.1-VERIFICATION-CAUSALITY-RECEIPT.json).
+
+TrustWeave remains parked. R10 remains deferred.
