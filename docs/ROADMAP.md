@@ -84,6 +84,18 @@ Implemented shared developer guidance in Pinpoint, Opportunities and normalized 
 
 TrustWeave remains parked. R10 remains deferred pending an explicit roadmap decision and P0 consumer acceptance; R9 does not grant Angular expansion.
 
+## R9.1 — Verification & Causality Contract Hardening — IMPLEMENTED — HIGH
+
+Workflow replay verification no longer upgrades a successful before/after metric improvement to causal proof by chronology alone. A normal successful replay remains `outcome: confirmed` for compatibility but is explicitly `verificationConfirmed: true`, `causalityConfirmed: false`, and correlation-level evidence.
+
+A causal upgrade now requires an existing valid UREP event that already carries `evidence.level = causality-confirmed` plus `causedByEventId`; `verifyFix` consumes that stronger governed evidence rather than manufacturing it. Evidence Capsule AI handoff wording distinguishes verification from causality.
+
+Focused isolated Node behavior validation: **10 passed, 0 failed** plus syntax checks. Full `npm run validate:release` was **not executed in the connector environment** because a full repository checkout/dependency tree was unavailable; R9's prior release receipt is not reused as R9.1 evidence.
+
+See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](R9.1-VERIFICATION-CAUSALITY-HARDENING.md) and [R9.1-VERIFICATION-CAUSALITY-RECEIPT.json](R9.1-VERIFICATION-CAUSALITY-RECEIPT.json).
+
+TrustWeave remains parked. R10 remains deferred.
+
 ## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
 
 Begin only after multi-framework hardening and an explicit roadmap decision; P0 consumer acceptance remains incomplete. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.
