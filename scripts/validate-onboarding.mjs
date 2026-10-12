@@ -33,6 +33,7 @@ import { RUNTIME_EXTENSION_API_VERSION, createRuntimeExtension } from 'runtime-i
 import * as react from 'runtime-intelligence/react';
 import * as lit from 'runtime-intelligence/lit';
 import * as vue from 'runtime-intelligence/vue';
+import * as panel from 'runtime-intelligence/panel';
 
 if (typeof core.EvidenceStore !== 'function') throw new Error('core export missing EvidenceStore');
 if (typeof core.getRuntimeIntelligenceApiContract !== 'function') throw new Error('core API contract export missing');
@@ -42,12 +43,22 @@ if (typeof lit.LitDebugMixin !== 'function') throw new Error('lit mixin export m
 if (typeof lit.configureLitRuntimeIntelligence !== 'function') throw new Error('lit programmatic activation export missing');
 if (typeof vue.createVueIntelligenceRuntime !== 'function') throw new Error('vue runtime export missing');
 if (typeof vue.installVueRuntimeIntelligence !== 'function') throw new Error('vue install export missing');
+if (typeof panel.createDiagnosticBeforeAfterSession !== 'function') throw new Error('panel export missing createDiagnosticBeforeAfterSession');
+if (typeof panel.createFindingVerificationPlan !== 'function') throw new Error('panel export missing createFindingVerificationPlan');
+if (typeof panel.createFindingVerificationSession !== 'function') throw new Error('panel export missing createFindingVerificationSession');
 
 const extensionStore = new core.EvidenceStore();
 const extension = createRuntimeExtension({ id: 'onboarding.smoke', version: '1.0.0', store: extensionStore });
 const extensionEvent = extension.diagnostic('ready', { ok: true });
 if (extensionEvent.payload?.diagnostic !== 'onboarding.smoke.ready') throw new Error('extension diagnostic namespace contract failed');
 if (extension.manifest.extensionApiVersion !== RUNTIME_EXTENSION_API_VERSION) throw new Error('extension API manifest mismatch');
+
+const findingPlan = panel.createFindingVerificationPlan({
+  id: 'smoke-error',
+  kind: 'runtime-error',
+  owner: { id: 'owner-smoke', name: 'SmokeOwner' },
+});
+if (!findingPlan.supported || findingPlan.target?.direction !== 'decrease') throw new Error('finding verification plan smoke failed');
 
 const disabled = await loadRuntimeIntelligence({ enabled: false, framework: 'vue', panel: true });
 if (disabled.enabled !== false || disabled.frameworkModule !== null || disabled.panelModule !== null) throw new Error('disabled loader contract failed');
@@ -70,15 +81,20 @@ console.log('consumer smoke passed');
   if (!consumerPackage.exports?.['./loader']) throw new Error('Packed package is missing ./loader export.');
   if (!consumerPackage.exports?.['./extension']) throw new Error('Packed package is missing ./extension export.');
   if (!consumerPackage.exports?.['./vue']) throw new Error('Packed package is missing ./vue export.');
+  if (!consumerPackage.exports?.['./panel']) throw new Error('Packed package is missing ./panel export.');
 
-  for (const guide of ['NEW-PROJECT-INTEGRATION-GUIDE.md', 'FRAMEWORK-ADOPTION-LADDER.md']) {
+  for (const guide of ['NEW-PROJECT-INTEGRATION-GUIDE.md', 'FRAMEWORK-ADOPTION-LADDER.md', 'DEVELOPER-GUIDE.md']) {
     const text = readFileSync(path.join(consumerDir, 'node_modules/runtime-intelligence/docs', guide), 'utf8');
     if (!text.includes('React') || !text.includes('Vue') || !text.includes('Lit')) throw new Error(`Installed guide incomplete: ${guide}`);
   }
+  const developerGuide = readFileSync(path.join(consumerDir, 'node_modules/runtime-intelligence/docs/DEVELOPER-GUIDE.md'), 'utf8');
+  if (!developerGuide.includes('Finding → Verify Fix') || !developerGuide.includes('Lit Fault Lab')) {
+    throw new Error('Installed developer guide is missing R9.3 verification/lab guidance.');
+  }
 
   console.log(`Runtime Intelligence onboarding validation passed using ${filename}.`);
-  console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit, /vue.');
-  console.log('Verified extension contract plus default-off loader, React/Lit/Vue dynamic loading, and public Lit programmatic activation from the packed artifact.');
+  console.log('Verified installed public imports: /loader, /core, /extension, /react, /lit, /vue, /panel.');
+  console.log('Verified extension contract, default-off loader, React/Lit/Vue dynamic loading, public Lit activation, R9.3 panel bridge, and packaged guides.');
 } catch (error) {
   const stderr = error?.stderr?.toString?.().trim();
   console.error(`Runtime Intelligence onboarding validation failed: ${stderr || error.message}`);
