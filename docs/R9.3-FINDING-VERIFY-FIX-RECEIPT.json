@@ -1,0 +1,56 @@
+{
+  "mission": "R9.3",
+  "title": "Finding → Verify Fix Bridge + Lit Fault Lab + Developer Guide",
+  "implementedAt": "2026-10-12",
+  "behavior": {
+    "findingVerificationBridge": true,
+    "pinpointVerifyFixAction": true,
+    "automaticTargets": [
+      "owner-scoped runtime error count",
+      "owner-scoped completed update count",
+      "observed slow-render average duration"
+    ],
+    "unsupportedFindingsDoNotInventMetrics": true,
+    "beforeAfterUsesIsolatedSequenceWindows": true,
+    "r91CausalityBoundaryPreserved": true,
+    "litFaultLabAdded": true,
+    "developerGuideAdded": true,
+    "strategicCriticReviewAdded": true
+  },
+  "focusedCoverageAdded": [
+    "runtime-error verification plan",
+    "update-budget/render-storm verification plan",
+    "slow-render duration-field guard",
+    "unsupported finding guard",
+    "finding session to before-after flow",
+    "cumulative EvidenceStore baseline/replay isolation",
+    "reset starts fresh evidence window",
+    "installed panel bridge export smoke contract",
+    "installed developer guide packaging contract"
+  ],
+  "validation": {
+    "sourceAndTestsImplemented": true,
+    "fullReleaseGate": "PENDING_FULL_CHECKOUT_VALIDATION",
+    "litFaultLabBrowserRun": "PENDING_FULL_CHECKOUT_VALIDATION",
+    "requiredCommands": [
+      "npm run validate:release",
+      "npm run lab:lit:install",
+      "npm run lab:lit:build",
+      "npm run lab:lit"
+    ],
+    "previousReceiptsNotReused": true
+  },
+  "strategicConclusion": {
+    "wouldUse": "Conditionally yes for difficult multi-signal frontend runtime incidents when it reaches a trustworthy source/action faster than native tooling; not for simple bugs.",
+    "need": "Not universally. The product must prove value in the expensive gap between visible symptom and confident application change/replay.",
+    "recommendedNext": "R9.4 Comparative Value Proof",
+    "angularNext": false
+  },
+  "limits": [
+    "No statistical causal inference was added.",
+    "No automatic verification metric is invented for unsupported finding kinds.",
+    "The Lit fault lab is an acceptance/example harness, not proof that every production Lit app exposes every signal automatically.",
+    "TrustWeave remains parked.",
+    "Angular remains deferred."
+  ]
+}
