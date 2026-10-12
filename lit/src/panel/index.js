@@ -6,6 +6,11 @@ export {
   createDiagnosticBeforeAfterSession,
 } from './diagnostic-before-after.js';
 export {
+  FindingVerificationSupport,
+  createFindingVerificationPlan,
+  createFindingVerificationSession,
+} from './finding-verification-bridge.js';
+export {
   OPPORTUNITY_FLAGS,
   enhanceRuntimeIssueForFramework,
   createRuntimeReport,
