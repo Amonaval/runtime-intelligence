@@ -75,7 +75,11 @@ for (const subpath of requiredExports) {
     if (packedFiles.length && !packedFiles.includes(packedTarget)) failures.push(`Pack output is missing exported file ${packedTarget}.`);
   }
 }
-const onboardingDocs = ['docs/NEW-PROJECT-INTEGRATION-GUIDE.md', 'docs/FRAMEWORK-ADOPTION-LADDER.md'];
+const onboardingDocs = [
+  'docs/NEW-PROJECT-INTEGRATION-GUIDE.md',
+  'docs/FRAMEWORK-ADOPTION-LADDER.md',
+  'docs/DEVELOPER-GUIDE.md',
+];
 for (const file of packedFiles.filter(file => file.startsWith('docs/'))) {
   if (!onboardingDocs.includes(file)) failures.push(`Unexpected packed document ${file}.`);
 }

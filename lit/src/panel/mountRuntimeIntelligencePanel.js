@@ -1,6 +1,11 @@
+import { html } from 'lit';
 import './LdsDebugPanel.js';
 import { createDiagnosticBeforeAfterSession } from './diagnostic-before-after.js';
 import { installDiagnosticBeforeAfterPanel } from './diagnostic-before-after-panel.js';
+import {
+  createFindingVerificationPlan,
+  createFindingVerificationSession,
+} from './finding-verification-bridge.js';
 import { enrichPinpointIssueSource } from './pinpoint-source-enrichment.js';
 import { bridgeRuntimeEvidenceToPanel } from './runtime-evidence-bridge.js';
 import { installRuntimeOpportunitiesPanel } from './opportunities-panel-presentation.js';
@@ -47,6 +52,15 @@ function mountRuntimeIntelligencePanel({
     element?.requestUpdate?.();
     return activeBeforeAfter;
   };
+  const startFindingVerification = (finding, options = {}) => {
+    activeBeforeAfter = createFindingVerificationSession({ finding, store, ...(options || {}) });
+    if (element) {
+      if (typeof element._setTab === 'function') element._setTab('before-after');
+      else element._tab = 'before-after';
+      element.requestUpdate?.();
+    }
+    return activeBeforeAfter;
+  };
   const getBeforeAfterSession = () => activeBeforeAfter;
   const getBeforeAfterState = () => activeBeforeAfter?.getState?.() || null;
 
@@ -57,6 +71,7 @@ function mountRuntimeIntelligencePanel({
       refresh() {},
       setCollapsed() {},
       startBeforeAfter,
+      startFindingVerification,
       getBeforeAfterState,
       createReport() {
         return createRuntimeReport({
@@ -96,12 +111,33 @@ function mountRuntimeIntelligencePanel({
     ? element._renderIssueCard.bind(element)
     : null;
   if (originalRenderIssueCard) {
-    element._renderIssueCard = issue => originalRenderIssueCard(
-      enhanceRuntimeIssueForFramework(
+    element._renderIssueCard = issue => {
+      const enhanced = enhanceRuntimeIssueForFramework(
         enrichPinpointIssueSource(issue, store),
         { framework: resolveFramework() },
-      ),
-    );
+      );
+      const card = originalRenderIssueCard(enhanced);
+      const verificationPlan = createFindingVerificationPlan(enhanced);
+      if (!verificationPlan.supported) return card;
+
+      return html`
+        ${card}
+        <div style="display:flex;justify-content:flex-end;margin:-4px 0 10px">
+          <button
+            class="header-btn accent finding-verify-fix"
+            style="font-size:10px;padding:4px 9px"
+            title=${verificationPlan.evidenceNote}
+            @click=${() => startFindingVerification(enhanced, {
+              intervention: {
+                id: `fix-${enhanced.id || enhanced.issueType || enhanced.kind || 'finding'}`,
+                description: `developer fix for ${enhanced.issueType || enhanced.kind || 'runtime finding'}`,
+                applied: true,
+              },
+            })}
+          >Verify fix →</button>
+        </div>
+      `;
+    };
   }
 
   const createReport = (note = '') => {
@@ -153,6 +189,7 @@ function mountRuntimeIntelligencePanel({
       element.requestUpdate?.();
     },
     startBeforeAfter,
+    startFindingVerification,
     getBeforeAfterState,
     createReport,
     downloadJson,
