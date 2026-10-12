@@ -21,4 +21,11 @@ function faultApi() {
 export default defineConfig({
   plugins: [faultApi()],
   server: { port: 4175, strictPort: true },
+  build: {
+    rollupOptions: {
+      // Local file:../.. links expose the whole package source tree to Rollup.
+      // The Lit lab owns Lit only; foreign optional peers must stay external.
+      external: ['react', 'react-dom', 'vue'],
+    },
+  },
 });
