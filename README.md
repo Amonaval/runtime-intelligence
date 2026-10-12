@@ -244,3 +244,11 @@ Run `npm run validate:release`, `npm run overhead:validate` and `npm run compati
 Expand a Pinpoint finding or an Opportunities card to read **Why this source? / What next?**. The explanation preserves source/evidence limits and suggests the smallest useful adoption step. The same guidance appears in normalized JSON and HTML reports. Installed packages include the integration guide and adoption ladder under `node_modules/runtime-intelligence/docs/`.
 
 R9 adoption/product experience is complete; see [R9-ADOPTION.md](https://github.com/Amonaval/runtime-intelligence/blob/main/docs/R9-ADOPTION.md) for validation and scope.
+
+## Verification is not causality
+
+`verifyFix(...)` can confirm that a configured target improved after an explicitly applied intervention on a distinct replay of the same workflow. That ordinary result remains correlation-level evidence: temporal before/after improvement alone is **not** causal proof.
+
+A causal upgrade requires an existing valid UREP event that already carries `causality-confirmed` evidence plus `causedByEventId`. The verifier consumes that stronger governed evidence; it does not infer causality from chronology.
+
+See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](docs/R9.1-VERIFICATION-CAUSALITY-HARDENING.md).
