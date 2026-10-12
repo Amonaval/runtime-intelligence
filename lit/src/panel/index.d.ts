@@ -53,6 +53,10 @@ export interface DiagnosticBeforeAfterState {
   evidenceNote: string;
   target: Record<string, unknown>;
   intervention: Record<string, unknown> | null;
+  windows: {
+    baselineStartSequence: number;
+    replayStartSequence: number | null;
+  };
   baseline: unknown;
   replay: unknown;
   comparison: unknown;
