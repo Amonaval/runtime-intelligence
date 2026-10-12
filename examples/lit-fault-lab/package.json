@@ -1,0 +1,17 @@
+{
+  "name": "runtime-intelligence-lit-fault-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4175",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "lit": "^3.3.1",
+    "runtime-intelligence": "file:../.."
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  }
+}
