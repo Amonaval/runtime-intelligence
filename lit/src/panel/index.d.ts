@@ -19,13 +19,16 @@ export interface RuntimeFindingDeveloperGuidance {
 export interface RuntimeNormalizedFinding {
   id: string;
   kind: string;
-  owner?: unknown;
+  owner?: { id?: string | null; name?: string | null } | unknown;
   source?: unknown;
   evidence?: unknown;
   message?: string;
   recommendation?: string | null;
   developerGuidance?: RuntimeFindingDeveloperGuidance;
-  payload?: unknown;
+  payload?: Record<string, unknown> | unknown;
+  issueType?: string;
+  component?: string;
+  observed?: Record<string, unknown>;
 }
 
 export interface RuntimeNormalizedOpportunity extends RuntimeNormalizedFinding {
@@ -74,6 +77,18 @@ export interface DiagnosticBeforeAfterSession {
   toJSON(): DiagnosticBeforeAfterState;
 }
 
+export interface FindingVerificationPlan {
+  support: 'supported' | 'unsupported';
+  supported: boolean;
+  findingKind: string | null;
+  findingId?: string | null;
+  reason?: string;
+  workflowId: string | null;
+  target: Record<string, unknown> | null;
+  metrics: unknown[];
+  evidenceNote: string;
+}
+
 export interface RuntimeExportReport {
   schemaVersion: 'runtime-intelligence-report/1';
   reportTime: string;
@@ -115,12 +130,32 @@ export const DiagnosticBeforeAfterStatus: Readonly<{
   INCONCLUSIVE: 'inconclusive';
 }>;
 
+export const FindingVerificationSupport: Readonly<{
+  SUPPORTED: 'supported';
+  UNSUPPORTED: 'unsupported';
+}>;
+
 export function createDiagnosticBeforeAfterSession(options: {
   store: RuntimeEvidenceStore;
   workflowId: string;
   target: Record<string, unknown>;
   metrics?: unknown[];
   intervention?: Record<string, unknown>;
+  clock?: () => number;
+  runIdFactory?: (phase: 'before' | 'after') => string;
+}): DiagnosticBeforeAfterSession;
+
+export function createFindingVerificationPlan(
+  finding: RuntimeNormalizedFinding | Record<string, unknown>,
+): FindingVerificationPlan;
+
+export function createFindingVerificationSession(options: {
+  finding: RuntimeNormalizedFinding | Record<string, unknown>;
+  store: RuntimeEvidenceStore;
+  intervention?: Record<string, unknown>;
+  workflowId?: string | null;
+  target?: Record<string, unknown> | null;
+  metrics?: unknown[] | null;
   clock?: () => number;
   runIdFactory?: (phase: 'before' | 'after') => string;
 }): DiagnosticBeforeAfterSession;
@@ -170,6 +205,10 @@ export function mountRuntimeIntelligencePanel(options: {
   refresh(): void;
   setCollapsed(next: boolean): void;
   startBeforeAfter(options: Omit<Parameters<typeof createDiagnosticBeforeAfterSession>[0], 'store'>): DiagnosticBeforeAfterSession;
+  startFindingVerification(
+    finding: RuntimeNormalizedFinding | Record<string, unknown>,
+    options?: Omit<Parameters<typeof createFindingVerificationSession>[0], 'store' | 'finding'>,
+  ): DiagnosticBeforeAfterSession;
   getBeforeAfterState(): DiagnosticBeforeAfterState | null;
   createReport(note?: string): RuntimeExportReport;
   downloadJson(): string | null;
