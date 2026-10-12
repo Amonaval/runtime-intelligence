@@ -16,7 +16,12 @@
     "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
     "./package.json": "./package.json"
   },
-  "files": ["lit/src", "docs/NEW-PROJECT-INTEGRATION-GUIDE.md", "docs/FRAMEWORK-ADOPTION-LADDER.md"],
+  "files": [
+    "lit/src",
+    "docs/NEW-PROJECT-INTEGRATION-GUIDE.md",
+    "docs/FRAMEWORK-ADOPTION-LADDER.md",
+    "docs/DEVELOPER-GUIDE.md"
+  ],
   "scripts": {
     "test": "npm --prefix lit test",
     "test:smoke": "npm --prefix lit run test:smoke",
@@ -38,6 +43,9 @@
     "lab:vue:install": "npm --prefix examples/vue-fault-lab install",
     "lab:vue": "npm --prefix examples/vue-fault-lab run dev",
     "lab:vue:build": "npm --prefix examples/vue-fault-lab run build",
+    "lab:lit:install": "npm --prefix examples/lit-fault-lab install",
+    "lab:lit": "npm --prefix examples/lit-fault-lab run dev",
+    "lab:lit:build": "npm --prefix examples/lit-fault-lab run build",
     "compatibility:validate": "node scripts/validate-r8-compatibility.mjs",
     "overhead:validate": "node scripts/validate-r8-overhead.mjs"
   },
