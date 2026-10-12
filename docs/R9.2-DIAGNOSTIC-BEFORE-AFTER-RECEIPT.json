@@ -1,0 +1,43 @@
+{
+  "mission": "R9.2",
+  "title": "Diagnostic Before/After Experience",
+  "implementedAt": "2026-10-12",
+  "behavior": {
+    "guidedStates": [
+      "awaiting-baseline",
+      "awaiting-replay",
+      "improved",
+      "unchanged",
+      "regressed",
+      "inconclusive"
+    ],
+    "frameworkNeutralEvidenceStore": true,
+    "panelStartBeforeAfterApi": true,
+    "jsonReportIncludesState": true,
+    "htmlReportIncludesState": true,
+    "r91CausalityBoundaryPreserved": true
+  },
+  "focusedCoverageAdded": [
+    "baseline-to-replay transition",
+    "improvement remains correlation without governed causal evidence",
+    "below-threshold unchanged result",
+    "regression",
+    "inconclusive intervention result",
+    "replay-before-baseline guard",
+    "reset",
+    "immutable JSON-safe state",
+    "JSON report inclusion",
+    "HTML causality wording"
+  ],
+  "release": {
+    "result": "PENDING_FULL_CHECKOUT_VALIDATION",
+    "requiredCommand": "npm run validate:release",
+    "previousReceiptsNotReused": true
+  },
+  "limits": [
+    "No statistical causal inference was added.",
+    "No framework adapter behavior changed.",
+    "TrustWeave remains parked.",
+    "R10 Angular remains deferred."
+  ]
+}
