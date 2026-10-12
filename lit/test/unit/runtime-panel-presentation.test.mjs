@@ -97,3 +97,33 @@ test('normalized report exports diagnostics, opportunities, intelligence and evi
   assert.match(html, /sequential-api-opportunity/);
   assert.match(html, /Worker candidate/);
 });
+
+test('report carries and renders the diagnostic before-after experience without promoting causality', () => {
+  const diagnosticBeforeAfter = {
+    schemaVersion: 'diagnostic-before-after/1',
+    workflowId: 'save-product',
+    status: 'improved',
+    headline: 'Target improved',
+    nextAction: 'Preserve the result as verified improvement.',
+    evidenceNote: 'Before/after improvement remains correlation-level evidence under the R9.1 contract.',
+    target: { metricId: 'count:error', direction: 'decrease' },
+    intervention: { id: 'fix-1', applied: true },
+    baseline: { kind: 'workflow-baseline' },
+    replay: { kind: 'workflow-run' },
+    comparison: { metric: { before: 3, after: 0 }, improvement: 3, relativeImprovement: 1 },
+    verification: { outcome: 'confirmed', evidenceLevel: 'correlation', verificationConfirmed: true, causalityConfirmed: false },
+  };
+  const report = createRuntimeReport({
+    store: { snapshot: () => [] },
+    windowTarget: { __LDS_RUNTIME_FRAMEWORK__: 'react' },
+    diagnosticBeforeAfter,
+  });
+
+  assert.equal(report.diagnosticBeforeAfter.status, 'improved');
+  assert.equal(report.diagnosticBeforeAfter.verification.causalityConfirmed, false);
+  const html = buildRuntimeReportHtml(report);
+  assert.match(html, /Diagnostic before \/ after/);
+  assert.match(html, /Target improved/);
+  assert.match(html, /count:error: 3 → 0/);
+  assert.match(html, /causality not confirmed/);
+});

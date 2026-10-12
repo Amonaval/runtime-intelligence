@@ -96,6 +96,32 @@ See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](R9.1-VERIFICATION-CAUSALITY-HARDE
 
 TrustWeave remains parked. R10 remains deferred.
 
+## R9.2 — Diagnostic Before/After Experience — IMPLEMENTED — MEDIUM
+
+Wrap workflow verification in a simple developer experience:
+
+```text
+capture baseline
+→ apply intended fix
+→ replay the same workflow
+→ improved / unchanged / regressed / inconclusive
+```
+
+Delivered:
+
+- framework-neutral `createDiagnosticBeforeAfterSession(...)` over the shared EvidenceStore;
+- canonical panel `startBeforeAfter(...)` / `getBeforeAfterState()` integration;
+- explicit next-action and evidence-honesty guidance for each state;
+- normalized JSON report inclusion;
+- dedicated HTML report section;
+- additive public panel API/types and focused unit coverage.
+
+R9.1 remains authoritative: `improved` is verified target improvement, not causal proof unless separate governed causality-confirmed UREP evidence exists.
+
+See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](R9.2-DIAGNOSTIC-BEFORE-AFTER.md) and its receipt. Full release validation remains pending a normal checked-out environment.
+
+TrustWeave remains parked. R10 remains deferred.
+
 ## R10 — Angular Adapter + Angular Fault Lab — MEDIUM-HIGH/HIGH — DEFERRED
 
 Begin only after multi-framework hardening and an explicit roadmap decision; P0 consumer acceptance remains incomplete. Check current official Angular APIs and zoneless behavior at that time. Angular remains a thin UREP evidence producer into the existing shared product; no separate panel or intelligence engine.

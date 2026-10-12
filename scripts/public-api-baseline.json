@@ -114,6 +114,8 @@
       "RuntimePanelEvidenceBridge",
       "bridgeRuntimeEvidenceToPanel",
       "mountRuntimeIntelligencePanel",
+      "DiagnosticBeforeAfterStatus",
+      "createDiagnosticBeforeAfterSession",
       "OPPORTUNITY_FLAGS",
       "enhanceRuntimeIssueForFramework",
       "createRuntimeReport",
