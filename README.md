@@ -252,3 +252,20 @@ R9 adoption/product experience is complete; see [R9-ADOPTION.md](https://github.
 A causal upgrade requires an existing valid UREP event that already carries `causality-confirmed` evidence plus `causedByEventId`. The verifier consumes that stronger governed evidence; it does not infer causality from chronology.
 
 See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](docs/R9.1-VERIFICATION-CAUSALITY-HARDENING.md).
+
+## Diagnostic before / after
+
+R9.2 adds a simple framework-neutral workflow over the same EvidenceStore:
+
+```text
+capture baseline
+→ apply intended fix
+→ replay the same workflow
+→ improved / unchanged / regressed / inconclusive
+```
+
+Use `createDiagnosticBeforeAfterSession(...)` from `runtime-intelligence/panel`, or call `panel.startBeforeAfter(...)` on the canonical panel mount. The active session is included in normalized JSON and rendered in HTML reports.
+
+An `improved` result means the configured verification target was met. It remains correlation-level unless separate governed `causality-confirmed` UREP evidence exists.
+
+See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](docs/R9.2-DIAGNOSTIC-BEFORE-AFTER.md).
