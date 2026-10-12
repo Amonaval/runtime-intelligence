@@ -20,13 +20,18 @@ relevant application evidence
 → provenance meaning
 → evidence chain / opportunity
 → action
+→ replay / verification
 ```
 
 Source precision is governed by evidence honesty. An invocation location, component boundary, registration point, correlation and confirmed causal origin are **not interchangeable**.
 
 ## Start here
 
-For a complete blank-project / existing-project guide, including React, Lit, Vue, zero-touch adoption and the evidence-quality ladder, read:
+For the practical new-project path from **minimal integration → targeted instrumentation → full usage → fault labs**, read:
+
+[`docs/DEVELOPER-GUIDE.md`](docs/DEVELOPER-GUIDE.md)
+
+For the more detailed framework/source-provenance reference, also see:
 
 [`docs/NEW-PROJECT-INTEGRATION-GUIDE.md`](docs/NEW-PROJECT-INTEGRATION-GUIDE.md)
 
@@ -149,7 +154,7 @@ runtime-intelligence/extension governed custom UREP producers
 runtime-intelligence/react     React runtime/provider/hooks
 runtime-intelligence/lit       Lit mixin + programmatic activation
 runtime-intelligence/vue       Vue app/runtime integration
-runtime-intelligence/panel     canonical panel + report APIs
+runtime-intelligence/panel     canonical panel + report/verification APIs
 runtime-intelligence/panel/lit direct panel element
 ```
 
@@ -168,14 +173,14 @@ Pinpoint should tell you what a location means:
 
 A source line without provenance semantics is incomplete.
 
-## Validation labs
+## Validation / example labs
 
 ```bash
 # deterministic / instrumented React coverage
 npm run lab:react:install
 npm run lab:react
 
-# P0.3 hostile zero-touch React project
+# hostile zero-touch React project
 npm run lab:react:hostile:install
 npm run lab:react:hostile:validate
 npm run lab:react:hostile
@@ -183,9 +188,15 @@ npm run lab:react:hostile
 # Vue coverage
 npm run lab:vue:install
 npm run lab:vue
+
+# Lit full-scale example / R9.3 verification walkthrough
+npm run lab:lit:install
+npm run lab:lit
 ```
 
-`examples/react-uninstrumented-lab` is deliberately different from the React Fault Lab: application components contain no Runtime Intelligence imports, source annotations, HOCs, runtime hooks, or synthetic UREP injection. It exists to expose what the product can and cannot discover automatically.
+`examples/react-uninstrumented-lab` deliberately forbids Runtime Intelligence imports inside business components so it exposes the true Level-0 boundary.
+
+`examples/lit-fault-lab` is the runnable Lit full-scale example. It uses public programmatic activation, one shared `LitDebugMixin(LitElement)` base, real browser/Lit faults, and an end-to-end Finding → Verify Fix flow.
 
 ## Safe enablement
 
@@ -223,27 +234,20 @@ npm test
 
 `npm run validate:release` aggregates the release checks.
 
-The P0.3 zero-touch contract has an additional static gate:
-
-```bash
-npm run lab:react:hostile:validate
-```
-
-## Product status
-
-Current work prioritizes **developer value and source precision over adding more framework adapters**. Angular and broader framework expansion remain blocked until the P0 source-pinpoint value proposition is mature.
-
-See [`docs/STATUS.md`](docs/STATUS.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), and [`docs/P0-SOURCE-PINPOINT-PROVENANCE.md`](docs/P0-SOURCE-PINPOINT-PROVENANCE.md).
-
-## R8 hardening validation
-
-Run `npm run validate:release`, `npm run overhead:validate` and `npm run compatibility:validate`. The compatibility validator tests two exact packed-artifact framework rows; enable its browser checks with RI_PLAYWRIGHT_MODULE and RI_CHROMIUM_EXECUTABLE. Without browser configuration those checks remain NOT EXECUTED. See [R8-HARDENING.md](docs/R8-HARDENING.md) for tested versions, receipts, reproduction and explicit coverage limits. Canonical and legacy reports now include exportPrivacy audit metadata and scrub every exported branch.
-
 ## Finding to fix
 
-Expand a Pinpoint finding or an Opportunities card to read **Why this source? / What next?**. The explanation preserves source/evidence limits and suggests the smallest useful adoption step. The same guidance appears in normalized JSON and HTML reports. Installed packages include the integration guide and adoption ladder under `node_modules/runtime-intelligence/docs/`.
+Expand a Pinpoint finding or an Opportunities card to read **Why this source? / What next?**. The explanation preserves source/evidence limits and suggests the smallest useful adoption step.
 
-R9 adoption/product experience is complete; see [R9-ADOPTION.md](https://github.com/Amonaval/runtime-intelligence/blob/main/docs/R9-ADOPTION.md) for validation and scope.
+R9.3 adds a further bridge for supported Pinpoint findings: **Verify fix →**. Only findings with a defensible default metric receive the action. The public equivalents are:
+
+```js
+import {
+  createFindingVerificationPlan,
+  createFindingVerificationSession,
+} from 'runtime-intelligence/panel';
+```
+
+The canonical mount also exposes `panel.startFindingVerification(finding, options)`.
 
 ## Verification is not causality
 
@@ -255,17 +259,32 @@ See [R9.1-VERIFICATION-CAUSALITY-HARDENING.md](docs/R9.1-VERIFICATION-CAUSALITY-
 
 ## Diagnostic before / after
 
-R9.2 adds a simple framework-neutral workflow over the same EvidenceStore:
+The canonical workflow is:
 
 ```text
-capture baseline
+start session
+→ reproduce baseline workflow
+→ capture baseline
 → apply intended fix
 → replay the same workflow
+→ capture replay
 → improved / unchanged / regressed / inconclusive
 ```
 
-Use `createDiagnosticBeforeAfterSession(...)` from `runtime-intelligence/panel`, or call `panel.startBeforeAfter(...)` on the canonical panel mount. The active session is included in normalized JSON and rendered in HTML reports.
+R9.3 hardens this flow with sequence-window isolation so cumulative historical EvidenceStore events do not contaminate baseline/replay metrics.
 
 An `improved` result means the configured verification target was met. It remains correlation-level unless separate governed `causality-confirmed` UREP evidence exists.
 
-See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](docs/R9.2-DIAGNOSTIC-BEFORE-AFTER.md).
+See [R9.2-DIAGNOSTIC-BEFORE-AFTER.md](docs/R9.2-DIAGNOSTIC-BEFORE-AFTER.md) and [R9.3-FINDING-VERIFY-FIX-BRIDGE.md](docs/R9.3-FINDING-VERIFY-FIX-BRIDGE.md).
+
+## Product status / strategic review
+
+Current work prioritizes **developer value and source precision over adding more framework adapters**. Angular remains deferred.
+
+The adversarial review is intentionally conditional: Runtime Intelligence is worth using for difficult multi-signal runtime incidents only when it gets the developer to a trustworthy source/action faster than native tools. It is not needed for ordinary bugs.
+
+See:
+
+- [`docs/STATUS.md`](docs/STATUS.md)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/STRATEGIC-REVIEW-R9.3.md`](docs/STRATEGIC-REVIEW-R9.3.md)
