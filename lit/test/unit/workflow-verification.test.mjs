@@ -17,6 +17,29 @@ const evt = (id, sequence, type, payload = {}, owner = 'Grid') => Object.freeze(
   payload: Object.freeze(payload),
 });
 
+const causalEvent = () => Object.freeze({
+  schemaVersion: '1.1',
+  id: 'causal-1',
+  sequence: 3,
+  timestamp: 30,
+  type: 'diagnostic',
+  framework: Object.freeze({ name: 'extension:test' }),
+  owner: null,
+  source: null,
+  correlation: Object.freeze({
+    traceId: null,
+    interactionId: null,
+    parentEventId: null,
+    causedByEventId: 'cause-1',
+  }),
+  evidence: Object.freeze({
+    level: EvidenceLevel.CAUSALITY_CONFIRMED,
+    attribution: 'deterministic',
+    confidence: 1,
+  }),
+  payload: Object.freeze({ extension: Object.freeze({ id: 'test.causal' }) }),
+});
+
 test('workflow run builds deterministic counts and declarative custom metrics', () => {
   const run = createWorkflowRun([
     evt('a', 1, 'component.update.completed', { durationMs: 20 }),
@@ -45,7 +68,7 @@ test('healthy baseline and comparison remain measurement-only', () => {
   assert.equal('outcome' in comparison, false);
 });
 
-test('verification confirms causality only after applied intervention and meaningful replay improvement', () => {
+test('meaningful replay improvement verifies the target without claiming causality', () => {
   const before = createWorkflowRun([
     evt('a',1,'component.update.completed'), evt('b',2,'component.update.completed'), evt('c',3,'component.update.completed'), evt('d',4,'component.update.completed'),
   ], { workflowId:'edit', runId:'before' });
@@ -58,9 +81,54 @@ test('verification confirms causality only after applied intervention and meanin
   });
   assert.equal(result.outcome, VerificationOutcome.CONFIRMED);
   assert.equal(result.confirmed, true);
-  assert.equal(result.evidenceLevel, EvidenceLevel.CAUSALITY_CONFIRMED);
+  assert.equal(result.verificationConfirmed, true);
+  assert.equal(result.causalityConfirmed, false);
+  assert.equal(result.evidenceLevel, EvidenceLevel.CORRELATION);
+  assert.equal(result.causalEvidence, null);
   assert.equal(result.improvement, 3);
   assert.equal(result.relativeImprovement, .75);
+  assert.match(result.reason, /without-causal-proof/);
+});
+
+test('existing governed causality-confirmed UREP evidence permits causal upgrade', () => {
+  const before = createWorkflowRun([evt('a',1,'error'), evt('b',2,'error')], { workflowId:'save', runId:'before' });
+  const after = createWorkflowRun([], { workflowId:'save', runId:'after' });
+  const result = verifyFix({
+    before,
+    after,
+    intervention:{ id:'fix', applied:true },
+    target:{ metricId:'count:error', direction:MetricDirection.DECREASE },
+    causalEvidence: causalEvent(),
+  });
+  assert.equal(result.outcome, VerificationOutcome.CONFIRMED);
+  assert.equal(result.verificationConfirmed, true);
+  assert.equal(result.causalityConfirmed, true);
+  assert.equal(result.evidenceLevel, EvidenceLevel.CAUSALITY_CONFIRMED);
+  assert.deepEqual(result.causalEvidence, {
+    eventId:'causal-1',
+    eventType:'diagnostic',
+    causedByEventId:'cause-1',
+    framework:'extension:test',
+  });
+});
+
+test('invalid or non-causal UREP evidence cannot upgrade verification', () => {
+  const before = createWorkflowRun([evt('a',1,'error')], { workflowId:'save', runId:'before' });
+  const after = createWorkflowRun([], { workflowId:'save', runId:'after' });
+  const base = {
+    before,
+    after,
+    intervention:{ applied:true },
+    target:{ metricId:'count:error', direction:MetricDirection.DECREASE },
+  };
+  assert.throws(() => verifyFix({
+    ...base,
+    causalEvidence:{ evidence:{ level:EvidenceLevel.CAUSALITY_CONFIRMED }, correlation:{ causedByEventId:'x' } },
+  }), /valid UREP evidence event/);
+  assert.throws(() => verifyFix({
+    ...base,
+    causalEvidence:{ ...causalEvent(), evidence:{ ...causalEvent().evidence, level:EvidenceLevel.CORRELATION } },
+  }), /requires an existing causality-confirmed UREP event/);
 });
 
 test('metric improvement without confirmed intervention remains inconclusive correlation', () => {
@@ -73,6 +141,8 @@ test('metric improvement without confirmed intervention remains inconclusive cor
   assert.equal(result.outcome, VerificationOutcome.INCONCLUSIVE);
   assert.equal(result.evidenceLevel, EvidenceLevel.CORRELATION);
   assert.equal(result.confirmed, false);
+  assert.equal(result.verificationConfirmed, false);
+  assert.equal(result.causalityConfirmed, false);
 });
 
 test('verification rejects different workflow or same run as causal proof', () => {
@@ -89,9 +159,11 @@ test('below-threshold improvement is not confirmed and regression is explicit', 
   const little = createWorkflowRun(Array.from({length:9},(_,i)=>evt(`a${i}`,i+1,'component.update.completed')), { workflowId:'x', runId:'little' });
   const notConfirmed = verifyFix({ before, after:little, intervention:{applied:true}, target:{metricId:'count:component.update.completed',direction:MetricDirection.DECREASE,minimumRelativeImprovement:.2} });
   assert.equal(notConfirmed.outcome, VerificationOutcome.NOT_CONFIRMED);
+  assert.equal(notConfirmed.causalityConfirmed, false);
   const worse = createWorkflowRun(Array.from({length:12},(_,i)=>evt(`w${i}`,i+1,'component.update.completed')), { workflowId:'x', runId:'worse' });
   const regressed = verifyFix({ before, after:worse, intervention:{applied:true}, target:{metricId:'count:component.update.completed',direction:MetricDirection.DECREASE} });
   assert.equal(regressed.outcome, VerificationOutcome.REGRESSED);
+  assert.equal(regressed.causalityConfirmed, false);
 });
 
 test('custom metrics cannot overwrite built-in verification metrics', () => {
@@ -100,12 +172,15 @@ test('custom metrics cannot overwrite built-in verification metrics', () => {
   }), /collides with existing metric/);
 });
 
-test('incident snapshot can flow through compare, verify and Evidence Capsule inputs without mutating evidence', () => {
+test('incident snapshot can flow through compare and verify without mutating evidence', () => {
   const beforeIncident = { events:[evt('u1',1,'component.update.completed'),evt('u2',2,'component.update.completed'),evt('u3',3,'component.update.completed')] };
   const afterIncident = { events:[evt('u4',1,'component.update.completed')] };
   const before = createWorkflowRun(beforeIncident,{workflowId:'edit',runId:'incident-before'});
   const after = createWorkflowRun(afterIncident,{workflowId:'edit',runId:'replay-after'});
   const verification = verifyFix({before,after,intervention:{id:'fix',applied:true},target:{metricId:'count:component.update.completed',direction:MetricDirection.DECREASE}});
   assert.equal(verification.confirmed,true);
+  assert.equal(verification.verificationConfirmed,true);
+  assert.equal(verification.causalityConfirmed,false);
+  assert.equal(verification.evidenceLevel,EvidenceLevel.CORRELATION);
   assert.equal(beforeIncident.events[0].type,'component.update.completed');
 });
