@@ -33,6 +33,47 @@ export interface RuntimeNormalizedOpportunity extends RuntimeNormalizedFinding {
   correlation?: unknown;
 }
 
+export type DiagnosticBeforeAfterStatusValue =
+  | 'awaiting-baseline'
+  | 'awaiting-replay'
+  | 'improved'
+  | 'unchanged'
+  | 'regressed'
+  | 'inconclusive';
+
+export interface DiagnosticBeforeAfterState {
+  schemaVersion: 'diagnostic-before-after/1';
+  workflowId: string;
+  status: DiagnosticBeforeAfterStatusValue;
+  headline: string;
+  nextAction: string;
+  evidenceNote: string;
+  target: Record<string, unknown>;
+  intervention: Record<string, unknown> | null;
+  baseline: unknown;
+  replay: unknown;
+  comparison: unknown;
+  verification: unknown;
+}
+
+export interface DiagnosticBeforeAfterSession {
+  captureBaseline(options?: {
+    runId?: string | null;
+    label?: string;
+    capturedAt?: number;
+    baselineId?: string | null;
+  }): DiagnosticBeforeAfterState;
+  captureReplay(options?: {
+    runId?: string | null;
+    label?: string;
+    capturedAt?: number;
+    causalEvidence?: unknown;
+  }): DiagnosticBeforeAfterState;
+  reset(): DiagnosticBeforeAfterState;
+  getState(): DiagnosticBeforeAfterState;
+  toJSON(): DiagnosticBeforeAfterState;
+}
+
 export interface RuntimeExportReport {
   schemaVersion: 'runtime-intelligence-report/1';
   reportTime: string;
@@ -51,6 +92,7 @@ export interface RuntimeExportReport {
   diagnostics: unknown[];
   intelligence: unknown;
   evidenceCapsule: unknown;
+  diagnosticBeforeAfter?: DiagnosticBeforeAfterState | null;
   evidence: unknown[];
   legacyReport: Record<string, unknown>;
   exportPrivacy?: {
@@ -63,6 +105,25 @@ export interface RuntimeExportReport {
     truncated: number;
   };
 }
+
+export const DiagnosticBeforeAfterStatus: Readonly<{
+  AWAITING_BASELINE: 'awaiting-baseline';
+  AWAITING_REPLAY: 'awaiting-replay';
+  IMPROVED: 'improved';
+  UNCHANGED: 'unchanged';
+  REGRESSED: 'regressed';
+  INCONCLUSIVE: 'inconclusive';
+}>;
+
+export function createDiagnosticBeforeAfterSession(options: {
+  store: RuntimeEvidenceStore;
+  workflowId: string;
+  target: Record<string, unknown>;
+  metrics?: unknown[];
+  intervention?: Record<string, unknown>;
+  clock?: () => number;
+  runIdFactory?: (phase: 'before' | 'after') => string;
+}): DiagnosticBeforeAfterSession;
 
 export function bridgeRuntimeEvidenceToPanel(options: {
   store: RuntimeEvidenceStore;
@@ -80,6 +141,7 @@ export function createRuntimeReport(options?: {
   windowTarget?: Window | null;
   framework?: string | null;
   note?: string;
+  diagnosticBeforeAfter?: DiagnosticBeforeAfterState | null;
 }): RuntimeExportReport;
 
 export function buildRuntimeReportHtml(report: RuntimeExportReport): string;
@@ -107,6 +169,8 @@ export function mountRuntimeIntelligencePanel(options: {
   bridge: RuntimePanelEvidenceBridge | null;
   refresh(): void;
   setCollapsed(next: boolean): void;
+  startBeforeAfter(options: Omit<Parameters<typeof createDiagnosticBeforeAfterSession>[0], 'store'>): DiagnosticBeforeAfterSession;
+  getBeforeAfterState(): DiagnosticBeforeAfterState | null;
   createReport(note?: string): RuntimeExportReport;
   downloadJson(): string | null;
   downloadHtml(): string | null;
