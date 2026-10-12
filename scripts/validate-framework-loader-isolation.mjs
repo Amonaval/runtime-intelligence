@@ -68,10 +68,42 @@ if (!vueLab.includes("from 'runtime-intelligence/loader/vue'")) {
   failures.push('Vue Fault Lab must use runtime-intelligence/loader/vue.');
 }
 
+const linkedLabBuildContracts = [
+  {
+    file: 'examples/lit-fault-lab/vite.config.js',
+    requiredExternals: ["'react'", "'react-dom'", "'vue'"],
+  },
+  {
+    file: 'examples/vue-fault-lab/vite.config.js',
+    requiredExternals: ["'react'", "'react-dom'"],
+  },
+  {
+    file: 'examples/react-fault-lab/vite.config.js',
+    requiredExternals: ["'vue'"],
+  },
+  {
+    file: 'examples/react-uninstrumented-lab/vite.config.js',
+    requiredExternals: ["'vue'"],
+  },
+];
+
+for (const contract of linkedLabBuildContracts) {
+  const source = readFileSync(path.join(root, contract.file), 'utf8');
+  if (!source.includes('rollupOptions') || !source.includes('external')) {
+    failures.push(`${contract.file} must declare build.rollupOptions.external for foreign optional peers when using the linked file:../.. package.`);
+    continue;
+  }
+  for (const peer of contract.requiredExternals) {
+    if (!source.includes(peer)) {
+      failures.push(`${contract.file} must externalize foreign optional peer ${peer}.`);
+    }
+  }
+}
+
 if (failures.length) {
   console.error(`Framework loader isolation failed:\n- ${failures.join('\n- ')}`);
   process.exit(1);
 }
 
 console.log('Framework loader isolation passed for React, Lit and Vue.');
-console.log('Rule: framework-specific bundles must not traverse optional peer adapters for ecosystems they do not use.');
+console.log('Rule: framework-specific loaders isolate the runtime graph, and linked lab builds externalize foreign optional peers they do not own.');
