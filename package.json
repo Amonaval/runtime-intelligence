@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     "./loader": { "types": "./lit/src/loader/index.d.ts", "import": "./lit/src/loader/index.js" },
+    "./loader/react": { "import": "./lit/src/loader/react.js" },
+    "./loader/lit": { "import": "./lit/src/loader/lit.js" },
     "./loader/vue": { "import": "./lit/src/loader/vue.js" },
     "./core": { "import": "./lit/src/core/index.js" },
     "./extension": { "types": "./lit/src/extension/index.d.ts", "import": "./lit/src/extension/index.js" },
