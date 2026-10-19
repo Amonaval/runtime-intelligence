@@ -4,7 +4,7 @@
  * Generic: works with any event bus. Use patchDispatch() to wire your dispatch function.
  * Syndigo: custom/ui-platform/AciPlugin.js calls patchDispatch() for aci.dispatch.
  *
- * Enable:   window.__LDS_EVENTS_TRACE__ = true
+ * Enable: master Runtime Intelligence gate or window.__LDS_EVENTS_TRACE__ = true
  * Timeline: window.__LDS_EVENTS_TIMELINE__          — array of recorded events
  * Report:   window.__LDS_EVENTS_REPORT__()           — pretty-prints the timeline
  * Filter:   window.__LDS_EVENTS_FILTER__ = 'scope'  — filter by action name substring
@@ -17,6 +17,8 @@
  * Each timeline entry: { seq, ts, elapsed, name, from, detail, detailSummary }
  */
 
+import { _toolEnabled } from './gate.js';
+
 const _timeline = [];
 let _seq     = 0;
 let _patched = false;
@@ -24,7 +26,6 @@ let _t0      = performance.now();
 
 if (typeof window !== 'undefined') {
     window.__LDS_EVENTS_TIMELINE__ = _timeline;
-
     if (!window.__LDS_EVENTS_FREQ__) window.__LDS_EVENTS_FREQ__ = {};
 
     window.__LDS_EVENTS_REPORT__ = function () {
@@ -39,12 +40,10 @@ if (typeof window !== 'undefined') {
                 'from': e.from || '?',
                 'detail (truncated)': e.detailSummary,
             }));
-
         if (!rows.length) {
-            console.log('%c[LdsEventTracer] No events recorded. Set window.__LDS_EVENTS_TRACE__ = true', 'color:#f57c00;font-weight:bold;');
+            console.log('%c[LdsEventTracer] No events recorded', 'color:#f57c00;font-weight:bold;');
             return [];
         }
-
         const filterNote = filter ? ` (filtered: "${filter}")` : '';
         console.log(`%c[LdsEventTracer] Event Timeline — ${rows.length} event(s)${filterNote}`, 'color:#1a73e8;font-weight:bold;font-size:14px;');
         console.table(rows);
@@ -67,9 +66,9 @@ if (typeof window !== 'undefined') {
         const rows = Object.entries(freq)
             .sort((a, b) => b[1].count - a[1].count)
             .map(([name, d]) => ({
-                event:   name,
-                count:   d.count,
-                flag:    d.count > 20 ? '🔥 HIGH' : '',
+                event: name,
+                count: d.count,
+                flag: d.count > 20 ? '🔥 HIGH' : '',
                 sources: d.sources.join(', ') || '?',
             }));
         if (!rows.length) {
@@ -96,12 +95,10 @@ function _summarise(detail) {
     }
 }
 
-// Walk Error stack to find the first frame that looks like a custom element class
 function _callerFromStack() {
     try {
         const lines = (new Error().stack || '').split('\n');
         for (const line of lines) {
-            // Match custom element tag names: kebab-case words (contain at least one dash)
             const m = line.match(/\/([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?:\/|\.js)/);
             if (m) return m[1];
         }
@@ -110,10 +107,10 @@ function _callerFromStack() {
 }
 
 function _recordEvent(name, detail) {
-    if (!window.__LDS_EVENTS_TRACE__) return;
+    if (!_toolEnabled('eventTracer')) return;
     const entry = {
-        seq:  ++_seq,
-        ts:   new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 }),
+        seq: ++_seq,
+        ts: new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 }),
         elapsed: Math.round(performance.now() - _t0),
         name,
         from: _callerFromStack(),
@@ -123,7 +120,6 @@ function _recordEvent(name, detail) {
     _timeline.push(entry);
     if (_timeline.length > 500) _timeline.shift();
 
-    // R2-C: update frequency table
     const freq = window.__LDS_EVENTS_FREQ__;
     if (freq) {
         if (!freq[name]) freq[name] = { count: 0, sources: [] };
@@ -140,25 +136,13 @@ function _recordEvent(name, detail) {
     }
 }
 
-/**
- * Wire any dispatch function. The wrapper calls _recordEvent(name, detail)
- * before delegating to the original.
- *
- * Example (generic):
- *   LdsEventTracer.patchDispatch(wrap => {
- *     myBus.dispatch = wrap(myBus.dispatch.bind(myBus));
- *   });
- *
- * The callback receives a factory fn(origDispatch) → wrappedDispatch,
- * where origDispatch takes (action) and wrappedDispatch does the same.
- */
 function patchDispatch(installFn) {
     if (_patched) return;
     _patched = true;
 
     installFn(function (origDispatch) {
         return function (action) {
-            if (window.__LDS_EVENTS_TRACE__) {
+            if (_toolEnabled('eventTracer')) {
                 const name = (action && (action.name || action.type)) || 'unknown';
                 _recordEvent(name, action && action.detail);
             }
@@ -167,7 +151,6 @@ function patchDispatch(installFn) {
     });
 }
 
-// attach/detach are no-ops for the generic tracer — patching is done via patchDispatch
 function attach(_el) {}
 function detach(_el) {}
 
