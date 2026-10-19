@@ -8,9 +8,10 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const failures = [];
 
 const requiredExports = [
-  './loader', './loader/react', './loader/lit', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './package.json',
+  './loader', './loader/react', './loader/lit', './loader/vue', './core', './extension', './react', './lit', './vue', './panel', './panel/lit', './custom/ui-platform', './package.json',
 ];
-const forbiddenPackedPrefixes = ['lit/custom/', 'lit/test/', 'examples/'];
+const forbiddenPackedPrefixes = ['lit/test/', 'examples/'];
+const allowedCustomPrefix = 'lit/custom/ui-platform/';
 
 function exportTargets(value) {
   if (typeof value === 'string') return [value];
@@ -49,7 +50,7 @@ if (loaderTarget) {
 
 const packageFiles = Array.isArray(pkg.files) ? pkg.files : [];
 if (!packageFiles.includes('lit/src')) failures.push('Published allowlist must include lit/src.');
-if (packageFiles.some((entry) => entry === 'lit/custom' || entry.startsWith('lit/custom/'))) failures.push('Syndigo-specific lit/custom must not ship in the generic package.');
+if (!packageFiles.includes('lit/custom/ui-platform')) failures.push('Published allowlist must include the isolated ui-platform compatibility plugin.');
 
 let packedFiles = [];
 try {
@@ -67,10 +68,17 @@ for (const subpath of requiredExports) {
     if (packedFiles.length && !packedFiles.includes(packedTarget)) failures.push(`Pack output is missing exported file ${packedTarget}.`);
   }
 }
+
+for (const file of packedFiles.filter(file => file.startsWith('lit/custom/'))) {
+  if (!file.startsWith(allowedCustomPrefix)) failures.push(`Pack output unexpectedly contains app-specific custom file ${file}.`);
+}
+
 const onboardingDocs = [
   'docs/NEW-PROJECT-INTEGRATION-GUIDE.md',
   'docs/FRAMEWORK-ADOPTION-LADDER.md',
   'docs/DEVELOPER-GUIDE.md',
+  'docs/FULL-USAGE-GUIDE-UI-PLATFORM.md',
+  'docs/FULL-USAGE-GUIDE-GENERIC.md',
 ];
 for (const file of packedFiles.filter(file => file.startsWith('docs/'))) {
   if (!onboardingDocs.includes(file)) failures.push(`Unexpected packed document ${file}.`);
@@ -87,6 +95,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`Runtime Intelligence package contract passed (${packedFiles.length} packed files checked).`);
-console.log('Public surfaces include generic and React/Lit/Vue isolated loaders plus core/framework/panel surfaces.');
+console.log('Public surfaces include generic and React/Lit/Vue isolated loaders, core/framework/panel surfaces, and the isolated ui-platform compatibility plugin.');
 console.log('Framework-specific peer isolation is enforced by validate-framework-loader-isolation.mjs.');
-console.log('Publish safety: package remains private under R6.5; app-specific lit/custom is excluded.');
+console.log('Publish safety: package remains private under R6.5; ui-platform compatibility is isolated under lit/custom/ui-platform.');

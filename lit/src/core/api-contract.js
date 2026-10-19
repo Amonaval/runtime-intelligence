@@ -12,6 +12,7 @@ const PUBLIC_PACKAGE_SURFACES = Object.freeze([
   'runtime-intelligence/vue',
   'runtime-intelligence/panel',
   'runtime-intelligence/panel/lit',
+  'runtime-intelligence/custom/ui-platform',
 ]);
 
 const PUBLIC_API_COMPATIBILITY = Object.freeze({

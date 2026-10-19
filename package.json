@@ -1,6 +1,6 @@
 {
   "name": "runtime-intelligence",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Framework-neutral runtime intelligence with React, Lit, Vue and one canonical mature panel.",
   "private": true,
   "type": "module",
@@ -41,13 +41,19 @@
       "import": "./lit/src/panel/index.js"
     },
     "./panel/lit": "./lit/src/panel/LdsDebugPanel.js",
+    "./custom/ui-platform": {
+      "import": "./lit/custom/ui-platform/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "lit/src",
+    "lit/custom/ui-platform",
     "docs/NEW-PROJECT-INTEGRATION-GUIDE.md",
     "docs/FRAMEWORK-ADOPTION-LADDER.md",
-    "docs/DEVELOPER-GUIDE.md"
+    "docs/DEVELOPER-GUIDE.md",
+    "docs/FULL-USAGE-GUIDE-UI-PLATFORM.md",
+    "docs/FULL-USAGE-GUIDE-GENERIC.md"
   ],
   "scripts": {
     "test": "npm --prefix lit test",
